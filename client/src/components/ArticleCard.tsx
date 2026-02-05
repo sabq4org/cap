@@ -1,56 +1,60 @@
-import { Link } from "wouter";
-import { type Article, type Category } from "@shared/schema";
+import { Clock, ExternalLink, CheckCircle } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, ArrowRight } from "lucide-react";
-import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
 
 interface ArticleCardProps {
-  article: Article & { category?: Category };
+  title: string;
+  excerpt: string;
+  category: string;
+  readTime: number;
+  reviewedBy: string;
+  imageUrl?: string;
 }
 
-export function ArticleCard({ article }: ArticleCardProps) {
+export default function ArticleCard({
+  title,
+  excerpt,
+  category,
+  readTime,
+  reviewedBy,
+  imageUrl,
+}: ArticleCardProps) {
   return (
-    <Card className="group overflow-hidden border-border hover:shadow-lg hover:border-primary/20 transition-all duration-300 h-full flex flex-col">
-      <div className="relative h-48 overflow-hidden bg-muted">
-        {article.imageUrl ? (
-          <img 
-            src={article.imageUrl} 
-            alt={article.title} 
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+    <Card className="overflow-hidden hover-elevate transition-all group">
+      {imageUrl && (
+        <div className="aspect-video w-full overflow-hidden bg-muted">
+          <img
+            src={imageUrl}
+            alt={title}
+            className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-secondary/30 text-secondary-foreground">
-            <span className="font-display font-medium text-lg">No Image</span>
-          </div>
-        )}
-        <div className="absolute top-4 left-4">
-          <Badge className="bg-white/90 text-primary hover:bg-white shadow-sm backdrop-blur-sm">
-            {article.category?.name || "General"}
+        </div>
+      )}
+      <CardHeader className="space-y-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="secondary" className="text-xs">
+            {category}
           </Badge>
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            <span className="text-xs">{readTime} دقائق</span>
+          </div>
         </div>
-      </div>
-      
-      <CardHeader className="pb-2">
-        <h3 className="font-display font-bold text-xl leading-tight group-hover:text-primary transition-colors line-clamp-2">
-          {article.title}
-        </h3>
+        <h3 className="text-xl font-semibold leading-tight line-clamp-2">{title}</h3>
       </CardHeader>
-      
-      <CardContent className="flex-1 pb-4">
-        <p className="text-muted-foreground text-sm line-clamp-3">
-          {article.summary || article.content.substring(0, 120) + "..."}
-        </p>
+      <CardContent>
+        <p className="text-muted-foreground leading-relaxed line-clamp-3">{excerpt}</p>
       </CardContent>
-      
-      <CardFooter className="pt-0 flex items-center justify-between text-sm text-muted-foreground">
-        <div className="flex items-center">
-          <CalendarDays className="mr-1.5 h-4 w-4" />
-          {article.publishedAt ? format(new Date(article.publishedAt), 'MMM d, yyyy') : 'Draft'}
+      <CardFooter className="flex items-center justify-between gap-4 pt-4 border-t flex-wrap">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <CheckCircle className="h-4 w-4 text-primary" />
+          <span>د. {reviewedBy}</span>
         </div>
-        <Link href={`/articles/${article.slug}`} className="flex items-center font-medium text-primary hover:underline">
-          Read More <ArrowRight className="ml-1 h-4 w-4" />
-        </Link>
+        <Button variant="ghost" size="sm" className="gap-2" data-testid="button-read-article">
+          اقرأ المزيد
+          <ExternalLink className="h-4 w-4" />
+        </Button>
       </CardFooter>
     </Card>
   );

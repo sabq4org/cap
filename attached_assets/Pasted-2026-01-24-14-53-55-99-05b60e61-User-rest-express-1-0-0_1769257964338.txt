@@ -1,0 +1,128 @@
+2026-01-24 14:53:55.99
+05b60e61
+User
+> rest-express@1.0.0 start
+2026-01-24 14:53:55.99
+05b60e61
+User
+> NODE_ENV=production node dist/index.js
+2026-01-24 14:53:59.22
+05b60e61
+User
+✓ Articles already seeded, skipping
+2026-01-24 14:53:59.33
+05b60e61
+User
+✓ Added 2 new news items
+2026-01-24 14:53:59.53
+05b60e61
+User
+11:53:59 AM [express] serving on port 5000
+2026-01-24 14:58:44.29
+05b60e61
+User
+11:58:44 AM [express] POST /api/admin/generate-news-meta 200 in 13740ms :: {}
+2026-01-24 14:58:50.48
+1843100d
+System
+system: received signal terminated
+2026-01-24 14:59:17.91
+05b60e61
+User
+11:59:17 AM [express] POST /api/admin/generate-news-meta 200 in 8266ms :: {}
+2026-01-24 15:17:47.48
+05b60e61
+System
+system: received signal terminated
+2026-01-24 15:21:37.06
+1588d370
+System
+starting up user application
+2026-01-24 15:21:37.06
+1588d370
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-01-24 15:21:37.06
+1588d370
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-01-24 15:21:38.18
+1588d370
+User
+> rest-express@1.0.0 start
+2026-01-24 15:21:38.18
+1588d370
+User
+> NODE_ENV=production node dist/index.js
+2026-01-24 15:21:39.67
+1588d370
+User
+✓ Articles already seeded, skipping
+2026-01-24 15:21:39.72
+1588d370
+User
+✓ All news items already exist
+2026-01-24 15:21:39.78
+1588d370
+User
+12:21:39 PM [express] serving on port 5000
+2026-01-24 15:22:04.34
+1588d370
+User
+12:22:04 PM [express] GET /api/auth/user 401 in 4ms :: {"message":"Unauthorized"}
+2026-01-24 15:22:04.75
+1588d370
+User
+12:22:04 PM [express] GET /api/news/keyword/%D8%A7%D9%84%D8%B5%D8%AD%D8%A9%20%D8%A7%D9%84%D8%B9%D8%A7…
+2026-01-24 15:22:38.95
+1588d370
+User
+12:22:38 PM [express] GET /api/articles 200 in 154ms :: [{"id":"54fea3f1-fec8-4c65-957f-7dca38e0d8d2"…
+2026-01-24 15:22:39.01
+1588d370
+User
+12:22:39 PM [express] GET /api/news 200 in 212ms :: [{"id":"1b842f72-121c-41c8-8b5e-b370117ce477","ti…
+2026-01-24 15:22:48.97
+1588d370
+User
+12:22:48 PM [express] GET /api/admin/news 200 in 107ms :: [{"id":"f62dc3e6-408c-458d-baad-fb9d3843fdc…
+2026-01-24 15:23:04.16
+1588d370
+User
+12:23:04 PM [express] POST /api/admin/generate-news-meta 500 in 8187ms :: {"message":"فشل توليد البيا…
+2026-01-24 15:30:00.66
+4a7a72c5
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-01-24 15:30:00.66
+4a7a72c5
+System
+starting up user application
+2026-01-24 15:30:00.67
+4a7a72c5
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-01-24 15:30:01.71
+4a7a72c5
+User
+> NODE_ENV=production node dist/index.js
+2026-01-24 15:30:01.71
+4a7a72c5
+User
+> rest-express@1.0.0 start
+2026-01-24 15:30:03.24
+4a7a72c5
+User
+✓ Articles already seeded, skipping
+2026-01-24 15:30:03.29
+4a7a72c5
+User
+✓ All news items already exist
+2026-01-24 15:30:03.35
+4a7a72c5
+User
+12:30:03 PM [express] serving on port 5000
+2026-01-24 15:30:37.60
+4a7a72c5
+User
+12:30:37 PM [express] GET /api/articles 304 in 158ms :: [{"id":"54fea3f1-fec8-4c65-957f-7dca38e0d8d2"…

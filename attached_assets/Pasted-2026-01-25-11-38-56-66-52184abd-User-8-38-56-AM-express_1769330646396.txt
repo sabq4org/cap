@@ -1,0 +1,80 @@
+2026-01-25 11:38:56.66
+52184abd
+User
+8:38:56 AM [express] serving on port 5000
+2026-01-25 11:42:08.38
+52184abd
+User
+8:42:08 AM [express] GET /api/radar/sources 304 in 457ms :: [{"id":"89e63f8a-9027-490f-bd18-a16d11dc…
+2026-01-25 11:42:08.57
+52184abd
+User
+8:42:08 AM [express] GET /api/radar/keywords 304 in 568ms :: [{"id":"a0b43340-3795-468c-aa68-b4798e2…
+2026-01-25 11:42:08.71
+52184abd
+User
+8:42:08 AM [express] GET /api/radar/items 304 in 695ms :: [{"id":"9abbd12d-5621-4c96-8fea-98c601b768…
+2026-01-25 11:42:09.07
+52184abd
+User
+8:42:09 AM [express] GET /api/radar/items/stats 304 in 1064ms :: {"total":135,"pending":133,"approve…
+2026-01-25 11:42:53.44
+52184abd
+User
+Translation error: Failed to get translated content - no valid response from AI
+2026-01-25 11:42:53.44
+52184abd
+User
+OpenAI translation response: {"hasToolCalls":false,"hasContent":false,"toolCallsLength":0}
+2026-01-25 11:42:53.45
+52184abd
+User
+at async file:///home/runner/workspace/dist/index.js:3959:26
+2026-01-25 11:42:53.45
+52184abd
+User
+Error translating radar item: Error: Failed to get translated content - no valid response from AI
+2026-01-25 11:42:53.45
+52184abd
+User
+at translateAndProcessNews (file:///home/runner/workspace/dist/index.js:514:11)
+2026-01-25 11:42:53.45
+52184abd
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-01-25 11:42:53.92
+52184abd
+User
+8:42:53 AM [express] POST /api/radar/items/90063ad5-64b3-4eb9-b5f8-eff35cc7d608/translate 500 in 296…
+2026-01-25 11:43:47.14
+52184abd
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-01-25 11:43:47.14
+52184abd
+User
+at translateAndProcessNews (file:///home/runner/workspace/dist/index.js:514:11)
+2026-01-25 11:43:47.14
+52184abd
+User
+at async file:///home/runner/workspace/dist/index.js:3959:26
+2026-01-25 11:43:47.14
+52184abd
+User
+OpenAI translation response: {"hasToolCalls":false,"hasContent":false,"toolCallsLength":0}
+2026-01-25 11:43:47.14
+52184abd
+User
+Error translating radar item: Error: Failed to get translated content - no valid response from AI
+2026-01-25 11:43:47.14
+52184abd
+User
+Translation error: Failed to get translated content - no valid response from AI
+2026-01-25 11:43:47.73
+52184abd
+User
+8:43:47 AM [express] POST /api/radar/items/90063ad5-64b3-4eb9-b5f8-eff35cc7d608/translate 500 in 290…
+2026-01-25 11:43:47.73
+52184abd
+User
+8:43:47 AM [express] POST /api/radar/items/90063ad5-64b3-4eb9-b5f8-eff35cc7d608/translate 500 in 290…

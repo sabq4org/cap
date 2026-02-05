@@ -1,0 +1,108 @@
+026-01-25 11:31:05.31
+a25c7fa9
+System
+starting up user application
+2026-01-25 11:31:05.31
+a25c7fa9
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-01-25 11:31:05.32
+a25c7fa9
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-01-25 11:31:11.82
+a25c7fa9
+User
+> rest-express@1.0.0 start
+2026-01-25 11:31:11.82
+a25c7fa9
+User
+> NODE_ENV=production node dist/index.js
+2026-01-25 11:31:20.68
+a25c7fa9
+User
+8:31:20 AM [express] serving on port 5000
+2026-01-25 11:32:35.66
+a25c7fa9
+User
+8:32:35 AM [express] GET /api/radar/items 500 in 436ms :: {"message":"terminating connection due to …
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+at Readable.push (node:internal/streams/readable:392:5)
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+_ending: true,
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+column: undefined,
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+PG Pool error: error: terminating connection due to administrator command
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+client_encoding: '',
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+position: undefined,
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+client: Client {
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+port: 5432,
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+at Parser.parse (/home/runner/workspace/node_modules/pg-protocol/dist/parser.js:35:38)
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+at Parser.handlePacket (/home/runner/workspace/node_modules/pg-protocol/dist/parser.js:122:29)
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+line: '3289',
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+replication: undefined,
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+database: 'neondb',
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+constraint: undefined,
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+_ending: true,
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+query_timeout: false,
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+secretKey: 827620771,
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+at addChunk (node:internal/streams/readable:561:12)
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+_maxListeners: undefined,
+2026-01-25 11:32:35.67
+a25c7fa9
+User
+at TLSWrap.onStreamRead (node:internal/stream_base_commons:191:23) {

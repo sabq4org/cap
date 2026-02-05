@@ -1,96 +1,106 @@
-import { useArticles, useCategories } from "@/hooks/use-articles";
-import { ArticleCard } from "@/components/ArticleCard";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { Search, Filter } from "lucide-react";
+import ArticleCard from "@/components/ArticleCard";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { articles as articlesTable } from "@shared/schema";
+import newsImage1 from "@assets/stock_images/medical_health_healt_fdb22ee1.jpg";
+import newsImage2 from "@assets/stock_images/medical_health_healt_2bc2bc37.jpg";
+import newsImage3 from "@assets/stock_images/medical_health_healt_af440b4a.jpg";
+import newsImage4 from "@assets/stock_images/medical_health_healt_981aee81.jpg";
+import newsImage5 from "@assets/stock_images/medical_health_healt_8bccc8a3.jpg";
+import newsImage6 from "@assets/stock_images/medical_health_healt_46b1b20f.jpg";
+
+const articleImages = [newsImage1, newsImage2, newsImage3, newsImage4, newsImage5, newsImage6];
+
+type Article = typeof articlesTable.$inferSelect;
 
 export default function Articles() {
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
-  const [search, setSearch] = useState("");
-  
-  // In a real app, search would be a server query param too. Here filtering client side for simplicity if dataset small, 
-  // but better to pass to hook. The hook supports category filter.
-  const { data: articles, isLoading: loadingArticles } = useArticles({ category: selectedCategory });
-  const { data: categories } = useCategories();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Simple client-side search filtering
-  const filteredArticles = articles?.filter(a => 
-    a.title.toLowerCase().includes(search.toLowerCase()) || 
-    a.summary?.toLowerCase().includes(search.toLowerCase())
-  );
+  const { data: articles = [] } = useQuery<Article[]>({
+    queryKey: ["/api/articles"],
+  });
+
+  const categories = ["الكل", ...Array.from(new Set(articles.map(a => a.category)))];
+
+  const filteredArticles = articles.filter((article) => {
+    const matchesSearch = article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (article.excerpt || "").toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = !selectedCategory || selectedCategory === "الكل" || article.category === selectedCategory;
+    return matchesSearch && matchesCategory && article.status === "published";
+  });
 
   return (
-    <div className="container py-12 px-4 md:px-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-        <div>
-          <h1 className="text-4xl font-display font-bold tracking-tight mb-2">Health News & Articles</h1>
-          <p className="text-muted-foreground">Stay informed with the latest medical research and wellness tips.</p>
-        </div>
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search articles..." 
-            className="pl-9 bg-muted/50 border-transparent focus:border-primary focus:bg-background transition-all"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-8 md:py-12">
+        <div className="max-w-6xl mx-auto space-y-8">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold">
+              مركز المحتوى الطبي
+            </h1>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              مقالات صحية شاملة مراجعة من أطباء معتمدين لمساعدتك على فهم صحتك بشكل أفضل
+            </p>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="ابحث في المقالات..."
+                className="pr-10 h-12"
+                data-testid="input-search-articles"
+              />
+            </div>
+            <Button variant="outline" className="gap-2 h-12" data-testid="button-filter">
+              <Filter className="h-4 w-4" />
+              تصفية
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {categories.map((category) => (
+              <Badge
+                key={category}
+                variant={selectedCategory === category || (category === "الكل" && !selectedCategory) ? "default" : "outline"}
+                className="cursor-pointer hover-elevate"
+                onClick={() => setSelectedCategory(category === "الكل" ? null : category)}
+                data-testid={`category-${category}`}
+              >
+                {category}
+              </Badge>
+            ))}
+          </div>
+
+          {filteredArticles.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-lg text-muted-foreground">
+                {articles.length === 0 ? "لا توجد مقالات متاحة حالياً" : "لم يتم العثور على مقالات مطابقة لبحثك"}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredArticles.map((article, index) => (
+                <ArticleCard
+                  key={article.id}
+                  title={article.title}
+                  excerpt={article.excerpt || ""}
+                  category={article.category}
+                  readTime={article.readTime}
+                  reviewedBy={article.reviewedBy}
+                  imageUrl={articleImages[index % articleImages.length]}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Categories */}
-      <div className="flex flex-wrap gap-2 mb-10 pb-4 border-b">
-        <Badge 
-          variant={selectedCategory === undefined ? "default" : "outline"}
-          className="cursor-pointer text-sm px-4 py-1.5 h-auto hover:bg-primary/90 hover:text-white transition-colors"
-          onClick={() => setSelectedCategory(undefined)}
-        >
-          All Topics
-        </Badge>
-        {categories?.map(cat => (
-          <Badge 
-            key={cat.id}
-            variant={selectedCategory === String(cat.id) ? "default" : "outline"}
-            className="cursor-pointer text-sm px-4 py-1.5 h-auto hover:bg-primary/90 hover:text-white transition-colors"
-            onClick={() => setSelectedCategory(String(cat.id))}
-          >
-            {cat.name}
-          </Badge>
-        ))}
-      </div>
-
-      {/* Grid */}
-      {loadingArticles ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {Array(6).fill(0).map((_, i) => (
-             <div key={i} className="space-y-4">
-                <Skeleton className="h-56 w-full rounded-xl" />
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-1/2" />
-             </div>
-          ))}
-        </div>
-      ) : filteredArticles?.length === 0 ? (
-        <div className="text-center py-20 text-muted-foreground">
-          <p className="text-lg">No articles found matching your criteria.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredArticles?.map((article, index) => (
-            <motion.div
-              key={article.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-            >
-              <ArticleCard article={article} />
-            </motion.div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

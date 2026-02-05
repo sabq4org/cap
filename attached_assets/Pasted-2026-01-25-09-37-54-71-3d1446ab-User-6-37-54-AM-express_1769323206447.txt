@@ -1,0 +1,72 @@
+2026-01-25 09:37:54.71
+3d1446ab
+User
+6:37:54 AM [express] GET /api/radar/items 304 in 562ms :: []
+2026-01-25 09:37:54.81
+3d1446ab
+User
+6:37:54 AM [express] GET /api/radar/sources 200 in 572ms :: [{"id":"89e63f8a-9027-490f-bd18-a16d11dc…
+2026-01-25 09:38:22.54
+3d1446ab
+User
+[Radar] Starting fetch for 5 active sources
+2026-01-25 09:38:22.63
+3d1446ab
+User
+[Radar] Fetching RSS from: WHO News (https://www.who.int/rss-feeds/news-english.xml)
+2026-01-25 09:38:22.91
+3d1446ab
+User
+[Radar] Error fetching WHO News: Dynamic require of "crypto" is not supported
+2026-01-25 09:38:23.16
+3d1446ab
+User
+[Radar] Fetching RSS from: SPA - Health (https://www.spa.gov.sa/rss/health.xml)
+2026-01-25 09:38:29.91
+3d1446ab
+User
+[Radar] Error fetching SPA - Health: Feed not recognized as RSS 1 or 2.
+2026-01-25 09:38:30.16
+3d1446ab
+User
+[Radar] Fetching RSS from: Medical News Today (https://www.medicalnewstoday.com/rss)
+2026-01-25 09:38:30.36
+3d1446ab
+User
+[Radar] Error fetching Medical News Today: Status code 404
+2026-01-25 09:38:30.61
+3d1446ab
+User
+[Radar] Fetching RSS from: WebMD Health News (https://rssfeeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC)
+2026-01-25 09:38:30.63
+3d1446ab
+User
+[Radar] Error fetching WebMD Health News: getaddrinfo ENOTFOUND rssfeeds.webmd.com
+2026-01-25 09:38:30.88
+3d1446ab
+User
+[Radar] Fetching RSS from: KFF Health News (http://kffhealthnews.org/feed/)
+2026-01-25 09:38:31.11
+3d1446ab
+User
+[Radar] Error fetching KFF Health News: Dynamic require of "crypto" is not supported
+2026-01-25 09:38:31.27
+3d1446ab
+User
+[Radar] Fetch complete: 0/5 sources, 0 new items
+2026-01-25 09:38:31.34
+3d1446ab
+User
+6:38:31 AM [express] POST /api/radar/fetch 200 in 9581ms :: {"totalSources":5,"successfulSources":0,…
+2026-01-25 09:38:31.80
+3d1446ab
+User
+6:38:31 AM [express] GET /api/radar/items/stats 200 in 206ms :: {"total":0,"pending":0,"approved":0,…
+2026-01-25 09:38:32.11
+3d1446ab
+User
+6:38:32 AM [express] GET /api/radar/items 200 in 454ms :: []
+2026-01-25 09:38:32.24
+3d1446ab
+User
+6:38:32 AM [express] GET /api/radar/sources 200 in 576ms :: [{"id":"89e63f8a-9027-490f-bd18-a16d11dc…

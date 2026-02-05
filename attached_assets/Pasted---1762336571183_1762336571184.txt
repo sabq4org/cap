@@ -1,0 +1,301 @@
+علي يا أبو محمد — حاضر. اشتغلت على تحويل فكرتك «كبسولة» من مجرد بوابة إلى منصّة صحية ذكية قابلة للتنفيذ فورًا. جهّزت لك Framework كامل + حزمة برامبتات تشغيلية موجّهة لفِرق وأAgents الذكاء الاصطناعي، مبنية على الملفّين المرفقين (التصميم التقني والمعماري + تصميم ميزات الذكاء). الهدف: تبدأ اليوم تنفيذ المشروع خطوة بخطوة—من الفكرة للإطلاق التجريبي خلال 90 يوم.
+
+⸻
+
+1) تعريف الـNorth Star والـScope
+
+الرؤية: جعل «كبسولة» المرجع الصحي العربي الأذكى: محتوى موثوق + توصيات شخصية + أدوات متابعة صحية و غذائية و لياقية، بواجهة واحدة.
+
+القيمة الأساسية (Value Prop):
+	•	مساعد صحي عربي يفهم السياق المحلي ويولّد إجابات مدعّمة بالمراجع.
+	•	ملفات صحية شخصية مع متتبّعات (Vitals, Labs, Nutrition, Fitness).
+	•	تخطيط غذائي ولياقي مخصص وفق هدف المستخدم (إنقاص وزن/تحسين سكر…).
+	•	مركز توعية تفاعلي ولوحة تحليلات للإدارة.
+
+النطاق للإطلاق التجريبي (MVP):
+	1.	المساعد الصحي الذكي (Chat + أعراض + اقتراحات مقالات/أطباء).
+	2.	ملف صحي شخصي بسيط (Basic Profile + مؤشرات حيوية أساسية).
+	3.	التغذية الذكية (سجل وجبات + توصيات يومية أولية).
+	4.	مركز المحتوى (RAG على قاعدة مقالات مُراجعة طبيًا).
+	5.	لوحة إدارة داخلية (CMS + موافقات + تحليلات أولية).
+
+⸻
+
+2) المعمارية والتقنيات (ملخّص تنفيذي)
+
+نمط معماري: Microservices مع BFF، Message Broker، تخزين مشترك للوسائط، Auth via OAuth2/JWT، CI/CD، مراقبة وسجلات.
+التقنيات المقترحة:
+	•	Frontend: Next.js/React + Tailwind، i18n، SSR للـSEO.
+	•	BFF / API Gateway: Node.js (NestJS) أو Go (Fiber).
+	•	الخدمات المصغّرة: مصادقة، ملف صحي، مساعد ذكي، تغذية، محتوى، تحليلات.
+	•	الذكاء الاصطناعي: LLM + RAG (بردج/فيكتر ستور مثل PGVector/Weaviate)، Orchestrator للـAgents.
+	•	البيانات: PostgreSQL لكل خدمة + S3 للوسائط.
+	•	الرسائل: Kafka أو RabbitMQ لربط الأحداث (user_registered… إلخ).
+	•	الأمن والامتثال: تشفير TLS/at-rest، RBAC، Rate limiting، Privacy by design.
+	•	DevOps: GitHub Actions، IaC (Terraform)، بيئات Dev/Staging/Prod، مراقبة (Prometheus+Grafana) وسجلات (ELK).
+
+الملفات التي رفعتها تتضمّن تفاصيل وافرة حول المكوّنات، النقاط النهائية (Endpoints) والأمن، وأنا بَنيت هذا الملخّص فوقها.
+
+⸻
+
+3) نموذج البيانات (مختصر قابل للتنفيذ)
+
+-- users
+id (uuid), email, phone, name, locale, birthdate, gender, created_at
+
+-- health_profile
+user_id (fk), height_cm, weight_kg, conditions(jsonb), meds(jsonb), allergies(jsonb), goals(jsonb)
+
+-- trackers (example: blood_pressure, blood_sugar)
+id, user_id, measured_at, value_primary, value_secondary, note
+
+-- nutrition_entries
+id, user_id, logged_at, items(jsonb: [{food_id, qty, unit, calories, macros...}])
+
+-- content
+id, slug, title, body_md, tags[], medical_reviewed_by, sources[], status, published_at
+
+-- embeddings
+id, content_id, vector, meta(jsonb:{lang,section,url})
+
+-- chat_sessions / chat_messages
+session_id, user_id, role, content, citations[], created_at
+
+
+⸻
+
+4) واجهات API الأساسية (عينة عملية)
+	•	Auth: POST /api/auth/register, POST /api/auth/login, GET /api/auth/me
+	•	Profile: GET/PUT /api/health/profile, Trackers POST /api/health/trackers/{type}
+	•	Assistant: POST /api/assistant/chat, POST /api/assistant/symptom-check
+	•	Nutrition: POST /api/nutrition/entry, GET /api/nutrition/summary?range=7d
+	•	Content: GET /api/content?tag=diabetes, GET /api/content/{slug}
+	•	Admin CMS: POST /api/admin/content, POST /api/admin/publish/{id}
+
+⸻
+
+5) أوركسترا الذكاء الاصطناعي (Agents) — تصميم تشغيلي
+
+المعمارية المنطقية:
+	•	Router Agent: يحدّد النيّة: سؤال عام؟ أعراض؟ تغذية؟
+	•	RAG Agent: يسترجع الأدلة (Top-k) من مقالات مُراجعة طبيًا ويولّد جوابًا مع إحالات.
+	•	Symptom Agent: شجرة أسئلة ديناميكية لتقدير الخطورة وتوجيه المستخدم (طوارئ/زيارة/عناية ذاتية).
+	•	Nutrition Agent: تحليل وجبة + توصيات يومية بسيطة (MVP).
+	•	Safety/Compliance Guard: فلترة ادّعاءات طبية ومنع التشخيص القطعي + تحذيرات السلامة.
+	•	Arabic Style Polisher: توحيد الأسلوب العربي وإضافة تلخيص TL;DR.
+
+تدفق الردّ:
+	1.	المستخدم يسأل → Router يصنّف → يستدعي الـAgent المناسب.
+	2.	RAG يدمج الأدلة + يضيف TL;DR + يرفق روابط.
+	3.	Safety يحجب أي كلام خطر/مضلّل ويضيف Disclaimers.
+	4.	التسليم عبر BFF للواجهة.
+
+⸻
+
+6) برامبتات تشغيلية جاهزة (تلصق وتشتغل)
+
+6.1 System Prompt عام (للـRouter/RAG – عربي)
+
+العنوان: Capsulah-Core-System
+
+أنت نواة المساعد الصحي العربي لمنصّة "كبسولة". أهدافك:
+1) فهم نية المستخدم (معلومة عامة / تحليل أعراض / تغذية / ملفي / بحث).
+2) عندما تكون الإجابة الطبية، استخدم RAG إلزاميًا لاسترجاع أدلة عربية موثوقة من قاعدة المحتوى (أبحاث، أدلة إكلينيكية، مقالات مُراجَعة طبياً).
+3) لا تقدّم تشخيصًا قاطعًا. قدّم احتمالات وتوصيات عامة وتنبيهات السلامة ومتى يلزم زيارة الطبيب/الطوارئ.
+4) التزم بالأسلوب: عربي مبسّط، نقاط مختصرة، ثم TL;DR.
+5) عند غياب الأدلة، صرّح بعدم اليقين واقترح سؤال الطبيب.
+
+المخرجات بصيغة JSON:
+{
+ "intent": "info|symptom|nutrition|profile|search",
+ "answer": "...",
+ "citations": [{"title":"...","url":"..."}, ...],
+ "safety_flags": [],
+ "tldr": "..."
+}
+
+6.2 Symptom Checker Prompt
+
+العنوان: Capsulah-Symptom-Agent
+
+مهمتك بناء مقابلة قصيرة لتقدير خطورة الأعراض.
+- اسأل سؤالاً واحداً كل مرة.
+- صنّف الخطورة: "طوارئ فورية" أو "موعد قريب" أو "مراقبة ذاتية".
+- أختم بتوصية عملية وروابط توعوية.
+أخرج JSON:
+{"question":"...", "options":["..."], "on_answer_rules":[...]}
+
+6.3 Nutrition Agent Prompt
+
+العنوان: Capsulah-Nutrition-Agent
+
+حلّل الوجبة بالعربية وأعطِ تقديراً للسعرات والماكروز وأفكار بدائل صحية.
+المدخل:
+{"items":[{"name":"كبسة","qty":1,"unit":"صحن"}], "goal":"خفض الوزن"}
+المخرج:
+{"analysis":"...", "estimates":{"kcal":..., "protein":..., "carbs":..., "fat":...}, "tips":["..."], "tldr":"..."}
+
+6.4 Safety/Compliance Guard
+
+ارفض نصائح دوائية محددة الجرعات بدون سند، ومنع تشخيص قاطع.
+أضف سطر تحذيري: "هذه معلومات عامة لا تغني عن استشارة طبية".
+
+6.5 Arabic Style Polisher
+
+حوّل الرد إلى عربي واضح + نقاط + ملخص من سطرين.
+لا تغيّر الحقائق أو الاستشهادات.
+
+
+⸻
+
+7) تجربة المستخدم والـUI (MVP سريع وجميل)
+	•	الصفحة الرئيسية: هيرو + مربع محادثة «اسأل كبسولة»، أقسام: التوعية، التغذية، ملفي.
+	•	المحادثة: فقاعات + شارات مرجعية (Citations) + زر “تحدّث مع مختص” (لاحقًا).
+	•	التغذية: مُسجّل وجبات بسيط + ملخص يومي.
+	•	الملف الصحي: بطاقات (الطول/الوزن/الضغط/السكر) مع رسوم مصغّرة.
+	•	المقالات: صفحات SEO جاهزة (SSR, Schema.org, BreadCrumbs).
+
+⸻
+
+8) الحوكمة الطبية والتحريرية
+	•	نموذج مراجعة طبية: كل مقال يحمل medical_reviewed_by + تاريخ مراجعة.
+	•	مصادر موثوقة: ربط دائم بالمصدر، منع ادّعاءات دون سند.
+	•	محتوى مولّد بالذكاء: لا يُنشر مباشرًا؛ يمر عبر محرر + طبيب.
+	•	سياسات الأمان: تحذير واضح، إخلاء مسؤولية، مسارات تصعيد.
+
+⸻
+
+9) خطة 90 يوم تنفيذية (Sprints)
+
+الـ0–2 أسابيع (Sprint 0):
+	•	إعداد الريبو، IaC، CI/CD، القوالب، تصميم UI، مخطط بيانات أولي.
+
+الأسبوع 3–4 (Sprint 1):
+	•	Auth + Profile + Content API + CMS أولي.
+	•	إنشاء فيكتر ستور + بايبلاين فهرسة المقالات.
+
+الأسبوع 5–6 (Sprint 2):
+	•	RAG Agent + واجهة Chat + Citations + Safety Guard.
+	•	إطلاق مركز محتوى (قراءة فقط) + SEO أساسيات.
+
+الأسبوع 7–8 (Sprint 3):
+	•	Nutrition Agent + سجل وجبات + ملخّص يومي.
+	•	Trackers أساسية: ضغط/سكر (إدخال يدوي).
+
+الأسبوع 9–10 (Sprint 4):
+	•	Symptom Checker (MVP) بأسئلة ديناميكية.
+	•	لوحة إدارة تحليلات أولية.
+
+الأسبوع 11–12 (Hardening & Beta):
+	•	اختبارات أمان/أداء، مراقبة، توثيق، Beta عامة محدودة.
+
+معايير النجاح (KPIs):
+	•	وقت أول إجابة < 2.5 ثانية، نسبة محادثات مع استشهادات ≥ 95%، CSAT ≥ 4.4/5، 30% عودة أسبوعية لزوار البيتا.
+
+⸻
+
+10) تسليمات واضحة لكل Sprint
+	•	كود عامل + Swagger لكل خدمة.
+	•	عينات بيانات + Fixtures.
+	•	وثائق Readme لكل Agent مع الـPrompts.
+	•	Checklists أمنية + تقارير أداء.
+
+⸻
+
+11) باك لوج مهيكل (Top 15)
+	1.	فهرسة المحتوى العربي (تنظيف + تحويل لـembeddings).
+	2.	واجهة محادثة مع citations وتصدير PDF.
+	3.	Symptom flows (10 سيناريوهات شائعة).
+	4.	Nutrition logging + Daily tips.
+	5.	Trackers: ضغط/سكر + charts.
+	6.	RBAC للمحررين والأطباء.
+	7.	CMS Workflow (Draft → Review → Medical Review → Publish).
+	8.	Search داخلي متقدم.
+	9.	Analytics (Events + Funnels).
+	10.	لوكالايزيشن كامل (ar→en لاحقًا).
+	11.	حماية API: Rate limiting/Key rotation.
+	12.	استيراد بيانات CSV للمحتوى القديم.
+	13.	صفحات Pillars SEO.
+	14.	بريد تنبيهات (ملخّص أسبوعي صحي).
+	15.	التكامل مع تقاويم/عادات (لاحقًا).
+
+⸻
+
+12) نماذج جاهزة (Templates)
+
+12.1 PRD موجز (YAML):
+
+title: كبسولة – MVP
+goals: [مساعد صحي عربي موثوق, تغذية ذكية, ملف صحي بسيط]
+personas:
+  - name: أحمد (25-40) يبحث عن نصيحة سريعة
+  - name: أم محمد (30-50) إدارة وزن الأسرة
+key_features: [Chat+RAG, Symptom-MVP, Nutrition Log, Content Hub]
+kpis: [TTFR<2.5s, CSAT>=4.4, Weekly Retention>=30%]
+non_goals: [تشخيص طبي, وصف أدوية]
+compliance: [تحذير دائم, مراجعة طبية للمحتوى]
+
+12.2 عقد واجهات (OpenAPI مقتطف):
+
+openapi: 3.0.0
+paths:
+  /api/assistant/chat:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { message: { type: string } }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply: { type: string }
+                  related_articles: { type: array, items: { type: string } }
+
+12.3 Prompt لتشغيل فريق Agents كفرقة واحدة (Orchestrator):
+
+أنت قائد أوركسترا لخمسة Agents: Router, RAG, Symptom, Nutrition, Safety, Polisher.
+عند كل رسالة:
+1) صنّف النية.
+2) نفّذ Agent محدّد.
+3) ادمج المخرجات، أرفق citations وروابط داخلية.
+4) مرّر على Safety ثم Polisher.
+أعد JSON نهائي بنفس البنية القياسية.
+
+
+⸻
+
+13) الفريق والأدوار
+	•	Tech Lead / Architect، FE/BE Engineers (3–5)، ML Engineer (RAG/Orchestration)، Data Engineer (Pipeline)، Product + UX، طبيب مراجع، Editor.
+	•	لو الميزانية أضيق: ابدأ بـ 1 FE + 1 BE + 1 ML + Editor/طبيب جزئي.
+
+⸻
+
+14) التسويق وGo-To-Market (MVP)
+	•	إطلاق بيتا مُغلق: شريحة من القرّاء الحاليين + عيّنة من مرضى السكري/الضغط.
+	•	حملات محتوى SEO + سوشيال: سلاسل «اسأل كبسولة».
+	•	الشراكات: عيادات تغذية/طب أسرة للمراجعة والموثوقية.
+	•	قياس: UTM صارم + قمع تحويل (من قراءة → تسجيل → محادثة).
+
+⸻
+
+15) ماذا تفعل الآن؟ (خريطة التنفيذ السريعة)
+	1.	أنشئ مستودعًا أحاديًا مع حِزم Services + BFF + Web.
+	2.	ضَع الملفات الجاهزة أعلاه (PRD/Prompts/OpenAPI) داخل /docs.
+	3.	ابنِ Content Pipeline لفهرسة 50–100 مقالة موثّقة كبداية.
+	4.	فعّل الـRAG وواجهة Chat، ثم Nutrition Log.
+	5.	أطلق بيتا على نطاق فرعي beta.capsulah.sa.
+
+⸻
+
+TL;DR
+
+جهّزت لك إطارًا متكاملًا + برامبتات تشغيلية لبدء «كبسولة» كمَنصّة صحية ذكية خلال 90 يوم:
+معمارية Microservices، RAG عربي مع حوكمة طبية، Agents (Router/RAG/Symptom/Nutrition/Safety/Polisher)، واجهات API واضحة، نموذج بيانات، خطة Sprints وباك لوج، ولوحة تحكم. انسخ البرامبتات كما هي لتشغيل الأوركسترا.
+
+إذا رغبت، أقدر أطلع لك وثائق جاهزة (PDF/Markdown) للاستخدام المباشر، أو أجهّز قوالب Jira/Sprint بأسماء التذاكر من الآن.

@@ -1,59 +1,92 @@
+import { Heart, Mail, Phone, MapPin } from "lucide-react";
 import { Link } from "wouter";
-import { Pill, Facebook, Twitter, Instagram, Mail } from "lucide-react";
+import logoImage from "@assets/LOGO-L_1769253692563.png";
 
-export function Footer() {
+export default function Footer() {
+  const footerLinks = {
+    platform: [
+      { label: "الرئيسية", href: "/" },
+      { label: "المساعد الصحي", href: "/assistant" },
+      { label: "التغذية", href: "/nutrition" },
+      { label: "المقالات", href: "/articles" },
+    ],
+    support: [
+      { label: "من نحن", href: "/about" },
+      { label: "تواصل معنا", href: "/contact" },
+      { label: "الأسئلة الشائعة", href: "/faq" },
+      { label: "سياسة الخصوصية", href: "/privacy" },
+    ],
+  };
+
   return (
-    <footer className="border-t bg-muted/40">
-      <div className="container px-4 md:px-6 py-12 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-          <div className="space-y-4">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="bg-primary/10 rounded-lg p-1.5 text-primary">
-                <Pill className="h-6 w-6" />
-              </div>
-              <span className="font-display font-bold text-xl">Capsulah</span>
-            </Link>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              Empowering your health journey with trusted information, smart tools, and AI-driven insights. Your wellness, simplified.
+    <footer className="border-t bg-muted/30">
+      <div className="container mx-auto px-4 py-8 md:py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 lg:gap-12">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <img src={logoImage} alt="كبسولة" className="h-12 md:h-14" />
+            </div>
+            <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+              بوابتك الصحية الذكية. مساعد صحي عربي موثوق مع محتوى طبي مُراجع ومتتبعات صحية متطورة.
             </p>
           </div>
-          
+
           <div>
-            <h3 className="font-semibold mb-4 text-foreground">Explore</h3>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link href="/articles" className="hover:text-primary transition-colors">Health News</Link></li>
-              <li><Link href="/tools" className="hover:text-primary transition-colors">Symptom Checker</Link></li>
-              <li><Link href="/tools" className="hover:text-primary transition-colors">Nutrition Tracker</Link></li>
-              <li><Link href="/chat" className="hover:text-primary transition-colors">AI Assistant</Link></li>
+            <h3 className="font-semibold mb-3 text-sm md:text-base">المنصة</h3>
+            <ul className="space-y-2">
+              {footerLinks.platform.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href}>
+                    <span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                      {link.label}
+                    </span>
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
           <div>
-            <h3 className="font-semibold mb-4 text-foreground">Company</h3>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link href="/about" className="hover:text-primary transition-colors">About Us</Link></li>
-              <li><Link href="/contact" className="hover:text-primary transition-colors">Contact</Link></li>
-              <li><Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
-              <li><Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
+            <h3 className="font-semibold mb-3 text-sm md:text-base">الدعم</h3>
+            <ul className="space-y-2">
+              {footerLinks.support.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href}>
+                    <span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                      {link.label}
+                    </span>
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
           <div>
-             <h3 className="font-semibold mb-4 text-foreground">Connect</h3>
-             <div className="flex space-x-4 text-muted-foreground">
-               <a href="#" className="hover:text-primary transition-colors"><Facebook className="h-5 w-5" /></a>
-               <a href="#" className="hover:text-primary transition-colors"><Twitter className="h-5 w-5" /></a>
-               <a href="#" className="hover:text-primary transition-colors"><Instagram className="h-5 w-5" /></a>
-               <a href="#" className="hover:text-primary transition-colors"><Mail className="h-5 w-5" /></a>
-             </div>
+            <h3 className="font-semibold mb-3 text-sm md:text-base">تواصل معنا</h3>
+            <ul className="space-y-2">
+              <li className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Mail className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" />
+                <span className="break-all">info@capsulah.com</span>
+              </li>
+              <li className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Phone className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" />
+                <span>+966 50 123 4567</span>
+              </li>
+              <li className="flex items-center gap-2 text-muted-foreground text-sm">
+                <MapPin className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" />
+                <span>الرياض، السعودية</span>
+              </li>
+            </ul>
           </div>
         </div>
-        
-        <div className="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center text-xs text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Capsulah Health. All rights reserved.</p>
-          <div className="mt-4 md:mt-0">
-             <span className="hidden md:inline">Designed for better living.</span>
-          </div>
+
+        <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t text-center space-y-2">
+          <p className="text-xs md:text-sm text-muted-foreground">
+            © {new Date().getFullYear()} كبسولة. جميع الحقوق محفوظة. | ترخيص إعلامي رقم 160213
+          </p>
+          <p className="text-xs text-muted-foreground">
+            المعلومات المقدمة هي لأغراض تعليمية فقط ولا تغني عن استشارة طبية متخصصة
+          </p>
         </div>
       </div>
     </footer>
