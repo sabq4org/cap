@@ -272,6 +272,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Temporary admin endpoint to clear news for re-import
+  app.delete("/api/admin/clear-news", async (req, res) => {
+    const key = req.query.key;
+    if (key !== process.env.SESSION_SECRET) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    try {
+      const { pool } = await import("./db");
+      const result = await pool.query("DELETE FROM news");
+      res.json({ message: "All news deleted", deletedCount: result.rowCount });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // HTML escape helper for security
   const escapeHtml = (text: string): string => {
     return text
