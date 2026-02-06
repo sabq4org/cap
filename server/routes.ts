@@ -212,13 +212,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(403).json({ message: "Forbidden" });
     }
     try {
-      const { seedProductionIfEmpty } = await import("./seedProduction");
-      await seedProductionIfEmpty();
+      const fs = await import("fs");
+      const path = await import("path");
       const { pool } = await import("./db");
-      const result = await pool.query("SELECT count(*) as cnt FROM news");
-      res.json({ message: "Seed completed", newsCount: result.rows[0].cnt });
+
+      const countResult = await pool.query("SELECT count(*) as cnt FROM news");
+      const existingCount = parseInt(countResult.rows[0].cnt, 10);
+
+      let seedPath = path.resolve(import.meta.dirname, "data", "seed_data.sql");
+      if (!fs.existsSync(seedPath)) {
+        seedPath = path.resolve(import.meta.dirname, "..", "server", "data", "seed_data.sql");
+      }
+      if (!fs.existsSync(seedPath)) {
+        return res.json({ message: "No seed file found", tried: [
+          path.resolve(import.meta.dirname, "data", "seed_data.sql"),
+          path.resolve(import.meta.dirname, "..", "server", "data", "seed_data.sql")
+        ], dirname: import.meta.dirname, existingNews: existingCount });
+      }
+
+      if (existingCount > 0) {
+        return res.json({ message: "Already seeded", newsCount: existingCount });
+      }
+
+      const sql = fs.readFileSync(seedPath, "utf-8");
+      const client = await pool.connect();
+      let successCount = 0;
+      let errorCount = 0;
+      
+      try {
+        await client.query("BEGIN");
+        const lines = sql.split("\n");
+        let currentStatement = "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("--")) continue;
+          if (trimmed.startsWith("SET ") || trimmed.startsWith("SELECT ") || trimmed.startsWith("ALTER TABLE")) continue;
+          currentStatement += line + "\n";
+          if (trimmed.endsWith(";")) {
+            const stmt = currentStatement.trim();
+            if (stmt.toUpperCase().startsWith("INSERT")) {
+              try {
+                await client.query(stmt);
+                successCount++;
+              } catch (err: any) {
+                if (err.code !== "23505") errorCount++;
+              }
+            }
+            currentStatement = "";
+          }
+        }
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      const finalResult = await pool.query("SELECT count(*) as cnt FROM news");
+      res.json({ message: "Seed completed", newsCount: finalResult.rows[0].cnt, successCount, errorCount });
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      res.status(500).json({ message: err.message, stack: err.stack?.slice(0, 300) });
     }
   });
 
