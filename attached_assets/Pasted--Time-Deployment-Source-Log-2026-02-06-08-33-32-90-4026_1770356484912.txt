@@ -1,0 +1,205 @@
+
+Time
+Deployment
+Source
+Log
+2026-02-06 08:33:32.90
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:53.50
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:53.80
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:54.00
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:54.12
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:54.30
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:54.40
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:54.60
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:54.72
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:54.82
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:54.90
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:55.10
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:55.30
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:55.50
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:55.90
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:56.00
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:56.30
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:56.50
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:56.62
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:56.90
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:57.10
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:57.22
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:57.40
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:57.70
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:57.94
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:58.10
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:58.23
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:58.32
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:58.50
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:58.70
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:58.90
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:59.02
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:59.12
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:59.30
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:59.62
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:59.80
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:33:59.92
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:34:00.02
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:34:00.12
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:34:00.22
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:34:00.40
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:34:01.60
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:34:01.70
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:34:01.90
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:34:02.10
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:34:02.30
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:34:02.70
+40260112
+User
+Seed statement error [25P02]: current transaction is aborted, commands ignored until end of transaction block
+2026-02-06 08:34:03.00
+40260112
+User
+Seeding complete. News records: 0
+2026-02-06 08:34:17.20
+40260112
+User
+5:34:14 AM [express] serving on port 5000
+2026-02-06 08:34:42.92
+0380292e
+System
+starting up user application
