@@ -205,6 +205,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup object storage routes for file uploads
   registerObjectStorageRoutes(app);
 
+  // Temporary seed endpoint for production database
+  app.get("/api/admin/seed-production", async (req, res) => {
+    const key = req.query.key;
+    if (key !== process.env.SESSION_SECRET) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    try {
+      const { seedProductionIfEmpty } = await import("./seedProduction");
+      await seedProductionIfEmpty();
+      const { pool } = await import("./db");
+      const result = await pool.query("SELECT count(*) as cnt FROM news");
+      res.json({ message: "Seed completed", newsCount: result.rows[0].cnt });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // HTML escape helper for security
   const escapeHtml = (text: string): string => {
     return text
