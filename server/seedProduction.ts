@@ -35,45 +35,44 @@ export async function seedProductionIfEmpty() {
     }
 
     const sql = fs.readFileSync(seedPath, "utf-8");
+    const lines = sql.split("\n");
+    let currentStatement = "";
+    let successCount = 0;
+    let skipCount = 0;
+    let errorCount = 0;
 
-    await client.query("BEGIN");
-    try {
-      const lines = sql.split("\n");
-      let currentStatement = "";
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("--") || trimmed.startsWith("\\")) continue;
+      if (trimmed.startsWith("SET ") || trimmed.startsWith("SELECT ") || trimmed.startsWith("ALTER TABLE")) continue;
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith("--")) continue;
-        if (trimmed.startsWith("SET ") || trimmed.startsWith("SELECT ") || trimmed.startsWith("ALTER TABLE")) continue;
+      currentStatement += line + "\n";
 
-        currentStatement += line + "\n";
-
-        if (trimmed.endsWith(";")) {
-          const stmt = currentStatement.trim();
-          if (stmt.toUpperCase().startsWith("INSERT")) {
-            try {
-              await client.query(stmt);
-            } catch (err: any) {
-              if (err.code === "23505") {
-                // skip duplicates
-              } else if (err.code === "23503") {
-                console.warn(`FK constraint skip: ${err.detail?.slice(0, 80)}`);
-              } else {
-                console.error(`Seed statement error [${err.code}]: ${err.message?.slice(0, 120)}`);
+      if (trimmed.endsWith(";")) {
+        const stmt = currentStatement.trim();
+        if (stmt.toUpperCase().startsWith("INSERT")) {
+          try {
+            await client.query(stmt);
+            successCount++;
+          } catch (err: any) {
+            if (err.code === "23505") {
+              skipCount++;
+            } else if (err.code === "23503") {
+              skipCount++;
+            } else {
+              errorCount++;
+              if (errorCount <= 5) {
+                console.error(`Seed error [${err.code}]: ${err.message?.slice(0, 120)}`);
               }
             }
           }
-          currentStatement = "";
         }
+        currentStatement = "";
       }
-
-      await client.query("COMMIT");
-      const finalCount = await client.query("SELECT count(*) as cnt FROM news");
-      console.log(`Seeding complete. News records: ${finalCount.rows[0].cnt}`);
-    } catch (err) {
-      await client.query("ROLLBACK");
-      console.error("Seeding failed, rolled back:", err);
     }
+
+    const finalCount = await client.query("SELECT count(*) as cnt FROM news");
+    console.log(`Seeding complete. Success: ${successCount}, Skipped: ${skipCount}, Errors: ${errorCount}. News records: ${finalCount.rows[0].cnt}`);
   } catch (err) {
     console.error("Seed check failed:", err);
   } finally {

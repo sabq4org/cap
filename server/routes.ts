@@ -240,13 +240,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let errorCount = 0;
       
       try {
-        await client.query("BEGIN");
         const lines = sql.split("\n");
         let currentStatement = "";
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith("--")) continue;
+          if (!trimmed || trimmed.startsWith("--") || trimmed.startsWith("\\")) continue;
           if (trimmed.startsWith("SET ") || trimmed.startsWith("SELECT ") || trimmed.startsWith("ALTER TABLE")) continue;
           currentStatement += line + "\n";
           if (trimmed.endsWith(";")) {
@@ -256,16 +255,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 await client.query(stmt);
                 successCount++;
               } catch (err: any) {
-                if (err.code !== "23505") errorCount++;
+                if (err.code !== "23505" && err.code !== "23503") errorCount++;
               }
             }
             currentStatement = "";
           }
         }
-        await client.query("COMMIT");
-      } catch (err) {
-        await client.query("ROLLBACK");
-        throw err;
       } finally {
         client.release();
       }
