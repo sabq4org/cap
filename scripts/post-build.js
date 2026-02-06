@@ -1,4 +1,4 @@
-import { writeFileSync } from 'fs';
+import { writeFileSync, copyFileSync, mkdirSync, existsSync } from 'fs';
 
 const wrapperContent = `#!/usr/bin/env node
 // CommonJS wrapper for ESM module
@@ -14,3 +14,11 @@ const wrapperContent = `#!/usr/bin/env node
 
 writeFileSync('dist/index.cjs', wrapperContent);
 console.log('Created dist/index.cjs wrapper');
+
+if (!existsSync('dist/data')) {
+  mkdirSync('dist/data', { recursive: true });
+}
+if (existsSync('server/data/seed_data.sql')) {
+  copyFileSync('server/data/seed_data.sql', 'dist/data/seed_data.sql');
+  console.log('Copied seed_data.sql to dist/data/');
+}

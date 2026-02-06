@@ -1,8 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-// Seeding disabled - admin manages all content
-// import { seedArticles } from "./seedArticles";
+import { seedProductionIfEmpty } from "./seedProduction";
 
 const app = express();
 
@@ -51,8 +50,7 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
   
-  // Seeding disabled - admin manages all content via dashboard
-  // await seedArticles().catch(console.error);
+  await seedProductionIfEmpty();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
