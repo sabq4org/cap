@@ -31,6 +31,7 @@ import type { News, Article } from "@shared/schema";
 const newsImages = [newsImage1, newsImage2, newsImage3, newsImage4, newsImage5, newsImage6];
 
 const categoryLabels: Record<string, string> = {
+  "health": "صحة عامة",
   "health-news": "أخبار صحية",
   "saudi-health": "صحة السعودية",
   "health-community": "المجتمع الصحي",
@@ -42,6 +43,7 @@ const categoryLabels: Record<string, string> = {
 };
 
 const categoryColors: Record<string, string> = {
+  "health": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
   "health-news": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
   "saudi-health": "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200",
   "health-community": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
@@ -124,8 +126,8 @@ export default function Landing() {
                           />
                         </div>
                         <div className="p-4 md:p-6 flex flex-col justify-center order-2 min-h-[300px] md:min-h-[400px]">
-                          <Badge className={`${categoryColors[item.category]} w-fit mb-3`}>
-                            {categoryLabels[item.category]}
+                          <Badge className={`${categoryColors[item.category] || ""} w-fit mb-3 text-sm`}>
+                            {categoryLabels[item.category] || item.category}
                           </Badge>
                           <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3 group-hover:text-primary transition-colors">
                             {item.title}
@@ -219,8 +221,8 @@ export default function Landing() {
                       className="w-full h-24 md:h-28 object-cover"
                     />
                     <CardContent className="p-3">
-                      <Badge className={`${categoryColors[item.category]} text-xs mb-2`}>
-                        {categoryLabels[item.category]}
+                      <Badge className={`${categoryColors[item.category] || ""} text-sm mb-2`}>
+                        {categoryLabels[item.category] || item.category}
                       </Badge>
                       <h4 className="font-semibold text-xs md:text-sm line-clamp-2 mb-1">
                         {item.title}

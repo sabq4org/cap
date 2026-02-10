@@ -52,6 +52,7 @@ import newsImage6 from "@assets/stock_images/medical_health_healt_46b1b20f.jpg";
 const newsImages = [newsImage1, newsImage2, newsImage3, newsImage4, newsImage5, newsImage6];
 
 const categoryLabels: Record<string, string> = {
+  "health": "صحة عامة",
   "health-news": "أخبار صحية",
   "saudi-health": "صحة السعودية",
   "health-community": "المجتمع الصحي",
@@ -63,6 +64,7 @@ const categoryLabels: Record<string, string> = {
 };
 
 const categoryColors: Record<string, string> = {
+  "health": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
   "health-news": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
   "saudi-health": "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200",
   "health-community": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
@@ -275,8 +277,8 @@ export default function NewsDetail() {
           <div className="lg:col-span-2">
             <article>
               <header className="mb-6">
-                <Badge className={`${categoryColors[news.category]} mb-4`}>
-                  {categoryLabels[news.category]}
+                <Badge className={`${categoryColors[news.category] || ""} mb-4 text-sm`}>
+                  {categoryLabels[news.category] || news.category}
                 </Badge>
                 
                 <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight mb-2" data-testid="text-news-title">

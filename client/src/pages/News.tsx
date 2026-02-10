@@ -19,6 +19,7 @@ const newsImages = [newsImage1, newsImage2, newsImage3, newsImage4, newsImage5, 
 
 const categories = [
   { value: "", label: "جميع الأخبار" },
+  { value: "health", label: "صحة عامة" },
   { value: "health-news", label: "أخبار صحية" },
   { value: "saudi-health", label: "صحة السعودية" },
   { value: "health-community", label: "المجتمع الصحي" },
@@ -30,6 +31,7 @@ const categories = [
 ];
 
 const categoryColors: Record<string, string> = {
+  "health": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
   "health-news": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
   "saudi-health": "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200",
   "health-community": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
@@ -204,7 +206,7 @@ export default function News() {
                     />
                     <CardContent className="p-3" dir="rtl">
                       <Badge 
-                        className={`${categoryColors[item.category] || ""} text-xs mb-2`}
+                        className={`${categoryColors[item.category] || ""} text-sm mb-2`}
                         data-testid={`badge-category-${item.category}`}
                       >
                         {getCategoryLabel(item.category)}
