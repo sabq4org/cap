@@ -2609,6 +2609,236 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // Google News Search API
+  // ==========================================
+  app.get('/api/admin/google-news', isAdminAuthenticated, async (req, res) => {
+    try {
+      const query = (req.query.q as string) || 'أخبار صحية';
+      const page = parseInt(req.query.page as string) || 1;
+      const apiKey = process.env.GOOGLE_API_KEY;
+      const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
+
+      if (!apiKey || !searchEngineId) {
+        return res.status(500).json({ message: "مفاتيح Google API غير مهيأة" });
+      }
+
+      const startIndex = (page - 1) * 10 + 1;
+      const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}&start=${startIndex}&num=10&lr=lang_ar&dateRestrict=m1&sort=date`;
+
+      const response = await fetch(searchUrl);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Google Search API error:', errorText);
+        return res.status(response.status).json({ message: "فشل في البحث من Google", details: errorText });
+      }
+
+      const data = await response.json();
+
+      const results = (data.items || []).map((item: any) => ({
+        title: item.title,
+        link: item.link,
+        snippet: item.snippet,
+        source: item.displayLink,
+        imageUrl: item.pagemap?.cse_image?.[0]?.src || item.pagemap?.cse_thumbnail?.[0]?.src || null,
+        publishedDate: item.pagemap?.metatags?.[0]?.['article:published_time'] || item.pagemap?.metatags?.[0]?.['og:updated_time'] || null,
+      }));
+
+      res.json({
+        results,
+        totalResults: data.searchInformation?.totalResults || '0',
+        searchTime: data.searchInformation?.searchTime || 0,
+        page,
+        hasMore: data.queries?.nextPage ? true : false,
+      });
+    } catch (error: any) {
+      console.error("Error searching Google News:", error);
+      res.status(500).json({ message: "فشل في البحث", error: error.message });
+    }
+  });
+
+  // Import a single Google News result as news article
+  app.post('/api/admin/google-news/import', isAdminAuthenticated, async (req, res) => {
+    try {
+      const { title, link, snippet, source, imageUrl, category } = req.body;
+
+      if (!title || !link) {
+        return res.status(400).json({ message: "العنوان والرابط مطلوبان" });
+      }
+
+      // Try to fetch the full article content
+      let fullContent = snippet || '';
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const pageResponse = await fetch(link, { 
+          signal: controller.signal,
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CapsulahBot/1.0)' }
+        });
+        clearTimeout(timeoutId);
+        
+        if (pageResponse.ok) {
+          const html = await pageResponse.text();
+          // Extract article content from common selectors
+          const articleMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+          const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+          const contentMatch = html.match(/class="(?:entry-content|article-content|post-content|content-body)[^"]*"[^>]*>([\s\S]*?)<\/(?:div|section)>/i);
+          
+          const rawContent = contentMatch?.[1] || articleMatch?.[1] || mainMatch?.[1] || '';
+          if (rawContent.length > snippet.length) {
+            // Clean up the HTML
+            fullContent = rawContent
+              .replace(/<script[\s\S]*?<\/script>/gi, '')
+              .replace(/<style[\s\S]*?<\/style>/gi, '')
+              .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+              .replace(/<header[\s\S]*?<\/header>/gi, '')
+              .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+              .replace(/<aside[\s\S]*?<\/aside>/gi, '')
+              .replace(/<!--[\s\S]*?-->/g, '');
+          }
+        }
+      } catch (fetchErr) {
+        console.log('Could not fetch full article, using snippet');
+      }
+
+      // Download and upload image if available
+      let localImageUrl = imageUrl;
+      if (imageUrl) {
+        const uploadedUrl = await downloadAndUploadImage(imageUrl);
+        if (uploadedUrl) {
+          localImageUrl = uploadedUrl;
+        }
+      }
+
+      const shortCode = generateShortCode();
+      const newsItem = await storage.createNews({
+        title,
+        subtitle: null,
+        content: fullContent ? `<p>${fullContent.replace(/<[^>]*>/g, '').trim().substring(0, 5000)}</p>` : `<p>${snippet}</p>`,
+        summary: snippet?.substring(0, 300) || null,
+        category: category || 'health-news',
+        source: source || new URL(link).hostname,
+        sourceUrl: link,
+        imageUrl: localImageUrl || null,
+        imageAlt: title,
+        seoTitle: title.substring(0, 60),
+        seoDescription: snippet?.substring(0, 160) || null,
+        keywords: [],
+        isFeatured: false,
+        status: 'draft',
+        publishedAt: new Date(),
+        shortCode,
+      });
+
+      res.status(201).json(newsItem);
+    } catch (error: any) {
+      console.error("Error importing Google News:", error);
+      res.status(500).json({ message: "فشل في استيراد الخبر", error: error.message });
+    }
+  });
+
+  // ==========================================
+  // Nano Banana Image Generation (Gemini)
+  // ==========================================
+  app.post('/api/admin/generate-image-ai', isAdminAuthenticated, async (req, res) => {
+    try {
+      const { title, content, style } = req.body;
+
+      if (!title && !content) {
+        return res.status(400).json({ message: "العنوان أو المحتوى مطلوب لتوليد الصورة" });
+      }
+
+      const geminiApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+      const geminiBaseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+
+      if (!geminiApiKey || !geminiBaseUrl) {
+        return res.status(500).json({ message: "تكامل Gemini غير مهيأ" });
+      }
+
+      // First, generate an optimized image prompt from the content
+      const promptText = content ? content.substring(0, 1000) : title;
+      const styleDesc = style === 'artistic' ? 'illustrative, colorful, graphic design style' :
+                         style === 'realistic' ? 'photorealistic, professional photography' :
+                         'modern digital illustration, clean design';
+      
+      // Use OpenAI to generate the prompt
+      const { generatePromptFromContent } = await import('./openai');
+      const imagePrompt = await generatePromptFromContent(
+        title || '',
+        promptText,
+        style || 'artistic'
+      );
+
+      // Use Gemini to generate the image
+      const { GoogleGenAI, Modality } = await import('@google/genai');
+      const ai = new GoogleGenAI({
+        apiKey: geminiApiKey,
+        httpOptions: {
+          apiVersion: "",
+          baseUrl: geminiBaseUrl,
+        },
+      });
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-image",
+        contents: [{ 
+          role: "user", 
+          parts: [{ text: `Create a professional illustrative image for a health news article. ${imagePrompt}. Style: ${styleDesc}. Do NOT include any text or Arabic writing in the image. Modern, clean, professional health-related illustration.` }] 
+        }],
+        config: {
+          responseModalities: [Modality.TEXT, Modality.IMAGE],
+        },
+      });
+
+      const candidate = response.candidates?.[0];
+      const imagePart = candidate?.content?.parts?.find(
+        (part: any) => part.inlineData
+      );
+
+      if (!imagePart?.inlineData?.data) {
+        return res.status(500).json({ message: "لم يتم توليد صورة، حاول مرة أخرى" });
+      }
+
+      const mimeType = imagePart.inlineData.mimeType || 'image/png';
+      const imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
+      const extension = mimeType.includes('png') ? 'png' : 'jpg';
+
+      // Upload to object storage
+      const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
+      if (!privateObjectDir) {
+        return res.status(500).json({ message: "مخزن الملفات غير مهيأ" });
+      }
+
+      const objectId = randomUUID();
+      const fullPath = `${privateObjectDir}/uploads/ai-${objectId}.${extension}`;
+      const pathParts = fullPath.startsWith('/') ? fullPath.slice(1).split('/') : fullPath.split('/');
+      const bucketName = pathParts[0];
+      const objectName = pathParts.slice(1).join('/');
+
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+
+      await file.save(imageBuffer, {
+        contentType: mimeType,
+        metadata: { cacheControl: 'public, max-age=31536000' },
+      });
+
+      const objectPath = `/objects/uploads/ai-${objectId}.${extension}`;
+
+      res.json({ 
+        imageUrl: objectPath,
+        prompt: imagePrompt,
+        message: "تم توليد الصورة بنجاح"
+      });
+    } catch (error: any) {
+      console.error("Error generating AI image:", error);
+      const errorMsg = error?.message?.includes("rate") || error?.message?.includes("429")
+        ? "تم تجاوز الحد المسموح، حاول بعد قليل"
+        : "فشل في توليد الصورة";
+      res.status(500).json({ message: errorMsg, error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

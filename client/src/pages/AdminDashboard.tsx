@@ -72,6 +72,7 @@ export default function AdminDashboard() {
   const [newKeyword, setNewKeyword] = useState("");
   const [newTag, setNewTag] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [newsStatusTab, setNewsStatusTab] = useState<NewsStatusTab>('published');
   const [publishMode, setPublishMode] = useState<PublishMode>('now');
   const [scheduledDateTime, setScheduledDateTime] = useState("");
@@ -205,6 +206,15 @@ export default function AdminDashboard() {
   const [wpImportResult, setWpImportResult] = useState<any>(null);
   const [isPreviewingWp, setIsPreviewingWp] = useState(false);
   const [isImportingWp, setIsImportingWp] = useState(false);
+
+  // Google News State
+  const [googleNewsQuery, setGoogleNewsQuery] = useState("أخبار صحية");
+  const [googleNewsResults, setGoogleNewsResults] = useState<any[]>([]);
+  const [isSearchingGoogle, setIsSearchingGoogle] = useState(false);
+  const [isImportingGoogleNews, setIsImportingGoogleNews] = useState<string | null>(null);
+  const [googleNewsPage, setGoogleNewsPage] = useState(1);
+  const [googleHasMore, setGoogleHasMore] = useState(false);
+  const [importTab, setImportTab] = useState<'google' | 'wordpress'>('google');
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("adminAuthenticated");
@@ -917,6 +927,44 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleGenerateImageAI = async () => {
+    if (!formData.title && !formData.content) {
+      toast({
+        title: "محتوى غير كافٍ",
+        description: "يجب إدخال العنوان أو المحتوى لتوليد صورة",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/generate-image-ai", {
+        title: formData.title,
+        content: formData.content,
+        style: 'artistic',
+      });
+      const data = await res.json();
+
+      if (data.imageUrl) {
+        setFormData(prev => ({ ...prev, imageUrl: data.imageUrl, imageAlt: formData.title }));
+        toast({
+          title: "تم توليد الصورة",
+          description: "تم إنشاء صورة رسومية معبرة بنجاح",
+        });
+      }
+    } catch (error) {
+      console.error('Error generating AI image:', error);
+      toast({
+        title: "خطأ في التوليد",
+        description: "فشل في توليد الصورة، حاول مرة أخرى",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
   const addKeyword = () => {
     if (newKeyword.trim() && !formData.keywords.includes(newKeyword.trim())) {
       setFormData(prev => ({
@@ -1004,7 +1052,7 @@ export default function AdminDashboard() {
           <SidebarItem icon={LayoutDashboard} label="الرئيسية" active={activeSection === 'dashboard'} onClick={() => navigateTo('dashboard')} />
           <SidebarItem icon={Newspaper} label="الأخبار" active={activeSection === 'news'} count={news?.length} onClick={() => navigateTo('news')} />
           <SidebarItem icon={BookOpen} label="المقالات" active={activeSection === 'articles'} count={articles?.length} onClick={() => navigateTo('articles')} />
-          <SidebarItem icon={Download} label="استيراد WordPress" active={activeSection === 'import'} onClick={() => navigateTo('import')} />
+          <SidebarItem icon={Download} label="استيراد الأخبار" active={activeSection === 'import'} onClick={() => navigateTo('import')} />
           <SidebarItem icon={Settings} label="التصنيفات" active={activeSection === 'categories'} count={categoriesList?.length} onClick={() => navigateTo('categories')} />
           <SidebarItem icon={Users} label="المستخدمين" onClick={() => navigateTo('users')} />
           <SidebarItem icon={Radar} label="رادار الأخبار" onClick={() => navigateTo('radar')} />
@@ -1366,32 +1414,50 @@ export default function AdminDashboard() {
                     </div>
                   </>
                 ) : (
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleFeaturedImageUpload(file);
-                      }}
-                      data-testid="input-featured-image"
-                    />
-                    <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary hover:bg-muted/50 transition-colors">
-                      {isUploadingImage ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                          <p className="text-sm text-muted-foreground">جاري الرفع...</p>
-                        </div>
+                  <div className="space-y-3">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFeaturedImageUpload(file);
+                        }}
+                        data-testid="input-featured-image"
+                      />
+                      <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary hover:bg-muted/50 transition-colors">
+                        {isUploadingImage ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <p className="text-sm text-muted-foreground">جاري الرفع...</p>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-2">
+                            <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                            <p className="text-sm font-medium">اضغط لرفع صورة</p>
+                            <p className="text-xs text-muted-foreground">PNG, JPG حتى 10MB</p>
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                    <div className="text-center text-xs text-muted-foreground">أو</div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={handleGenerateImageAI}
+                      disabled={isGeneratingImage || (!formData.title && !formData.content)}
+                      data-testid="button-generate-image-ai"
+                    >
+                      {isGeneratingImage ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <div className="flex flex-col items-center gap-2">
-                          <ImagePlus className="h-8 w-8 text-muted-foreground" />
-                          <p className="text-sm font-medium">اضغط لرفع صورة</p>
-                          <p className="text-xs text-muted-foreground">PNG, JPG حتى 10MB</p>
-                        </div>
+                        <Wand2 className="h-4 w-4" />
                       )}
-                    </div>
-                  </label>
+                      {isGeneratingImage ? 'جاري توليد الصورة...' : 'توليد صورة بالذكاء الاصطناعي'}
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardContent>
@@ -1969,6 +2035,51 @@ export default function AdminDashboard() {
     </div>
   );
 
+  // Google News Search & Import
+  const handleSearchGoogleNews = async (page = 1) => {
+    setIsSearchingGoogle(true);
+    try {
+      const res = await fetch(`/api/admin/google-news?q=${encodeURIComponent(googleNewsQuery)}&page=${page}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('فشل في البحث');
+      const data = await res.json();
+      if (page === 1) {
+        setGoogleNewsResults(data.results);
+      } else {
+        setGoogleNewsResults(prev => [...prev, ...data.results]);
+      }
+      setGoogleNewsPage(page);
+      setGoogleHasMore(data.hasMore);
+    } catch (error: any) {
+      toast({ title: "خطأ في البحث", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSearchingGoogle(false);
+    }
+  };
+
+  const handleImportGoogleNewsItem = async (item: any) => {
+    setIsImportingGoogleNews(item.link);
+    try {
+      const res = await apiRequest("POST", "/api/admin/google-news/import", {
+        title: item.title,
+        link: item.link,
+        snippet: item.snippet,
+        source: item.source,
+        imageUrl: item.imageUrl,
+        category: 'health-news',
+      });
+      const data = await res.json();
+      toast({ title: "تم الاستيراد", description: `تم استيراد "${item.title}" كمسودة` });
+      setGoogleNewsResults(prev => prev.filter(r => r.link !== item.link));
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/news"] });
+    } catch (error: any) {
+      toast({ title: "خطأ في الاستيراد", description: error.message || "فشل في الاستيراد", variant: "destructive" });
+    } finally {
+      setIsImportingGoogleNews(null);
+    }
+  };
+
   // WordPress Import Section
   const handlePreviewWordPress = async () => {
     if (!wpSiteUrl) {
@@ -2237,11 +2348,151 @@ export default function AdminDashboard() {
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Download className="h-6 w-6 text-primary" />
-          استيراد من WordPress
+          استيراد الأخبار
         </h1>
-        <p className="text-muted-foreground">استيراد الأخبار والصور من موقع WordPress القديم</p>
+        <p className="text-muted-foreground">استيراد الأخبار من مصادر متعددة</p>
       </div>
 
+      <div className="flex gap-2">
+        <Button
+          variant={importTab === 'google' ? 'default' : 'outline'}
+          onClick={() => setImportTab('google')}
+          className="gap-2"
+          data-testid="button-tab-google-news"
+        >
+          <Globe className="h-4 w-4" />
+          أخبار Google
+        </Button>
+        <Button
+          variant={importTab === 'wordpress' ? 'default' : 'outline'}
+          onClick={() => setImportTab('wordpress')}
+          className="gap-2"
+          data-testid="button-tab-wordpress"
+        >
+          <Download className="h-4 w-4" />
+          WordPress
+        </Button>
+      </div>
+
+      {importTab === 'google' && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                البحث في أخبار Google
+              </CardTitle>
+              <CardDescription>ابحث عن أخبار صحية عربية من Google واستوردها كمسودات</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-3">
+                <Input
+                  placeholder="بحث عن أخبار صحية..."
+                  value={googleNewsQuery}
+                  onChange={(e) => setGoogleNewsQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearchGoogleNews(1)}
+                  data-testid="input-google-news-query"
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => handleSearchGoogleNews(1)}
+                  disabled={isSearchingGoogle || !googleNewsQuery.trim()}
+                  className="gap-2"
+                  data-testid="button-search-google-news"
+                >
+                  {isSearchingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  بحث
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {['أخبار صحية', 'تغذية وصحة', 'أمراض مزمنة', 'صحة المرأة', 'صحة الطفل', 'كورونا', 'لقاحات'].map(tag => (
+                  <Badge
+                    key={tag}
+                    variant="outline"
+                    className="cursor-pointer hover-elevate"
+                    onClick={() => { setGoogleNewsQuery(tag); handleSearchGoogleNews(1); }}
+                    data-testid={`badge-quick-search-${tag}`}
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {googleNewsResults.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Newspaper className="h-5 w-5" />
+                  نتائج البحث ({googleNewsResults.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                  {googleNewsResults.map((item: any, index: number) => (
+                    <div key={index} className="flex gap-3 p-3 border rounded-lg items-start">
+                      {item.imageUrl && (
+                        <img
+                          src={item.imageUrl}
+                          alt=""
+                          className="w-20 h-16 object-cover rounded-lg shrink-0"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <a href={item.link} target="_blank" rel="noopener noreferrer" className="font-medium text-sm line-clamp-2 hover:text-primary transition-colors">
+                          {item.title}
+                        </a>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.snippet}</p>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <Badge variant="outline" className="text-xs">{item.source}</Badge>
+                          {item.publishedDate && (
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(item.publishedDate).toLocaleDateString('ar-SA')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 gap-1"
+                        onClick={() => handleImportGoogleNewsItem(item)}
+                        disabled={isImportingGoogleNews === item.link}
+                        data-testid={`button-import-google-news-${index}`}
+                      >
+                        {isImportingGoogleNews === item.link ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Download className="h-3 w-3" />
+                        )}
+                        استيراد
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                {googleHasMore && (
+                  <div className="mt-4 text-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSearchGoogleNews(googleNewsPage + 1)}
+                      disabled={isSearchingGoogle}
+                      className="gap-2"
+                      data-testid="button-load-more-google-news"
+                    >
+                      {isSearchingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      تحميل المزيد
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {importTab === 'wordpress' && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -2331,8 +2582,9 @@ export default function AdminDashboard() {
           </div>
         </CardContent>
       </Card>
+      )}
 
-      {wpPreviewData && (
+      {importTab === 'wordpress' && wpPreviewData && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -2374,7 +2626,7 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      {wpImportResult && (
+      {importTab === 'wordpress' && wpImportResult && (
         <Card className={wpImportResult.errors > 0 ? "border-amber-500" : "border-green-500"}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
