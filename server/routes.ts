@@ -1208,12 +1208,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
 
-          // Clean HTML content - basic cleanup
+          const decodeHtmlEntities = (text: string): string => {
+            return text
+              .replace(/&#8217;|&#x2019;|&rsquo;/g, "'")
+              .replace(/&#8216;|&#x2018;|&lsquo;/g, "'")
+              .replace(/&#8220;|&#x201C;|&ldquo;/g, '"')
+              .replace(/&#8221;|&#x201D;|&rdquo;/g, '"')
+              .replace(/&#8211;|&#x2013;|&ndash;/g, '–')
+              .replace(/&#8212;|&#x2014;|&mdash;/g, '—')
+              .replace(/&#8230;|&hellip;/g, '...')
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&quot;/g, '"')
+              .replace(/&nbsp;/g, ' ')
+              .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
+              .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+              .trim();
+          };
+
           const cleanContent = post.content.rendered;
-          const cleanExcerpt = post.excerpt.rendered.replace(/<[^>]*>/g, '').trim();
+          const rawExcerpt = post.excerpt.rendered.replace(/<[^>]*>/g, '').trim();
+          const cleanExcerpt = decodeHtmlEntities(rawExcerpt);
+          const cleanTitle = decodeHtmlEntities(post.title.rendered);
 
           const newsData = {
-            title: post.title.rendered.replace(/&#8217;/g, "'").replace(/&#8220;|&#8221;/g, '"').replace(/&amp;/g, '&'),
+            title: cleanTitle,
             subtitle: null,
             content: cleanContent,
             summary: cleanExcerpt.substring(0, 300) || null,
@@ -1221,8 +1241,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             source: cleanUrl,
             imageUrl,
             imageAlt,
-            seoTitle: post.yoast_head_json?.title || post.title.rendered,
-            seoDescription: post.yoast_head_json?.description || cleanExcerpt.substring(0, 160),
+            seoTitle: decodeHtmlEntities(post.yoast_head_json?.title || post.title.rendered),
+            seoDescription: decodeHtmlEntities(post.yoast_head_json?.description || rawExcerpt.substring(0, 160)),
             keywords: post._embedded?.['wp:term']?.[1]?.map((tag: any) => tag.name) || [],
             publishedAt: new Date(post.date),
             isFeatured: post.sticky || false,
@@ -1304,10 +1324,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalPages = parseInt(response.headers.get('X-WP-TotalPages') || '1');
       const totalPosts = parseInt(response.headers.get('X-WP-Total') || '0');
 
+      const decodeEntities = (text: string): string => {
+        return text
+          .replace(/&#8217;|&#x2019;|&rsquo;/g, "'")
+          .replace(/&#8216;|&#x2018;|&lsquo;/g, "'")
+          .replace(/&#8220;|&#x201C;|&ldquo;/g, '"')
+          .replace(/&#8221;|&#x201D;|&rdquo;/g, '"')
+          .replace(/&#8211;|&#x2013;|&ndash;/g, '–')
+          .replace(/&#8212;|&#x2014;|&mdash;/g, '—')
+          .replace(/&#8230;|&hellip;/g, '...')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
+          .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+          .trim();
+      };
+
       const preview = posts.map((post: any) => ({
         id: post.id,
-        title: post.title.rendered.replace(/&#8217;/g, "'").replace(/&#8220;|&#8221;/g, '"').replace(/&amp;/g, '&'),
-        excerpt: post.excerpt.rendered.replace(/<[^>]*>/g, '').trim().substring(0, 200),
+        title: decodeEntities(post.title.rendered),
+        excerpt: decodeEntities(post.excerpt.rendered.replace(/<[^>]*>/g, '').trim()).substring(0, 200),
         date: post.date,
         imageUrl: post._embedded?.['wp:featuredmedia']?.[0]?.source_url || null,
         categories: post._embedded?.['wp:term']?.[0]?.map((cat: any) => cat.name) || [],
