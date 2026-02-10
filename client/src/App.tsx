@@ -83,6 +83,7 @@ function AdminRouter() {
       <Route path="/admin/articles/new" component={AdminDashboard} />
       <Route path="/admin/articles/edit/:id" component={AdminDashboard} />
       <Route path="/admin/import" component={AdminDashboard} />
+      <Route path="/admin/categories" component={AdminDashboard} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/radar" component={AdminRadar} />
       <Route path="/admin/infographic" component={AdminInfographic} />
