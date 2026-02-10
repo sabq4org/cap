@@ -272,20 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Temporary admin endpoint to clear news for re-import
-  app.delete("/api/admin/clear-news", async (req, res) => {
-    const key = req.query.key;
-    if (key !== process.env.SESSION_SECRET) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
-    try {
-      const { pool } = await import("./db");
-      const result = await pool.query("DELETE FROM news");
-      res.json({ message: "All news deleted", deletedCount: result.rowCount });
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
-  });
+  // Temporary admin endpoint to clear news for re-import - moved after isAdminAuthenticated
 
   // HTML escape helper for security
   const escapeHtml = (text: string): string => {
@@ -720,6 +707,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     return res.status(401).json({ message: "غير مصرح" });
   };
+
+  app.delete("/api/admin/clear-news", isAdminAuthenticated, async (req, res) => {
+    try {
+      const { pool } = await import("./db");
+      const result = await pool.query("DELETE FROM news");
+      res.json({ message: "تم حذف جميع الأخبار", deletedCount: result.rowCount });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
 
   // Article routes
   app.get('/api/articles', async (req, res) => {

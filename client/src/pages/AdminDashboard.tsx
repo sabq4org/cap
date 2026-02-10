@@ -208,6 +208,8 @@ export default function AdminDashboard() {
   const [isImportingWp, setIsImportingWp] = useState(false);
   const [isBulkImportingWp, setIsBulkImportingWp] = useState(false);
   const [bulkImportProgress, setBulkImportProgress] = useState({ currentPage: 0, totalPages: 0, imported: 0, errors: 0, isRunning: false });
+  const [isClearingNews, setIsClearingNews] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Google News State
   const [googleNewsQuery, setGoogleNewsQuery] = useState("أخبار صحية");
@@ -2136,6 +2138,23 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleClearAllNews = async () => {
+    setIsClearingNews(true);
+    try {
+      const res = await apiRequest("DELETE", "/api/admin/clear-news");
+      const data = await res.json();
+      toast({ title: "تم الحذف", description: `تم حذف ${data.deletedCount} خبر بنجاح` });
+      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/news"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message || "فشل في حذف الأخبار", variant: "destructive" });
+    } finally {
+      setIsClearingNews(false);
+      setShowClearConfirm(false);
+    }
+  };
+
   const handleBulkImportWordPress = async () => {
     if (!wpSiteUrl) {
       toast({ title: "خطأ", description: "الرجاء إدخال رابط موقع WordPress", variant: "destructive" });
@@ -2423,7 +2442,7 @@ export default function AdminDashboard() {
         <p className="text-muted-foreground">استيراد الأخبار من مصادر متعددة</p>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant={importTab === 'google' ? 'default' : 'outline'}
           onClick={() => setImportTab('google')}
@@ -2442,6 +2461,39 @@ export default function AdminDashboard() {
           <Download className="h-4 w-4" />
           WordPress
         </Button>
+        <div className="mr-auto" />
+        {!showClearConfirm ? (
+          <Button
+            variant="outline"
+            onClick={() => setShowClearConfirm(true)}
+            className="gap-2 text-destructive border-destructive/30"
+            data-testid="button-clear-news-start"
+          >
+            <Trash2 className="h-4 w-4" />
+            حذف جميع الأخبار
+          </Button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-destructive">هل أنت متأكد؟</span>
+            <Button
+              variant="outline"
+              onClick={handleClearAllNews}
+              disabled={isClearingNews}
+              className="gap-2 text-destructive border-destructive"
+              data-testid="button-clear-news-confirm"
+            >
+              {isClearingNews ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              نعم، احذف الكل
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowClearConfirm(false)}
+              data-testid="button-clear-news-cancel"
+            >
+              إلغاء
+            </Button>
+          </div>
+        )}
       </div>
 
       {importTab === 'google' && (
