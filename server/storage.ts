@@ -90,6 +90,7 @@ export interface IStorage {
 
   // News operations
   getNews(category?: string, limit?: number): Promise<News[]>;
+  getNewsPaginated(category?: string, page?: number, perPage?: number): Promise<{ news: News[]; total: number; page: number; totalPages: number }>;
   getNewsById(id: string): Promise<News | undefined>;
   getNewsByShortCode(shortCode: string): Promise<News | undefined>;
   getNewsByKeyword(keyword: string): Promise<News[]>;
@@ -346,7 +347,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNews(category?: string, limit: number = 50): Promise<News[]> {
-    // Only return published news for public API (not deleted, not draft, published or scheduled time passed)
     const now = new Date();
     let results: News[];
     
@@ -365,16 +365,49 @@ export class DatabaseStorage implements IStorage {
         .limit(limit);
     }
     
-    // Auto-promote scheduled items that have passed their time
     await this.autoPromoteScheduledItems(results);
     
-    // Filter to only show published news
     return results.filter(item => {
       if (item.status === 'deleted') return false;
       if (item.status === 'draft') return false;
       if (item.status === 'scheduled' && item.scheduledAt && item.scheduledAt > now) return false;
       return true;
     });
+  }
+
+  async getNewsPaginated(category?: string, page: number = 1, perPage: number = 20): Promise<{ news: News[]; total: number; page: number; totalPages: number }> {
+    const now = new Date();
+    const conditions = [
+      sql`${news.status} != 'deleted'`,
+      sql`${news.status} != 'draft'`,
+      sql`(${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${now})`,
+    ];
+
+    if (category) {
+      conditions.push(sql`${news.category} = ${category}`);
+    }
+
+    const whereClause = sql.join(conditions, sql` AND `);
+
+    const countResult = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(news)
+      .where(whereClause);
+    const total = countResult[0]?.count || 0;
+    const totalPages = Math.ceil(total / perPage);
+    const offset = (page - 1) * perPage;
+
+    const results = await db
+      .select()
+      .from(news)
+      .where(whereClause)
+      .orderBy(desc(news.publishedAt))
+      .limit(perPage)
+      .offset(offset);
+
+    await this.autoPromoteScheduledItems(results);
+
+    return { news: results, total, page, totalPages };
   }
   
   async getNewsByStatus(status: string): Promise<News[]> {

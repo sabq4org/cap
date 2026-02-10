@@ -789,6 +789,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/news', async (req, res) => {
     try {
       const category = req.query.category as string | undefined;
+      const page = req.query.page ? parseInt(req.query.page as string) : undefined;
+      const perPage = req.query.perPage ? parseInt(req.query.perPage as string) : undefined;
+
+      if (page) {
+        const result = await storage.getNewsPaginated(category, page, perPage || 20);
+        return res.json(result);
+      }
+
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const newsItems = await storage.getNews(category, limit);
       res.json(newsItems);
