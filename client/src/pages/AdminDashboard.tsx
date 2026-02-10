@@ -210,6 +210,8 @@ export default function AdminDashboard() {
   const [bulkImportProgress, setBulkImportProgress] = useState({ currentPage: 0, totalPages: 0, imported: 0, errors: 0, isRunning: false });
   const [isClearingNews, setIsClearingNews] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isAutoCategorizing, setIsAutoCategorizing] = useState(false);
+  const [autoCategorizeResult, setAutoCategorizeResult] = useState<{ categorized: number; errors: number; total: number } | null>(null);
 
   // Admin News Pagination & Sorting State
   const [newsSearchQuery, setNewsSearchQuery] = useState("");
@@ -2268,6 +2270,24 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleAutoCategorize = async () => {
+    setIsAutoCategorizing(true);
+    setAutoCategorizeResult(null);
+    try {
+      const res = await apiRequest("POST", "/api/admin/auto-categorize");
+      const data = await res.json();
+      setAutoCategorizeResult({ categorized: data.categorized, errors: data.errors, total: data.total });
+      toast({ title: "تم التصنيف", description: data.message });
+      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/news"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message || "فشل في التصنيف التلقائي", variant: "destructive" });
+    } finally {
+      setIsAutoCategorizing(false);
+    }
+  };
+
   const handleBulkImportWordPress = async () => {
     if (!wpSiteUrl) {
       toast({ title: "خطأ", description: "الرجاء إدخال رابط موقع WordPress", variant: "destructive" });
@@ -2362,19 +2382,45 @@ export default function AdminDashboard() {
           </h1>
           <p className="text-muted-foreground">إضافة وتعديل تصنيفات الأخبار والمقالات</p>
         </div>
-        <Button 
-          onClick={() => {
-            resetCategoryForm();
-            setEditingCategoryId(null);
-            setShowCategoryForm(true);
-          }}
-          className="gap-2"
-          data-testid="button-add-category"
-        >
-          <Plus className="h-4 w-4" />
-          إضافة تصنيف
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button 
+            onClick={handleAutoCategorize}
+            disabled={isAutoCategorizing}
+            variant="outline"
+            className="gap-2"
+            data-testid="button-auto-categorize"
+          >
+            {isAutoCategorizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            تصنيف تلقائي بالذكاء الاصطناعي
+          </Button>
+          <Button 
+            onClick={() => {
+              resetCategoryForm();
+              setEditingCategoryId(null);
+              setShowCategoryForm(true);
+            }}
+            className="gap-2"
+            data-testid="button-add-category"
+          >
+            <Plus className="h-4 w-4" />
+            إضافة تصنيف
+          </Button>
+        </div>
       </div>
+
+      {autoCategorizeResult && (
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex items-center gap-3 text-sm">
+              <Badge variant="default">{autoCategorizeResult.categorized} تم تصنيفها</Badge>
+              {autoCategorizeResult.errors > 0 && (
+                <Badge variant="destructive">{autoCategorizeResult.errors} أخطاء</Badge>
+              )}
+              <span className="text-muted-foreground">من أصل {autoCategorizeResult.total} خبر غير مصنف</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Category Form Dialog */}
       <Dialog open={showCategoryForm} onOpenChange={setShowCategoryForm}>

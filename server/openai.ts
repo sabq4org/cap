@@ -730,4 +730,53 @@ export async function generateInfographicPrompt(
   }
 }
 
+export async function categorizeNewsArticle(
+  title: string,
+  content: string,
+  availableCategories: { slug: string; nameAr: string; description: string | null }[]
+): Promise<string> {
+  try {
+    const categoriesList = availableCategories
+      .map(c => `- ${c.slug}: ${c.nameAr}${c.description ? ` (${c.description})` : ''}`)
+      .join('\n');
+
+    const response = await openai.chat.completions.create({
+      model: "openai/gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `أنت مصنف أخبار صحية. مهمتك تحديد التصنيف الأنسب للخبر من القائمة المتاحة.
+
+التصنيفات المتاحة:
+${categoriesList}
+
+القواعد:
+1. أرجع فقط الـ slug الخاص بالتصنيف الأنسب (كلمة واحدة فقط بدون أي شرح)
+2. إذا كان الخبر عن السعودية أو منطقة سعودية استخدم "saudi-health"
+3. إذا كان عن تغذية أو غذاء استخدم "nutrition"
+4. إذا كان عن فعالية أو مؤتمر استخدم "health-events"
+5. إذا كان تقرير أو دراسة استخدم "health-reports"
+6. إذا كان عن المجتمع أو توعية استخدم "health-community"
+7. إذا كان عن جودة حياة أو رياضة أو نمط حياة استخدم "quality-life"
+8. الأخبار الصحية العامة استخدم "health-news"
+9. إذا لم يناسب أي تصنيف استخدم "misc"`
+        },
+        {
+          role: "user",
+          content: `صنف هذا الخبر:\n\nالعنوان: ${title}\n\nالمحتوى: ${content?.substring(0, 500) || 'لا يوجد محتوى'}`
+        }
+      ],
+      max_completion_tokens: 50,
+      temperature: 0.1,
+    });
+
+    const result = response.choices[0]?.message?.content?.trim().toLowerCase() || "misc";
+    const validSlugs = availableCategories.map(c => c.slug);
+    return validSlugs.includes(result) ? result : "misc";
+  } catch (error) {
+    console.error("Error categorizing news:", error);
+    return "misc";
+  }
+}
+
 export default openai;

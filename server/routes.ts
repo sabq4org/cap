@@ -4,7 +4,7 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, generateInfographicPrompt, translateAndProcessNews, evaluateNewsImportance } from "./openai";
+import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, generateInfographicPrompt, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle } from "./openai";
 import { 
   insertGenerationSettingsSchema, 
   insertImageGenerationSchema, 
@@ -878,6 +878,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Auto-categorize uncategorized news using AI
+  app.post('/api/admin/auto-categorize', isAdminAuthenticated, async (req, res) => {
+    try {
+      const allCategories = await storage.getCategories(true);
+      if (allCategories.length === 0) {
+        return res.status(400).json({ message: "لا توجد تصنيفات متاحة" });
+      }
+
+      const allNews = await storage.getAllNewsForAdmin();
+      const uncategorized = allNews.filter(n => !n.category || n.category === '');
+      
+      if (uncategorized.length === 0) {
+        return res.json({ message: "جميع الأخبار مصنفة بالفعل", categorized: 0, errors: 0, total: 0 });
+      }
+
+      const categoryInfo = allCategories.map(c => ({
+        slug: c.slug,
+        nameAr: c.nameAr,
+        description: c.description,
+      }));
+
+      let categorized = 0;
+      let errors = 0;
+      const batchSize = 5;
+
+      for (let i = 0; i < uncategorized.length; i += batchSize) {
+        const batch = uncategorized.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+          batch.map(async (newsItem) => {
+            const category = await categorizeNewsArticle(
+              newsItem.title,
+              newsItem.content || newsItem.summary || '',
+              categoryInfo
+            );
+            await storage.updateNews(newsItem.id, { category });
+            return category;
+          })
+        );
+        
+        results.forEach(r => {
+          if (r.status === 'fulfilled') categorized++;
+          else errors++;
+        });
+      }
+
+      res.json({ 
+        message: `تم تصنيف ${categorized} خبر بنجاح`, 
+        categorized, 
+        errors,
+        total: uncategorized.length 
+      });
+    } catch (error) {
+      console.error("Error auto-categorizing:", error);
+      res.status(500).json({ message: "فشل في التصنيف التلقائي" });
+    }
+  });
+
   // Admin: Dashboard statistics
   app.get('/api/admin/stats', async (req, res) => {
     try {
@@ -1180,6 +1237,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const importedNews: any[] = [];
       const errors: any[] = [];
+      
+      const allCategories = await storage.getCategories(true);
+      const categoryInfo = allCategories.map(c => ({ slug: c.slug, nameAr: c.nameAr, description: c.description }));
 
       for (const post of posts) {
         try {
@@ -1209,19 +1269,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
 
-          // Extract categories from WordPress
+          // Extract categories from WordPress and use AI to categorize
           let wpCategory = category;
+          
           if (post._embedded && post._embedded['wp:term'] && post._embedded['wp:term'][0]) {
-            const categories = post._embedded['wp:term'][0];
-            if (categories.length > 0) {
-              // Map WordPress category to our categories
-              const wpCatName = categories[0].name.toLowerCase();
-              if (wpCatName.includes('طب') || wpCatName.includes('medical')) wpCategory = 'medical';
-              else if (wpCatName.includes('صح') || wpCatName.includes('health')) wpCategory = 'health';
-              else if (wpCatName.includes('دوا') || wpCatName.includes('pharma')) wpCategory = 'pharmaceutical';
-              else if (wpCatName.includes('مؤتمر') || wpCatName.includes('conference')) wpCategory = 'conference';
-              else if (wpCatName.includes('توعي') || wpCatName.includes('awareness')) wpCategory = 'awareness';
-              else if (wpCatName.includes('تغذي') || wpCatName.includes('nutrition')) wpCategory = 'nutrition';
+            const wpCategories = post._embedded['wp:term'][0];
+            if (wpCategories.length > 0) {
+              const wpCatName = wpCategories[0].name.toLowerCase();
+              const matchedCategory = allCategories.find(c => 
+                c.slug === wpCatName || 
+                c.nameAr === wpCategories[0].name || 
+                c.nameEn?.toLowerCase() === wpCatName
+              );
+              if (matchedCategory) {
+                wpCategory = matchedCategory.slug;
+              }
+            }
+          }
+          
+          if (!wpCategory || wpCategory === category) {
+            try {
+              const rawTitle = post.title.rendered.replace(/<[^>]*>/g, '').trim();
+              const rawExcerptForCat = post.excerpt.rendered.replace(/<[^>]*>/g, '').trim();
+              wpCategory = await categorizeNewsArticle(rawTitle, rawExcerptForCat, categoryInfo);
+            } catch {
+              wpCategory = 'misc';
             }
           }
 
@@ -2772,13 +2844,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Auto-categorize using AI if no category provided
+      let finalCategory = category;
+      if (!finalCategory || finalCategory === 'health-news') {
+        try {
+          const allCats = await storage.getCategories(true);
+          const catInfo = allCats.map(c => ({ slug: c.slug, nameAr: c.nameAr, description: c.description }));
+          finalCategory = await categorizeNewsArticle(title, snippet || '', catInfo);
+        } catch {
+          finalCategory = 'health-news';
+        }
+      }
+
       const shortCode = generateShortCode();
       const newsItem = await storage.createNews({
         title,
         subtitle: null,
         content: fullContent ? `<p>${fullContent.replace(/<[^>]*>/g, '').trim().substring(0, 5000)}</p>` : `<p>${snippet}</p>`,
         summary: snippet?.substring(0, 300) || null,
-        category: category || 'health-news',
+        category: finalCategory,
         source: source || new URL(link).hostname,
         sourceUrl: link,
         imageUrl: localImageUrl || null,
