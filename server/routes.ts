@@ -1136,10 +1136,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Fetching posts from: ${apiUrl}`);
       
-      // Fetch with timeout
+      // Fetch with timeout (120s for large batch imports)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
       
+      // Extend Express response timeout for bulk imports
+      if (perPage >= 50) {
+        req.setTimeout(300000); // 5 minutes for large batches
+        res.setTimeout(300000);
+      }
+
       const response = await fetch(apiUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
       if (!response.ok) {

@@ -206,6 +206,8 @@ export default function AdminDashboard() {
   const [wpImportResult, setWpImportResult] = useState<any>(null);
   const [isPreviewingWp, setIsPreviewingWp] = useState(false);
   const [isImportingWp, setIsImportingWp] = useState(false);
+  const [isBulkImportingWp, setIsBulkImportingWp] = useState(false);
+  const [bulkImportProgress, setBulkImportProgress] = useState({ currentPage: 0, totalPages: 0, imported: 0, errors: 0, isRunning: false });
 
   // Google News State
   const [googleNewsQuery, setGoogleNewsQuery] = useState("أخبار صحية");
@@ -2134,6 +2136,74 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleBulkImportWordPress = async () => {
+    if (!wpSiteUrl) {
+      toast({ title: "خطأ", description: "الرجاء إدخال رابط موقع WordPress", variant: "destructive" });
+      return;
+    }
+    setIsBulkImportingWp(true);
+    setWpImportResult(null);
+    setBulkImportProgress({ currentPage: 0, totalPages: 0, imported: 0, errors: 0, isRunning: true });
+
+    try {
+      const previewRes = await apiRequest("POST", "/api/import/wordpress/preview", {
+        siteUrl: wpSiteUrl,
+        perPage: 100,
+        page: 1
+      });
+      const previewData = await previewRes.json();
+      const totalPages = previewData.pagination.totalPages;
+      const totalPosts = previewData.pagination.totalPosts;
+
+      setBulkImportProgress(prev => ({ ...prev, totalPages }));
+
+      toast({ title: "بدء الاستيراد الشامل", description: `سيتم استيراد ${totalPosts} خبر على ${totalPages} دفعة` });
+
+      let totalImported = 0;
+      let totalErrors = 0;
+
+      for (let page = 1; page <= totalPages; page++) {
+        setBulkImportProgress(prev => ({ ...prev, currentPage: page }));
+
+        try {
+          const res = await apiRequest("POST", "/api/import/wordpress", {
+            siteUrl: wpSiteUrl,
+            perPage: 100,
+            page,
+            category: wpDefaultCategory,
+            importImages: true
+          });
+          const data = await res.json();
+          totalImported += data.imported;
+          totalErrors += data.errors;
+
+          setBulkImportProgress(prev => ({
+            ...prev,
+            imported: totalImported,
+            errors: totalErrors,
+          }));
+        } catch (pageError: any) {
+          const remainingInPage = Math.min(100, totalPosts - (page - 1) * 100);
+          totalErrors += remainingInPage;
+          setBulkImportProgress(prev => ({ ...prev, errors: totalErrors }));
+          console.error(`Error importing page ${page}:`, pageError);
+        }
+      }
+
+      setBulkImportProgress(prev => ({ ...prev, isRunning: false }));
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/news"] });
+      toast({
+        title: "اكتمل الاستيراد الشامل",
+        description: `تم استيراد ${totalImported} خبر${totalErrors > 0 ? ` مع ${totalErrors} خطأ` : ' بنجاح'}`
+      });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message || "فشل في الاستيراد الشامل", variant: "destructive" });
+      setBulkImportProgress(prev => ({ ...prev, isRunning: false }));
+    } finally {
+      setIsBulkImportingWp(false);
+    }
+  };
+
   // Color options for categories
   const colorOptions = [
     { value: "emerald-600", label: "أخضر زمردي", bg: "bg-emerald-600" },
@@ -2559,11 +2629,11 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-wrap gap-3 pt-4">
             <Button 
               variant="outline" 
               onClick={handlePreviewWordPress}
-              disabled={isPreviewingWp || !wpSiteUrl}
+              disabled={isPreviewingWp || !wpSiteUrl || isBulkImportingWp}
               className="gap-2"
               data-testid="button-wp-preview"
             >
@@ -2572,14 +2642,69 @@ export default function AdminDashboard() {
             </Button>
             <Button 
               onClick={handleImportWordPress}
-              disabled={isImportingWp || !wpSiteUrl}
+              disabled={isImportingWp || !wpSiteUrl || isBulkImportingWp}
               className="gap-2"
               data-testid="button-wp-import"
             >
               {isImportingWp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              استيراد الأخبار
+              استيراد صفحة واحدة
+            </Button>
+            <Button 
+              onClick={handleBulkImportWordPress}
+              disabled={isBulkImportingWp || !wpSiteUrl || isImportingWp}
+              className="gap-2 bg-emerald-600"
+              data-testid="button-wp-bulk-import"
+            >
+              {isBulkImportingWp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              استيراد الكل (تلقائي)
             </Button>
           </div>
+
+          {isBulkImportingWp && (
+            <div className="mt-4 p-4 border rounded-lg space-y-3" data-testid="bulk-import-progress">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
+                  جاري الاستيراد الشامل...
+                </span>
+                <span className="text-muted-foreground">
+                  الدفعة {bulkImportProgress.currentPage} من {bulkImportProgress.totalPages}
+                </span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                <div 
+                  className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                  style={{ width: bulkImportProgress.totalPages > 0 ? `${(bulkImportProgress.currentPage / bulkImportProgress.totalPages) * 100}%` : '0%' }}
+                />
+              </div>
+              <div className="flex gap-6 text-sm">
+                <span className="text-emerald-600 dark:text-emerald-400">
+                  تم استيراد: <strong>{bulkImportProgress.imported}</strong>
+                </span>
+                {bulkImportProgress.errors > 0 && (
+                  <span className="text-red-600 dark:text-red-400">
+                    أخطاء: <strong>{bulkImportProgress.errors}</strong>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!isBulkImportingWp && bulkImportProgress.totalPages > 0 && !bulkImportProgress.isRunning && (
+            <div className="mt-4 p-4 border border-emerald-500 rounded-lg space-y-2" data-testid="bulk-import-result">
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-medium">
+                <Check className="h-5 w-5" />
+                اكتمل الاستيراد الشامل
+              </div>
+              <div className="flex gap-6 text-sm">
+                <span>تم استيراد: <strong>{bulkImportProgress.imported}</strong> خبر</span>
+                {bulkImportProgress.errors > 0 && (
+                  <span className="text-red-600 dark:text-red-400">أخطاء: <strong>{bulkImportProgress.errors}</strong></span>
+                )}
+                <span className="text-muted-foreground">عدد الدفعات: {bulkImportProgress.totalPages}</span>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
       )}
