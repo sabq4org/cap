@@ -893,6 +893,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/admin/news', isAdminAuthenticated, async (req, res) => {
     try {
       const status = req.query.status as string | undefined;
+      const page = req.query.page ? parseInt(req.query.page as string) : undefined;
+      const perPage = req.query.perPage ? parseInt(req.query.perPage as string) : 30;
+      const search = req.query.search as string | undefined;
+      const category = req.query.category as string | undefined;
+      const sortBy = (req.query.sortBy as string) || 'publishedAt';
+      const sortOrder = (req.query.sortOrder as string) || 'desc';
+
+      if (page) {
+        const result = await storage.getAdminNewsPaginated(status, page, perPage, search, category, sortBy, sortOrder);
+        return res.json(result);
+      }
+
       let newsItems;
       if (status) {
         newsItems = await storage.getNewsByStatus(status);

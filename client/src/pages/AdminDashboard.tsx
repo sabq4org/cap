@@ -6,7 +6,7 @@ import {
   TrendingUp, Eye, LogOut, Plus, Edit, Trash2, Search,
   Activity, Utensils, Heart, Settings, ChevronLeft, BarChart3,
   Calendar, Clock, ArrowUpRight, ArrowDownRight, Sparkles, Menu, X,
-  Save, Loader2, ChevronRight, Image, Upload, ImagePlus, Download, Globe, Check, AlertCircle, CheckSquare, Square, Star, Shield, Apple, Radar, Wand2, LayoutTemplate
+  Save, Loader2, ChevronRight, Image, Upload, ImagePlus, Download, Globe, Check, AlertCircle, CheckSquare, Square, Star, Shield, Apple, Radar, Wand2, LayoutTemplate, ChevronsLeft, ChevronsRight, ArrowUpDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -211,6 +211,14 @@ export default function AdminDashboard() {
   const [isClearingNews, setIsClearingNews] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
+  // Admin News Pagination & Sorting State
+  const [newsSearchQuery, setNewsSearchQuery] = useState("");
+  const [newsCategoryFilter, setNewsCategoryFilter] = useState("all");
+  const [adminNewsPage, setAdminNewsPage] = useState(1);
+  const [adminNewsSortBy, setAdminNewsSortBy] = useState("publishedAt");
+  const [adminNewsSortOrder, setAdminNewsSortOrder] = useState("desc");
+  const ADMIN_NEWS_PER_PAGE = 30;
+
   // Google News State
   const [googleNewsQuery, setGoogleNewsQuery] = useState("أخبار صحية");
   const [googleNewsResults, setGoogleNewsResults] = useState<any[]>([]);
@@ -245,15 +253,26 @@ export default function AdminDashboard() {
     totalChatSessions: number;
     totalChatMessages: number;
   }>({ queryKey: ["/api/admin/stats"] });
-  // Admin news with status filter
-  const { data: adminNews, isLoading: isLoadingAdminNews } = useQuery<any[]>({ 
-    queryKey: ["/api/admin/news", newsStatusTab],
+  // Admin news with server-side pagination
+  const { data: adminNewsData, isLoading: isLoadingAdminNews } = useQuery<{ news: any[]; total: number; page: number; totalPages: number }>({ 
+    queryKey: ["/api/admin/news", newsStatusTab, adminNewsPage, newsSearchQuery, newsCategoryFilter, adminNewsSortBy, adminNewsSortOrder],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/news?status=${newsStatusTab}`);
+      const params = new URLSearchParams();
+      params.set("status", newsStatusTab);
+      params.set("page", String(adminNewsPage));
+      params.set("perPage", String(ADMIN_NEWS_PER_PAGE));
+      params.set("sortBy", adminNewsSortBy);
+      params.set("sortOrder", adminNewsSortOrder);
+      if (newsSearchQuery) params.set("search", newsSearchQuery);
+      if (newsCategoryFilter !== 'all') params.set("category", newsCategoryFilter);
+      const res = await fetch(`/api/admin/news?${params.toString()}`);
       return res.json();
     },
     enabled: activeSection === 'news',
   });
+  const adminNews = adminNewsData?.news;
+  const adminNewsTotalPages = adminNewsData?.totalPages || 1;
+  const adminNewsTotal = adminNewsData?.total || 0;
   const { data: articles } = useQuery<any[]>({ 
     queryKey: ["/api/articles?includeAll=true"],
   });
@@ -1620,9 +1639,6 @@ export default function AdminDashboard() {
   );
 
   // News Section Component with status tabs (Redesigned like Sabq)
-  const [newsSearchQuery, setNewsSearchQuery] = useState("");
-  const [newsCategoryFilter, setNewsCategoryFilter] = useState("all");
-  
   const NewsSection = () => {
     // Stats for each status
     const publishedCount = dashboardStats?.publishedNews || 0;
@@ -1637,14 +1653,7 @@ export default function AdminDashboard() {
       { id: 'deleted' as NewsStatusTab, label: 'مؤرشفة', count: deletedCount, color: 'bg-slate-50 dark:bg-slate-900/20', textColor: 'text-slate-600 dark:text-slate-400', iconBg: 'bg-slate-100 dark:bg-slate-800/50', iconColor: 'text-slate-500', icon: Trash2 },
     ];
 
-    // Filter news by search and category
-    const filteredNews = adminNews?.filter((item: any) => {
-      const matchesSearch = !newsSearchQuery || 
-        item.title?.toLowerCase().includes(newsSearchQuery.toLowerCase()) ||
-        item.summary?.toLowerCase().includes(newsSearchQuery.toLowerCase());
-      const matchesCategory = newsCategoryFilter === 'all' || item.category === newsCategoryFilter;
-      return matchesSearch && matchesCategory;
-    }) || [];
+    const filteredNews = adminNews || [];
 
     return (
     <div className="space-y-6">
@@ -1675,7 +1684,7 @@ export default function AdminDashboard() {
           {statusCards.map((card) => (
             <button
               key={card.id}
-              onClick={() => setNewsStatusTab(card.id)}
+              onClick={() => { setNewsStatusTab(card.id); setAdminNewsPage(1); }}
               className={`p-4 rounded-xl transition-all ${card.color} ${
                 newsStatusTab === card.id ? 'ring-2 ring-primary ring-offset-2' : 'hover:scale-[1.02]'
               }`}
@@ -1707,12 +1716,12 @@ export default function AdminDashboard() {
               <Input
                 placeholder="البحث عن خبر..."
                 value={newsSearchQuery}
-                onChange={(e) => setNewsSearchQuery(e.target.value)}
+                onChange={(e) => { setNewsSearchQuery(e.target.value); setAdminNewsPage(1); }}
                 className="w-full"
                 data-testid="input-news-search"
               />
             </div>
-            <Select value={newsCategoryFilter} onValueChange={setNewsCategoryFilter}>
+            <Select value={newsCategoryFilter} onValueChange={(v) => { setNewsCategoryFilter(v); setAdminNewsPage(1); }}>
               <SelectTrigger className="w-full md:w-48" data-testid="select-news-category-filter">
                 <SelectValue placeholder="كل التصنيفات" />
               </SelectTrigger>
@@ -1725,7 +1734,7 @@ export default function AdminDashboard() {
             </Select>
             <Button 
               variant="outline" 
-              onClick={() => { setNewsSearchQuery(""); setNewsCategoryFilter("all"); }}
+              onClick={() => { setNewsSearchQuery(""); setNewsCategoryFilter("all"); setAdminNewsPage(1); }}
               className="gap-2"
             >
               مسح
@@ -1760,9 +1769,35 @@ export default function AdminDashboard() {
       {/* News Table */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <div className="w-1 h-6 bg-primary rounded-full" />
-            قائمة الأخبار
+          <CardTitle className="flex items-center justify-between gap-2 text-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-primary rounded-full" />
+              قائمة الأخبار
+              <Badge variant="secondary" className="text-xs">{adminNewsTotal}</Badge>
+            </div>
+            <div className="flex items-center gap-2 text-sm font-normal">
+              <span className="text-muted-foreground text-xs">ترتيب:</span>
+              <Select value={adminNewsSortBy} onValueChange={(v) => { setAdminNewsSortBy(v); setAdminNewsPage(1); }}>
+                <SelectTrigger className="w-32 h-8 text-xs" data-testid="select-sort-by">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="publishedAt">تاريخ النشر</SelectItem>
+                  <SelectItem value="createdAt">تاريخ الإنشاء</SelectItem>
+                  <SelectItem value="title">العنوان</SelectItem>
+                  <SelectItem value="category">التصنيف</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button 
+                variant="outline" 
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setAdminNewsSortOrder(adminNewsSortOrder === 'desc' ? 'asc' : 'desc')}
+                data-testid="button-toggle-sort-order"
+              >
+                <ArrowUpDown className="h-3 w-3" />
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -1937,6 +1972,84 @@ export default function AdminDashboard() {
                   إضافة أول خبر
                 </Button>
               )}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {adminNewsTotalPages > 1 && (
+            <div className="flex items-center justify-between gap-2 p-4 border-t" dir="rtl">
+              <span className="text-sm text-muted-foreground">
+                صفحة {adminNewsPage} من {adminNewsTotalPages} ({adminNewsTotal} خبر)
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setAdminNewsPage(1)}
+                  disabled={adminNewsPage === 1}
+                  data-testid="button-admin-first-page"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setAdminNewsPage(adminNewsPage - 1)}
+                  disabled={adminNewsPage === 1}
+                  data-testid="button-admin-prev-page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+
+                {(() => {
+                  const pages: (number | 'dots')[] = [];
+                  if (adminNewsTotalPages <= 7) {
+                    for (let i = 1; i <= adminNewsTotalPages; i++) pages.push(i);
+                  } else {
+                    pages.push(1);
+                    if (adminNewsPage > 3) pages.push('dots');
+                    const start = Math.max(2, adminNewsPage - 1);
+                    const end = Math.min(adminNewsTotalPages - 1, adminNewsPage + 1);
+                    for (let i = start; i <= end; i++) pages.push(i);
+                    if (adminNewsPage < adminNewsTotalPages - 2) pages.push('dots');
+                    pages.push(adminNewsTotalPages);
+                  }
+                  return pages.map((p, i) =>
+                    p === 'dots' ? (
+                      <span key={`dots-${i}`} className="px-2 text-muted-foreground">...</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        variant={adminNewsPage === p ? "default" : "outline"}
+                        size="icon"
+                        onClick={() => setAdminNewsPage(p)}
+                        data-testid={`button-admin-page-${p}`}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  );
+                })()}
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setAdminNewsPage(adminNewsPage + 1)}
+                  disabled={adminNewsPage === adminNewsTotalPages}
+                  data-testid="button-admin-next-page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setAdminNewsPage(adminNewsTotalPages)}
+                  disabled={adminNewsPage === adminNewsTotalPages}
+                  data-testid="button-admin-last-page"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

@@ -96,6 +96,7 @@ export interface IStorage {
   getNewsByKeyword(keyword: string): Promise<News[]>;
   getNewsByStatus(status: string): Promise<News[]>;
   getAllNewsForAdmin(): Promise<News[]>;
+  getAdminNewsPaginated(status?: string, page?: number, perPage?: number, search?: string, category?: string, sortBy?: string, sortOrder?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }>;
   createNews(newsItem: InsertNews): Promise<News>;
   updateNews(id: string, newsData: Partial<InsertNews>): Promise<News | undefined>;
   deleteNews(id: string): Promise<boolean>;
@@ -428,10 +429,61 @@ export class DatabaseStorage implements IStorage {
       .from(news)
       .orderBy(desc(news.createdAt));
     
-    // Auto-promote scheduled items
     await this.autoPromoteScheduledItems(allNews);
     
     return allNews;
+  }
+
+  async getAdminNewsPaginated(
+    status?: string, 
+    page: number = 1, 
+    perPage: number = 30, 
+    search?: string, 
+    category?: string,
+    sortBy: string = 'publishedAt',
+    sortOrder: string = 'desc'
+  ): Promise<{ news: News[]; total: number; page: number; totalPages: number }> {
+    const conditions: any[] = [];
+
+    if (status && status !== 'all') {
+      conditions.push(sql`${news.status} = ${status}`);
+    }
+
+    if (search) {
+      conditions.push(sql`(${news.title} ILIKE ${'%' + search + '%'} OR ${news.summary} ILIKE ${'%' + search + '%'})`);
+    }
+
+    if (category && category !== 'all') {
+      conditions.push(sql`${news.category} = ${category}`);
+    }
+
+    const whereClause = conditions.length > 0 ? sql.join(conditions, sql` AND `) : undefined;
+
+    const countResult = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(news)
+      .where(whereClause);
+    const total = countResult[0]?.count || 0;
+    const totalPages = Math.ceil(total / perPage);
+    const offset = (page - 1) * perPage;
+
+    const sortColumn = sortBy === 'title' ? news.title 
+      : sortBy === 'createdAt' ? news.createdAt 
+      : sortBy === 'category' ? news.category
+      : news.publishedAt;
+    const orderFn = sortOrder === 'asc' ? asc : desc;
+
+    const results = await db
+      .select()
+      .from(news)
+      .where(whereClause)
+      .orderBy(orderFn(sortColumn))
+      .limit(perPage)
+      .offset(offset);
+
+    await this.autoPromoteScheduledItems(results);
+
+    return { news: results, total, page, totalPages };
   }
 
   async getNewsById(id: string): Promise<News | undefined> {
