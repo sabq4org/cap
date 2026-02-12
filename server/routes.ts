@@ -2399,22 +2399,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newsId: newsId || null,
         articleId: articleId || null,
         prompt,
-        generationType: generationType || settings?.defaultGenerationType || 'realistic',
+        generationType: generationType || settings?.defaultGenerationType || 'artistic',
         quality: quality || settings?.defaultQuality || 'hd',
         size: size || settings?.defaultSize || '1024x1024',
-        model: 'dall-e-3',
+        model: 'gemini-2.5-flash',
         creditsUsed: 1,
       });
 
       // Update status to generating
       await storage.updateImageGeneration(generation.id, { status: 'generating' });
 
-      // Generate image
+      // Generate image using Gemini
       const result = await generateImage({
         prompt,
         quality: quality || 'hd',
         size: size || '1024x1024',
-        style: generationType === 'artistic' ? 'vivid' : 'natural',
       });
 
       if (!result.success) {
@@ -2426,19 +2425,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: result.error });
       }
 
-      // Upload to object storage
-      let objectStoragePath = null;
-      if (result.imageUrl) {
-        const uploadedUrl = await downloadAndUploadImage(result.imageUrl);
-        if (uploadedUrl) {
-          objectStoragePath = uploadedUrl;
-        }
+      // Upload buffer to object storage
+      const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
+      if (!privateObjectDir) {
+        await storage.updateImageGeneration(generation.id, {
+          status: 'failed',
+          errorMessage: "مخزن الملفات غير مهيأ",
+          generationTimeMs: result.generationTimeMs,
+        });
+        return res.status(500).json({ message: "مخزن الملفات غير مهيأ" });
+      }
+
+      let objectStoragePath: string;
+      try {
+        const objectId = randomUUID();
+        const extension = result.imageMimeType?.includes('png') ? 'png' : 'jpg';
+        const fullPath = `${privateObjectDir}/uploads/ai-${objectId}.${extension}`;
+        const pathParts = fullPath.startsWith('/') ? fullPath.slice(1).split('/') : fullPath.split('/');
+        const bucketName = pathParts[0];
+        const objectName = pathParts.slice(1).join('/');
+
+        const bucket = objectStorageClient.bucket(bucketName);
+        const file = bucket.file(objectName);
+        await file.save(result.imageBuffer!, {
+          contentType: result.imageMimeType || 'image/png',
+          resumable: false,
+        });
+        objectStoragePath = file.publicUrl();
+      } catch (uploadError: any) {
+        await storage.updateImageGeneration(generation.id, {
+          status: 'failed',
+          errorMessage: "فشل في رفع الصورة للتخزين",
+          generationTimeMs: result.generationTimeMs,
+        });
+        return res.status(500).json({ message: "فشل في رفع الصورة للتخزين" });
       }
 
       // Update generation record
       await storage.updateImageGeneration(generation.id, {
         status: 'completed',
-        imageUrl: objectStoragePath || result.imageUrl,
+        imageUrl: objectStoragePath,
         objectStoragePath,
         revisedPrompt: result.revisedPrompt,
         generationTimeMs: result.generationTimeMs,
@@ -2451,7 +2477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         generationId: generation.id,
-        imageUrl: objectStoragePath || result.imageUrl,
+        imageUrl: objectStoragePath,
         revisedPrompt: result.revisedPrompt,
         generationTimeMs: result.generationTimeMs,
       });
@@ -2894,67 +2920,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "العنوان أو المحتوى مطلوب لتوليد الصورة" });
       }
 
-      const geminiApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
-      const geminiBaseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
-
-      if (!geminiApiKey || !geminiBaseUrl) {
-        return res.status(500).json({ message: "تكامل Gemini غير مهيأ" });
-      }
-
-      // First, generate an optimized image prompt from the content
       const promptText = content ? content.substring(0, 1000) : title;
-      const styleDesc = style === 'artistic' ? 'illustrative, colorful, graphic design style' :
-                         style === 'realistic' ? 'photorealistic, professional photography' :
-                         'modern digital illustration, clean design';
-      
-      // Use OpenAI to generate the prompt
-      const { generatePromptFromContent } = await import('./openai');
       const imagePrompt = await generatePromptFromContent(
         title || '',
         promptText,
         style || 'artistic'
       );
 
-      // Use Gemini to generate the image
-      const { GoogleGenAI, Modality } = await import('@google/genai');
-      const ai = new GoogleGenAI({
-        apiKey: geminiApiKey,
-        httpOptions: {
-          apiVersion: "",
-          baseUrl: geminiBaseUrl,
-        },
-      });
+      const result = await generateImage({ prompt: imagePrompt });
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image",
-        contents: [{ 
-          role: "user", 
-          parts: [{ text: `Create a professional illustrative image for a health news article. ${imagePrompt}. Style: ${styleDesc}. Do NOT include any text or Arabic writing in the image. Modern, clean, professional health-related illustration.` }] 
-        }],
-        config: {
-          responseModalities: [Modality.TEXT, Modality.IMAGE],
-        },
-      });
-
-      const candidate = response.candidates?.[0];
-      const imagePart = candidate?.content?.parts?.find(
-        (part: any) => part.inlineData
-      );
-
-      if (!imagePart?.inlineData?.data) {
-        return res.status(500).json({ message: "لم يتم توليد صورة، حاول مرة أخرى" });
+      if (!result.success || !result.imageBuffer) {
+        return res.status(500).json({ message: result.error || "لم يتم توليد صورة، حاول مرة أخرى" });
       }
 
-      const mimeType = imagePart.inlineData.mimeType || 'image/png';
-      const imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-      const extension = mimeType.includes('png') ? 'png' : 'jpg';
-
-      // Upload to object storage
       const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
       if (!privateObjectDir) {
         return res.status(500).json({ message: "مخزن الملفات غير مهيأ" });
       }
 
+      const extension = result.imageMimeType?.includes('png') ? 'png' : 'jpg';
       const objectId = randomUUID();
       const fullPath = `${privateObjectDir}/uploads/ai-${objectId}.${extension}`;
       const pathParts = fullPath.startsWith('/') ? fullPath.slice(1).split('/') : fullPath.split('/');
@@ -2963,13 +2947,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const bucket = objectStorageClient.bucket(bucketName);
       const file = bucket.file(objectName);
-
-      await file.save(imageBuffer, {
-        contentType: mimeType,
-        metadata: { cacheControl: 'public, max-age=31536000' },
+      await file.save(result.imageBuffer, {
+        contentType: result.imageMimeType || 'image/png',
+        resumable: false,
       });
 
-      const objectPath = `/objects/uploads/ai-${objectId}.${extension}`;
+      const objectPath = file.publicUrl();
 
       res.json({ 
         imageUrl: objectPath,

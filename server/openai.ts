@@ -387,6 +387,8 @@ export interface ImageGenerationOptions {
 export interface ImageGenerationResult {
   success: boolean;
   imageUrl?: string;
+  imageBuffer?: Buffer;
+  imageMimeType?: string;
   revisedPrompt?: string;
   error?: string;
   generationTimeMs?: number;
@@ -396,30 +398,74 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
   const startTime = Date.now();
   
   try {
-    const response = await openai.images.generate({
-      model: options.model || "dall-e-3",
-      prompt: options.prompt,
-      n: 1,
-      size: options.size || "1024x1024",
-      quality: options.quality || "hd",
-      style: options.style || "vivid",
+    const geminiApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    const geminiBaseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+
+    if (!geminiApiKey || !geminiBaseUrl) {
+      return {
+        success: false,
+        error: "تكامل Gemini غير مهيأ",
+        generationTimeMs: Date.now() - startTime,
+      };
+    }
+
+    const { GoogleGenAI, Modality } = await import('@google/genai');
+    const ai = new GoogleGenAI({
+      apiKey: geminiApiKey,
+      httpOptions: {
+        apiVersion: "",
+        baseUrl: geminiBaseUrl,
+      },
+    });
+
+    const illustrativeStyle = `Create a professional flat vector illustration for a health/medical news article. 
+Style requirements:
+- Flat design, clean vector illustration style (NOT photorealistic)
+- Soft pastel gradient background (light blue, light gray, or soft teal)
+- Clean geometric shapes and modern infographic elements
+- Professional business/medical icons and symbols
+- Diverse group of people in professional attire if people are needed
+- Charts, graphs, gears, lightbulbs as visual metaphors
+- Smooth clean lines, no rough textures
+- Modern corporate illustration style similar to Freepik premium illustrations
+- DO NOT include any text, words, letters, or Arabic writing in the image
+- Wide landscape composition (16:9 ratio)`;
+
+    const fullPrompt = `${illustrativeStyle}\n\nTopic: ${options.prompt}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-05-20",
+      contents: [{ 
+        role: "user", 
+        parts: [{ text: fullPrompt }] 
+      }],
+      config: {
+        responseModalities: [Modality.TEXT, Modality.IMAGE],
+      },
     });
 
     const generationTimeMs = Date.now() - startTime;
-    const imageData = response.data[0];
+    const candidate = response.candidates?.[0];
+    const imagePart = candidate?.content?.parts?.find(
+      (part: any) => part.inlineData
+    );
 
-    if (!imageData?.url) {
+    if (!imagePart?.inlineData?.data) {
       return {
         success: false,
-        error: "لم يتم إنشاء صورة",
+        error: "لم يتم توليد صورة، حاول مرة أخرى",
         generationTimeMs,
       };
     }
 
+    const mimeType = imagePart.inlineData.mimeType || 'image/png';
+    const imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
+
     return {
       success: true,
-      imageUrl: imageData.url,
-      revisedPrompt: imageData.revised_prompt,
+      imageBuffer,
+      imageMimeType: mimeType,
+      revisedPrompt: options.prompt,
       generationTimeMs,
     };
   } catch (error: any) {
@@ -435,45 +481,43 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
 export async function generatePromptFromContent(
   title: string,
   content: string,
-  generationType: "realistic" | "artistic" | "hybrid" = "realistic"
+  generationType: "realistic" | "artistic" | "hybrid" = "artistic"
 ): Promise<string> {
-  const styleGuide = {
-    realistic: "صورة واقعية عالية الجودة، تصوير فوتوغرافي احترافي",
-    artistic: "رسم فني، ألوان زاهية، أسلوب إبداعي",
-    hybrid: "مزيج من الواقعية والفن الرقمي الحديث"
-  };
-
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: `أنت خبير في كتابة prompts لتوليد الصور بالذكاء الاصطناعي.
-مهمتك: تحويل عنوان ومحتوى الخبر إلى prompt واضح ومفصل لتوليد صورة مناسبة.
+          content: `You are an expert at writing image generation prompts for flat vector illustrations.
+Your task: Convert a news article title and content into a clear, descriptive prompt for generating a flat illustration.
 
-قواعد مهمة:
-1. اكتب الـ prompt بالإنجليزية فقط
-2. لا تستخدم أسماء أشخاص حقيقيين أو علامات تجارية
-3. ركز على المفاهيم والأفكار المجردة
-4. أضف تفاصيل عن الإضاءة والألوان والتكوين
-5. الأسلوب المطلوب: ${styleGuide[generationType]}
+Important rules:
+1. Write the prompt in English ONLY
+2. Do NOT use real names of people or trademarks
+3. Focus on abstract concepts, visual metaphors, and symbolic representations
+4. Describe specific visual elements: icons, charts, gears, medical symbols, people silhouettes
+5. The style MUST be: flat vector illustration, clean geometric shapes, soft pastel colors, infographic-style, modern corporate design
+6. Mention specific colors: soft teal, light blue, warm orange accents, green for health
+7. Include visual metaphors relevant to the topic (scales for balance, arrows for growth, shields for protection)
+8. NO text or writing should appear in the image
 
-أرجع الـ prompt فقط بدون أي شرح إضافي.`
+Return ONLY the prompt, no explanation.`
         },
         {
           role: "user",
-          content: `العنوان: ${title}\n\nالمحتوى: ${content.substring(0, 1000)}`
+          content: `Title: ${title}\n\nContent: ${content.substring(0, 800)}`
         }
       ],
-      max_completion_tokens: 500,
+      max_completion_tokens: 400,
+      temperature: 0.7,
     });
 
     return response.choices[0]?.message?.content?.trim() || 
-      "Professional medical illustration, healthcare concept, clean modern style, soft lighting";
+      "Flat vector illustration of healthcare concept with medical icons, stethoscope, heart symbol, clean geometric shapes, soft pastel gradient background, modern infographic style";
   } catch (error) {
     console.error("Error generating prompt:", error);
-    return "Professional medical illustration, healthcare concept, clean modern style, soft lighting";
+    return "Flat vector illustration of healthcare concept with medical icons, stethoscope, heart symbol, clean geometric shapes, soft pastel gradient background, modern infographic style";
   }
 }
 

@@ -33,8 +33,8 @@ interface UsageData {
 }
 
 const generationTypes = [
+  { value: "artistic", label: "رسومي توضيحي", description: "تصميم فيكتور مسطح واحترافي" },
   { value: "realistic", label: "واقعي", description: "تصوير فوتوغرافي احترافي" },
-  { value: "artistic", label: "فني", description: "رسم فني وألوان إبداعية" },
   { value: "hybrid", label: "هجين", description: "مزيج بين الواقعية والفن" },
 ];
 
@@ -53,7 +53,7 @@ export default function AIImageGenerator({ title, content, newsId, onImageGenera
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
-  const [generationType, setGenerationType] = useState("realistic");
+  const [generationType, setGenerationType] = useState("artistic");
   const [size, setSize] = useState("1024x1024");
   const [quality, setQuality] = useState("hd");
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
