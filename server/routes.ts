@@ -2425,9 +2425,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: result.error });
       }
 
-      // Upload buffer to object storage
-      const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
-      if (!privateObjectDir) {
+      // Upload buffer to object storage (public directory for accessibility)
+      const publicObjectDir = process.env.PUBLIC_OBJECT_SEARCH_PATHS || '';
+      if (!publicObjectDir) {
         await storage.updateImageGeneration(generation.id, {
           status: 'failed',
           errorMessage: "مخزن الملفات غير مهيأ",
@@ -2440,7 +2440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const objectId = randomUUID();
         const extension = result.imageMimeType?.includes('png') ? 'png' : 'jpg';
-        const fullPath = `${privateObjectDir}/uploads/ai-${objectId}.${extension}`;
+        const fullPath = `${publicObjectDir}/ai-images/ai-${objectId}.${extension}`;
         const pathParts = fullPath.startsWith('/') ? fullPath.slice(1).split('/') : fullPath.split('/');
         const bucketName = pathParts[0];
         const objectName = pathParts.slice(1).join('/');
@@ -2933,14 +2933,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: result.error || "لم يتم توليد صورة، حاول مرة أخرى" });
       }
 
-      const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
-      if (!privateObjectDir) {
+      const publicObjectDir = process.env.PUBLIC_OBJECT_SEARCH_PATHS || '';
+      if (!publicObjectDir) {
         return res.status(500).json({ message: "مخزن الملفات غير مهيأ" });
       }
 
       const extension = result.imageMimeType?.includes('png') ? 'png' : 'jpg';
       const objectId = randomUUID();
-      const fullPath = `${privateObjectDir}/uploads/ai-${objectId}.${extension}`;
+      const fullPath = `${publicObjectDir}/ai-images/ai-${objectId}.${extension}`;
       const pathParts = fullPath.startsWith('/') ? fullPath.slice(1).split('/') : fullPath.split('/');
       const bucketName = pathParts[0];
       const objectName = pathParts.slice(1).join('/');
