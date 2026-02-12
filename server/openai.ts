@@ -423,13 +423,13 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
     const fullPrompt = `${options.prompt}\n\n${illustrativeStyle}`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-05-20",
+      model: "gemini-2.5-flash-image",
       contents: [{ 
         role: "user", 
         parts: [{ text: fullPrompt }] 
       }],
       config: {
-        responseModalities: [Modality.TEXT, Modality.IMAGE],
+        responseModalities: [Modality.IMAGE],
       },
     });
 

@@ -1,0 +1,121 @@
+3ec-4c37f8967dbd","sh…
+2026-02-12 08:24:32.51
+2308d6cc
+User
+5:24:32 AM [express] GET /api/news 304 in 167ms :: [{"id":"26060516-253a-4727-93ec-4c37f8967dbd","sh…
+2026-02-12 08:24:32.52
+2308d6cc
+User
+5:24:32 AM [express] GET /api/admin/news 304 in 179ms :: {"news":[{"id":"26060516-253a-4727-93ec-4c3…
+2026-02-12 08:24:32.52
+2308d6cc
+User
+5:24:32 AM [express] GET /api/admin/news 304 in 179ms :: {"news":[{"id":"26060516-253a-4727-93ec-4c3…
+2026-02-12 08:24:32.56
+2308d6cc
+User
+5:24:32 AM [express] GET /api/articles 304 in 217ms :: []
+2026-02-12 08:24:32.56
+2308d6cc
+User
+5:24:32 AM [express] GET /api/articles 304 in 217ms :: []
+2026-02-12 08:24:38.49
+2308d6cc
+User
+5:24:38 AM [express] GET /api/admin/stats 304 in 6151ms :: {"totalNews":7337,"publishedNews":6736,"d…
+2026-02-12 08:24:38.49
+2308d6cc
+User
+5:24:38 AM [express] GET /api/admin/stats 304 in 6151ms :: {"totalNews":7337,"publishedNews":6736,"d…
+2026-02-12 08:24:41.89
+2308d6cc
+User
+status: 400
+2026-02-12 08:24:41.89
+2308d6cc
+User
+at async generateImage (file:///home/runner/workspace/dist/index.js:1114:22)
+2026-02-12 08:24:41.89
+2308d6cc
+User
+at async file:///home/runner/workspace/dist/index.js:5496:22 {
+2026-02-12 08:24:41.89
+2308d6cc
+User
+at async Models.generateContent (file:///home/runner/workspace/node_modules/@google/genai/dist/node/index.mjs:13235:24)
+2026-02-12 08:24:41.89
+2308d6cc
+User
+at async file:///home/runner/workspace/node_modules/@google/genai/dist/node/index.mjs:11892:13
+2026-02-12 08:24:41.89
+2308d6cc
+User
+at async file:///home/runner/workspace/node_modules/@google/genai/dist/node/index.mjs:11892:13
+2026-02-12 08:24:41.89
+2308d6cc
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-02-12 08:24:41.89
+2308d6cc
+User
+at throwErrorIfNotOK (file:///home/runner/workspace/node_modules/@google/genai/dist/node/index.mjs:12172:30)
+2026-02-12 08:24:41.89
+2308d6cc
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-02-12 08:24:41.89
+2308d6cc
+User
+}
+2026-02-12 08:24:41.89
+2308d6cc
+User
+at throwErrorIfNotOK (file:///home/runner/workspace/node_modules/@google/genai/dist/node/index.mjs:12172:30)
+2026-02-12 08:24:41.89
+2308d6cc
+User
+Image generation error: ApiError: {"error":{"code":"UNSUPPORTED_MODEL","message":"Model 'gemini-2.5-flash-preview-05-20' is not supported."}}
+2026-02-12 08:24:41.89
+2308d6cc
+User
+Image generation error: ApiError: {"error":{"code":"UNSUPPORTED_MODEL","message":"Model 'gemini-2.5-flash-preview-05-20' is not supported."}}
+2026-02-12 08:24:41.89
+2308d6cc
+User
+}
+2026-02-12 08:24:41.89
+2308d6cc
+User
+at async Models.generateContent (file:///home/runner/workspace/node_modules/@google/genai/dist/node/index.mjs:13235:24)
+2026-02-12 08:24:41.89
+2308d6cc
+User
+at async file:///home/runner/workspace/dist/index.js:5496:22 {
+2026-02-12 08:24:41.89
+2308d6cc
+User
+status: 400
+2026-02-12 08:24:41.89
+2308d6cc
+User
+at async generateImage (file:///home/runner/workspace/dist/index.js:1114:22)
+2026-02-12 08:24:41.93
+2308d6cc
+User
+5:24:41 AM [express] POST /api/admin/generate-image-ai 500 in 1402ms :: {"message":"{\"error\":{\"co…
+2026-02-12 08:24:41.93
+2308d6cc
+User
+5:24:41 AM [express] POST /api/admin/generate-image-ai 500 in 1402ms :: {"message":"{\"error\":{\"co…
+2026-02-12 08:24:49.65
+2308d6cc
+User
+5:24:49 AM [express] GET /api/news 304 in 166ms :: [{"id":"26060516-253a-4727-93ec-4c37f8967dbd","sh…
+2026-02-12 08:24:49.65
+2308d6cc
+User
+5:24:49 AM [express] GET /api/news 304 in 166ms :: [{"id":"26060516-253a-4727-93ec-4c37f8967dbd","sh…
+2026-02-12 08:24:49.78
+2308d6cc
+User
+5:24:49 AM [express] GET /api/admin/news 304 in 288ms :: {"news":[{"id":"26060516-253a-4727-93ec-4c3…
