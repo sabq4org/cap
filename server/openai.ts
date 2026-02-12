@@ -418,7 +418,7 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
       },
     });
 
-    const illustrativeStyle = `Style: flat vector illustration, clean lines, soft pastel colors, modern infographic design, NO text/words/letters in image, landscape 16:9 composition.`;
+    const illustrativeStyle = `CRITICAL: The image must contain ABSOLUTELY NO text, NO words, NO letters, NO numbers, NO labels, NO captions, NO watermarks, NO writing of any kind in any language. The image must be purely visual with zero text elements.\nStyle: flat vector illustration, clean lines, soft pastel colors, modern infographic design, landscape 16:9 composition.`;
 
     const fullPrompt = `${options.prompt}\n\n${illustrativeStyle}`;
 
@@ -522,7 +522,7 @@ Rules:
 - If about a medical study → show the specific subject being studied
 - If about exercise → show people doing that specific exercise
 - Do NOT use real names of people or trademarks
-- NO text, words, letters, or writing should appear in the image
+- CRITICAL: NO text, NO words, NO letters, NO numbers, NO labels, NO captions, NO watermarks, NO writing of ANY kind in ANY language must appear in the image. The image must be PURELY visual
 - Describe 2-3 specific visual elements that are UNIQUE to this article's topic
 - Style: flat vector illustration, clean design, soft pastel colors, modern infographic style
 
