@@ -418,20 +418,9 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
       },
     });
 
-    const illustrativeStyle = `Create a professional flat vector illustration for a health/medical news article. 
-Style requirements:
-- Flat design, clean vector illustration style (NOT photorealistic)
-- Soft pastel gradient background (light blue, light gray, or soft teal)
-- Clean geometric shapes and modern infographic elements
-- Professional business/medical icons and symbols
-- Diverse group of people in professional attire if people are needed
-- Charts, graphs, gears, lightbulbs as visual metaphors
-- Smooth clean lines, no rough textures
-- Modern corporate illustration style similar to Freepik premium illustrations
-- DO NOT include any text, words, letters, or Arabic writing in the image
-- Wide landscape composition (16:9 ratio)`;
+    const illustrativeStyle = `Style: flat vector illustration, clean lines, soft pastel colors, modern infographic design, NO text/words/letters in image, landscape 16:9 composition.`;
 
-    const fullPrompt = `${illustrativeStyle}\n\nTopic: ${options.prompt}`;
+    const fullPrompt = `${options.prompt}\n\n${illustrativeStyle}`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-05-20",
@@ -489,28 +478,38 @@ export async function generatePromptFromContent(
       messages: [
         {
           role: "system",
-          content: `You are an expert at writing image generation prompts for flat vector illustrations.
-Your task: Convert a news article title and content into a clear, descriptive prompt for generating a flat illustration.
+          content: `You are an expert at creating image generation prompts that ACCURATELY represent the specific topic of a news article.
 
-Important rules:
-1. Write the prompt in English ONLY
-2. Do NOT use real names of people or trademarks
-3. Focus on abstract concepts, visual metaphors, and symbolic representations
-4. Describe specific visual elements: icons, charts, gears, medical symbols, people silhouettes
-5. The style MUST be: flat vector illustration, clean geometric shapes, soft pastel colors, infographic-style, modern corporate design
-6. Mention specific colors: soft teal, light blue, warm orange accents, green for health
-7. Include visual metaphors relevant to the topic (scales for balance, arrows for growth, shields for protection)
-8. NO text or writing should appear in the image
+Your PRIMARY goal: The generated image MUST clearly represent the EXACT subject of the article. A viewer should be able to guess what the article is about just by looking at the image.
 
-Return ONLY the prompt, no explanation.`
+Steps:
+1. First, identify the MAIN SUBJECT of the article (e.g., diabetes medication, children vaccination, heart surgery, hospital opening, food safety study, etc.)
+2. Then describe a scene that DIRECTLY illustrates that specific subject
+3. Add style details last
+
+Rules:
+- Write the prompt in English ONLY
+- The image MUST be about the specific topic, NOT a generic health image
+- If the article is about diabetes → show insulin, blood glucose monitor, pancreas
+- If about a new hospital → show a modern hospital building
+- If about nutrition/diet → show the specific foods mentioned
+- If about a specific disease → show relevant organs, symptoms visualization, treatment
+- If about a medical study → show the specific subject being studied
+- If about exercise → show people doing that specific exercise
+- Do NOT use real names of people or trademarks
+- NO text, words, letters, or writing should appear in the image
+- Describe 2-3 specific visual elements that are UNIQUE to this article's topic
+- Style: flat vector illustration, clean design, soft pastel colors, modern infographic style
+
+Return ONLY the prompt text, nothing else.`
         },
         {
           role: "user",
-          content: `Title: ${title}\n\nContent: ${content.substring(0, 800)}`
+          content: `Article title: ${title}\n\nArticle content:\n${content.substring(0, 1500)}`
         }
       ],
-      max_completion_tokens: 400,
-      temperature: 0.7,
+      max_completion_tokens: 500,
+      temperature: 0.5,
     });
 
     return response.choices[0]?.message?.content?.trim() || 
