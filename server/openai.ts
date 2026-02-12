@@ -451,7 +451,12 @@ async function callGeminiImageGeneration(apiKey: string, prompt: string, baseUrl
 export async function generateImage(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
   const startTime = Date.now();
 
-  const illustrativeStyle = `CRITICAL: The image must contain ABSOLUTELY NO text, NO words, NO letters, NO numbers, NO labels, NO captions, NO watermarks, NO writing of any kind in any language. The image must be purely visual with zero text elements.\nStyle: vibrant and bold flat vector illustration, rich saturated colors, strong color contrast, vivid tones (deep teal, bright coral, rich emerald green, warm amber, bold blue), clean geometric shapes, crisp clean lines, professional modern editorial illustration style, high visual impact, landscape 16:9 composition.`;
+  const illustrativeStyle = `ABSOLUTE RULES:
+- ZERO text, words, letters, numbers, labels, captions, or writing of any kind in any language
+- NO people, NO human figures, NO human faces, NO human hands, NO characters
+- NO generic business/corporate imagery (no scales, no gears, no charts, no graphs, no arrows)
+
+STYLE: Bold 3D rendered medical/health illustration. Single focused subject centered in frame. Rich deep background (dark teal, deep navy, or rich emerald gradient). Dramatic studio lighting with rim light and soft shadows. Glossy materials with realistic reflections. Cinema 4D / Blender quality render. Ultra clean composition. 16:9 landscape format.`;
   const fullPrompt = `${options.prompt}\n\n${illustrativeStyle}`;
 
   const googleApiKey = process.env.GOOGLE_API_KEY;
@@ -500,30 +505,34 @@ export async function generatePromptFromContent(
       messages: [
         {
           role: "system",
-          content: `You are an expert at creating image generation prompts that ACCURATELY represent the specific topic of a news article.
+          content: `You create image prompts for a health news portal. The image must represent the EXACT topic of the article.
 
-Your PRIMARY goal: The generated image MUST clearly represent the EXACT subject of the article. A viewer should be able to guess what the article is about just by looking at the image.
+CRITICAL CONSTRAINTS:
+- English ONLY
+- Describe ONE specific object/scene, NOT a collage of icons
+- NO people, NO human figures, NO faces, NO hands, NO characters
+- NO text, words, letters, numbers, labels in the image
+- NO generic corporate imagery (no gears, scales, charts, arrows, graphs)
+- NO abstract concepts - describe CONCRETE physical objects
 
-Steps:
-1. First, identify the MAIN SUBJECT of the article (e.g., diabetes medication, children vaccination, heart surgery, hospital opening, food safety study, etc.)
-2. Then describe a scene that DIRECTLY illustrates that specific subject
-3. Add style details last
+APPROACH: Think of the ONE most iconic physical object that represents this article's topic:
+- Diabetes article → a blood glucose meter with a test strip, close-up
+- Heart surgery → an anatomical heart model with a stent
+- New medication → a specific pill bottle or medicine capsule, close-up
+- Nutrition → the specific food items mentioned (e.g., salmon fillet, avocado)
+- Hospital → a modern hospital building exterior
+- Skin disease → microscopic view of skin cells
+- Eye health → a detailed realistic human eye cross-section
+- Dental → a tooth model or dental tools
 
-Rules:
-- Write the prompt in English ONLY
-- The image MUST be about the specific topic, NOT a generic health image
-- If the article is about diabetes → show insulin, blood glucose monitor, pancreas
-- If about a new hospital → show a modern hospital building
-- If about nutrition/diet → show the specific foods mentioned
-- If about a specific disease → show relevant organs, symptoms visualization, treatment
-- If about a medical study → show the specific subject being studied
-- If about exercise → show people doing that specific exercise
-- Do NOT use real names of people or trademarks
-- CRITICAL: NO text, NO words, NO letters, NO numbers, NO labels, NO captions, NO watermarks, NO writing of ANY kind in ANY language must appear in the image. The image must be PURELY visual
-- Describe 2-3 specific visual elements that are UNIQUE to this article's topic
-- Style: vibrant bold flat vector illustration, rich saturated vivid colors with strong contrast (deep teal, bright coral, emerald green, warm amber, bold blue), clean geometric shapes, professional modern editorial style, high visual impact. AVOID pale, faded, or washed-out colors
+OUTPUT FORMAT: Write a short, focused prompt (2-3 sentences max) describing:
+1. The ONE main object/subject (specific, concrete, not abstract)
+2. Camera angle (close-up, macro, bird's eye, etc.)
+3. Lighting (dramatic studio lighting, rim light, volumetric light)
 
-Return ONLY the prompt text, nothing else.`
+Example output: "Close-up 3D render of a blood glucose monitoring device with a test strip inserted, showing a small blood drop on the strip. Deep teal gradient background. Dramatic studio lighting with strong rim light and glossy reflections."
+
+Return ONLY the prompt, nothing else.`
         },
         {
           role: "user",
@@ -535,10 +544,10 @@ Return ONLY the prompt text, nothing else.`
     });
 
     return response.choices[0]?.message?.content?.trim() || 
-      "Flat vector illustration of healthcare concept with medical icons, stethoscope, heart symbol, clean geometric shapes, soft pastel gradient background, modern infographic style";
+      "Close-up 3D render of a stethoscope and medical pill capsules on a glossy surface. Deep teal gradient background. Dramatic studio lighting with rim light and reflections.";
   } catch (error) {
     console.error("Error generating prompt:", error);
-    return "Flat vector illustration of healthcare concept with medical icons, stethoscope, heart symbol, clean geometric shapes, soft pastel gradient background, modern infographic style";
+    return "Close-up 3D render of a stethoscope and medical pill capsules on a glossy surface. Deep teal gradient background. Dramatic studio lighting with rim light and reflections.";
   }
 }
 
