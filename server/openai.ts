@@ -394,97 +394,99 @@ export interface ImageGenerationResult {
   generationTimeMs?: number;
 }
 
+async function callGeminiImageGeneration(apiKey: string, prompt: string, baseUrl?: string): Promise<ImageGenerationResult> {
+  const startTime = Date.now();
+  const { GoogleGenAI, Modality } = await import('@google/genai');
+
+  const aiConfig: any = { apiKey };
+  if (baseUrl) {
+    aiConfig.httpOptions = { apiVersion: "", baseUrl };
+  }
+  const ai = new GoogleGenAI(aiConfig);
+
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash-image",
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    config: { responseModalities: [Modality.IMAGE] },
+  });
+
+  const generationTimeMs = Date.now() - startTime;
+  const candidate = response.candidates?.[0];
+  const imagePart = candidate?.content?.parts?.find((part: any) => part.inlineData);
+
+  if (!imagePart?.inlineData?.data) {
+    return { success: false, error: "لم يتم توليد صورة، حاول مرة أخرى", generationTimeMs };
+  }
+
+  let imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
+
+  try {
+    const sharp = (await import('sharp')).default;
+    const metadata = await sharp(imageBuffer).metadata();
+    if (metadata.width && metadata.height) {
+      const targetRatio = 16 / 9;
+      const currentRatio = metadata.width / metadata.height;
+      let cropWidth = metadata.width;
+      let cropHeight = metadata.height;
+      if (currentRatio < targetRatio) {
+        cropHeight = Math.round(metadata.width / targetRatio);
+      } else {
+        cropWidth = Math.round(metadata.height * targetRatio);
+      }
+      const left = Math.round((metadata.width - cropWidth) / 2);
+      const top = Math.round((metadata.height - cropHeight) / 2);
+      imageBuffer = await sharp(imageBuffer)
+        .extract({ left, top, width: cropWidth, height: cropHeight })
+        .resize(1280, 720)
+        .png()
+        .toBuffer();
+    }
+  } catch (cropError) {
+    console.error("Image crop/resize error (using original):", cropError);
+  }
+
+  return { success: true, imageBuffer, imageMimeType: 'image/png', revisedPrompt: prompt, generationTimeMs };
+}
+
 export async function generateImage(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
   const startTime = Date.now();
-  
-  try {
-    const googleApiKey = process.env.GOOGLE_API_KEY;
 
-    if (!googleApiKey) {
+  const illustrativeStyle = `CRITICAL: The image must contain ABSOLUTELY NO text, NO words, NO letters, NO numbers, NO labels, NO captions, NO watermarks, NO writing of any kind in any language. The image must be purely visual with zero text elements.\nStyle: vibrant and bold flat vector illustration, rich saturated colors, strong color contrast, vivid tones (deep teal, bright coral, rich emerald green, warm amber, bold blue), clean geometric shapes, crisp clean lines, professional modern editorial illustration style, high visual impact, landscape 16:9 composition.`;
+  const fullPrompt = `${options.prompt}\n\n${illustrativeStyle}`;
+
+  const googleApiKey = process.env.GOOGLE_API_KEY;
+  if (googleApiKey) {
+    try {
+      console.log("Generating image via GOOGLE_API_KEY (direct)...");
+      const result = await callGeminiImageGeneration(googleApiKey, fullPrompt);
+      if (result.success) return result;
+      console.warn("GOOGLE_API_KEY failed:", result.error);
+    } catch (error: any) {
+      console.warn("GOOGLE_API_KEY error, falling back to Replit AI Integrations:", error.message);
+    }
+  }
+
+  const replitGeminiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  const replitGeminiUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  if (replitGeminiKey && replitGeminiUrl) {
+    try {
+      console.log("Generating image via Replit AI Integrations (fallback)...");
+      return await callGeminiImageGeneration(replitGeminiKey, fullPrompt, replitGeminiUrl);
+    } catch (error: any) {
+      console.error("Replit AI Integrations error:", error.message);
       return {
         success: false,
-        error: "مفتاح Google API غير مهيأ",
+        error: error.message || "فشل في توليد الصورة",
         generationTimeMs: Date.now() - startTime,
       };
     }
-
-    const { GoogleGenAI, Modality } = await import('@google/genai');
-    const ai = new GoogleGenAI({
-      apiKey: googleApiKey,
-    });
-
-    const illustrativeStyle = `CRITICAL: The image must contain ABSOLUTELY NO text, NO words, NO letters, NO numbers, NO labels, NO captions, NO watermarks, NO writing of any kind in any language. The image must be purely visual with zero text elements.\nStyle: vibrant and bold flat vector illustration, rich saturated colors, strong color contrast, vivid tones (deep teal, bright coral, rich emerald green, warm amber, bold blue), clean geometric shapes, crisp clean lines, professional modern editorial illustration style, high visual impact, landscape 16:9 composition.`;
-
-    const fullPrompt = `${options.prompt}\n\n${illustrativeStyle}`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: [{ 
-        role: "user", 
-        parts: [{ text: fullPrompt }] 
-      }],
-      config: {
-        responseModalities: [Modality.IMAGE],
-      },
-    });
-
-    const generationTimeMs = Date.now() - startTime;
-    const candidate = response.candidates?.[0];
-    const imagePart = candidate?.content?.parts?.find(
-      (part: any) => part.inlineData
-    );
-
-    if (!imagePart?.inlineData?.data) {
-      return {
-        success: false,
-        error: "لم يتم توليد صورة، حاول مرة أخرى",
-        generationTimeMs,
-      };
-    }
-
-    const mimeType = imagePart.inlineData.mimeType || 'image/png';
-    let imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-
-    try {
-      const sharp = (await import('sharp')).default;
-      const metadata = await sharp(imageBuffer).metadata();
-      if (metadata.width && metadata.height) {
-        const targetRatio = 16 / 9;
-        const currentRatio = metadata.width / metadata.height;
-        let cropWidth = metadata.width;
-        let cropHeight = metadata.height;
-        if (currentRatio < targetRatio) {
-          cropHeight = Math.round(metadata.width / targetRatio);
-        } else {
-          cropWidth = Math.round(metadata.height * targetRatio);
-        }
-        const left = Math.round((metadata.width - cropWidth) / 2);
-        const top = Math.round((metadata.height - cropHeight) / 2);
-        imageBuffer = await sharp(imageBuffer)
-          .extract({ left, top, width: cropWidth, height: cropHeight })
-          .resize(1280, 720)
-          .png()
-          .toBuffer();
-      }
-    } catch (cropError) {
-      console.error("Image crop/resize error (using original):", cropError);
-    }
-
-    return {
-      success: true,
-      imageBuffer,
-      imageMimeType: 'image/png',
-      revisedPrompt: options.prompt,
-      generationTimeMs,
-    };
-  } catch (error: any) {
-    console.error("Image generation error:", error);
-    return {
-      success: false,
-      error: error.message || "فشل في توليد الصورة",
-      generationTimeMs: Date.now() - startTime,
-    };
   }
+
+  return {
+    success: false,
+    error: "لا يوجد مفتاح API لتوليد الصور. يرجى إعداد GOOGLE_API_KEY أو تكامل Gemini",
+    generationTimeMs: Date.now() - startTime,
+  };
 }
 
 export async function generatePromptFromContent(
