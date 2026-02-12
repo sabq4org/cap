@@ -448,12 +448,37 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
     }
 
     const mimeType = imagePart.inlineData.mimeType || 'image/png';
-    const imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
+    let imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
+
+    try {
+      const sharp = (await import('sharp')).default;
+      const metadata = await sharp(imageBuffer).metadata();
+      if (metadata.width && metadata.height) {
+        const targetRatio = 16 / 9;
+        const currentRatio = metadata.width / metadata.height;
+        let cropWidth = metadata.width;
+        let cropHeight = metadata.height;
+        if (currentRatio < targetRatio) {
+          cropHeight = Math.round(metadata.width / targetRatio);
+        } else {
+          cropWidth = Math.round(metadata.height * targetRatio);
+        }
+        const left = Math.round((metadata.width - cropWidth) / 2);
+        const top = Math.round((metadata.height - cropHeight) / 2);
+        imageBuffer = await sharp(imageBuffer)
+          .extract({ left, top, width: cropWidth, height: cropHeight })
+          .resize(1280, 720)
+          .png()
+          .toBuffer();
+      }
+    } catch (cropError) {
+      console.error("Image crop/resize error (using original):", cropError);
+    }
 
     return {
       success: true,
       imageBuffer,
-      imageMimeType: mimeType,
+      imageMimeType: 'image/png',
       revisedPrompt: options.prompt,
       generationTimeMs,
     };
