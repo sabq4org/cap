@@ -398,24 +398,19 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
   const startTime = Date.now();
   
   try {
-    const geminiApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
-    const geminiBaseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+    const googleApiKey = process.env.GOOGLE_API_KEY;
 
-    if (!geminiApiKey || !geminiBaseUrl) {
+    if (!googleApiKey) {
       return {
         success: false,
-        error: "تكامل Gemini غير مهيأ",
+        error: "مفتاح Google API غير مهيأ",
         generationTimeMs: Date.now() - startTime,
       };
     }
 
     const { GoogleGenAI, Modality } = await import('@google/genai');
     const ai = new GoogleGenAI({
-      apiKey: geminiApiKey,
-      httpOptions: {
-        apiVersion: "",
-        baseUrl: geminiBaseUrl,
-      },
+      apiKey: googleApiKey,
     });
 
     const illustrativeStyle = `CRITICAL: The image must contain ABSOLUTELY NO text, NO words, NO letters, NO numbers, NO labels, NO captions, NO watermarks, NO writing of any kind in any language. The image must be purely visual with zero text elements.\nStyle: vibrant and bold flat vector illustration, rich saturated colors, strong color contrast, vivid tones (deep teal, bright coral, rich emerald green, warm amber, bold blue), clean geometric shapes, crisp clean lines, professional modern editorial illustration style, high visual impact, landscape 16:9 composition.`;
