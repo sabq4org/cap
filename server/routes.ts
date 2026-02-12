@@ -2425,9 +2425,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: result.error });
       }
 
-      // Upload buffer to object storage (public directory for accessibility)
-      const publicObjectDir = process.env.PUBLIC_OBJECT_SEARCH_PATHS || '';
-      if (!publicObjectDir) {
+      // Upload buffer to object storage via PRIVATE_OBJECT_DIR (served through /objects/ route)
+      const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
+      if (!privateObjectDir) {
         await storage.updateImageGeneration(generation.id, {
           status: 'failed',
           errorMessage: "مخزن الملفات غير مهيأ",
@@ -2440,7 +2440,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const objectId = randomUUID();
         const extension = result.imageMimeType?.includes('png') ? 'png' : 'jpg';
-        const fullPath = `${publicObjectDir}/ai-images/ai-${objectId}.${extension}`;
+        const fileName = `ai-${objectId}.${extension}`;
+        const fullPath = `${privateObjectDir}/uploads/${fileName}`;
         const pathParts = fullPath.startsWith('/') ? fullPath.slice(1).split('/') : fullPath.split('/');
         const bucketName = pathParts[0];
         const objectName = pathParts.slice(1).join('/');
@@ -2451,7 +2452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           contentType: result.imageMimeType || 'image/png',
           resumable: false,
         });
-        objectStoragePath = file.publicUrl();
+        objectStoragePath = `/objects/uploads/${fileName}`;
       } catch (uploadError: any) {
         await storage.updateImageGeneration(generation.id, {
           status: 'failed',
@@ -2933,14 +2934,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: result.error || "لم يتم توليد صورة، حاول مرة أخرى" });
       }
 
-      const publicObjectDir = process.env.PUBLIC_OBJECT_SEARCH_PATHS || '';
-      if (!publicObjectDir) {
+      const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
+      if (!privateObjectDir) {
         return res.status(500).json({ message: "مخزن الملفات غير مهيأ" });
       }
 
       const extension = result.imageMimeType?.includes('png') ? 'png' : 'jpg';
       const objectId = randomUUID();
-      const fullPath = `${publicObjectDir}/ai-images/ai-${objectId}.${extension}`;
+      const fileName = `ai-${objectId}.${extension}`;
+      const fullPath = `${privateObjectDir}/uploads/${fileName}`;
       const pathParts = fullPath.startsWith('/') ? fullPath.slice(1).split('/') : fullPath.split('/');
       const bucketName = pathParts[0];
       const objectName = pathParts.slice(1).join('/');
@@ -2952,7 +2954,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         resumable: false,
       });
 
-      const objectPath = file.publicUrl();
+      const objectPath = `/objects/uploads/${fileName}`;
 
       res.json({ 
         imageUrl: objectPath,
