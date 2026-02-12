@@ -117,6 +117,27 @@ export default function AdminDashboard() {
       if (id) {
         setEditingNewsId(id);
         setShowNewsForm(true);
+        fetch(`/api/news/${id}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(newsItem => {
+            if (newsItem) {
+              setFormData({
+                title: newsItem.title || "",
+                subtitle: newsItem.subtitle || "",
+                content: newsItem.content || "",
+                summary: newsItem.summary || "",
+                category: newsItem.category || "",
+                source: newsItem.source || "",
+                imageUrl: newsItem.imageUrl || "",
+                imageAlt: newsItem.imageAlt || "",
+                seoTitle: newsItem.seoTitle || "",
+                seoDescription: newsItem.seoDescription || "",
+                keywords: newsItem.keywords || [],
+                isFeatured: newsItem.isFeatured || false,
+              });
+            }
+          })
+          .catch(() => {});
       }
     } else if (location.includes('/admin/articles/new')) {
       setShowArticleForm(true);
@@ -127,6 +148,24 @@ export default function AdminDashboard() {
       if (id) {
         setEditingArticleId(id);
         setShowArticleForm(true);
+        fetch(`/api/articles/${id}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(article => {
+            if (article) {
+              setArticleFormData({
+                title: article.title || "",
+                slug: article.slug || "",
+                excerpt: article.excerpt || "",
+                content: article.content || "",
+                category: article.category || "",
+                tags: article.tags || [],
+                readTime: article.readTime || 5,
+                reviewedBy: article.reviewedBy || "",
+                status: article.status || "draft",
+              });
+            }
+          })
+          .catch(() => {});
       }
     } else {
       // Reset forms when navigating away
