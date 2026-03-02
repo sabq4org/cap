@@ -394,7 +394,7 @@ export interface ImageGenerationResult {
   generationTimeMs?: number;
 }
 
-async function callGeminiImageGeneration(apiKey: string, prompt: string, baseUrl?: string): Promise<ImageGenerationResult> {
+async function callGeminiImageGeneration(apiKey: string, prompt: string, baseUrl?: string, model?: string): Promise<ImageGenerationResult> {
   const startTime = Date.now();
   const { GoogleGenAI, Modality } = await import('@google/genai');
 
@@ -404,8 +404,9 @@ async function callGeminiImageGeneration(apiKey: string, prompt: string, baseUrl
   }
   const ai = new GoogleGenAI(aiConfig);
 
+  const selectedModel = model || "gemini-3.1-flash-image-preview";
   const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-image-preview",
+    model: selectedModel,
     contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: { responseModalities: [Modality.IMAGE] },
   });
@@ -475,7 +476,7 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
   if (replitGeminiKey && replitGeminiUrl) {
     try {
       console.log("Generating image via Replit AI Integrations (fallback)...");
-      return await callGeminiImageGeneration(replitGeminiKey, fullPrompt, replitGeminiUrl);
+      return await callGeminiImageGeneration(replitGeminiKey, fullPrompt, replitGeminiUrl, "gemini-2.5-flash-image");
     } catch (error: any) {
       console.error("Replit AI Integrations error:", error.message);
       return {
