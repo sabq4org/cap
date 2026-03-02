@@ -405,7 +405,7 @@ async function callGeminiImageGeneration(apiKey: string, prompt: string, baseUrl
   const ai = new GoogleGenAI(aiConfig);
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-image",
+    model: "gemini-3.1-flash-image-preview",
     contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: { responseModalities: [Modality.IMAGE] },
   });
@@ -451,12 +451,11 @@ async function callGeminiImageGeneration(apiKey: string, prompt: string, baseUrl
 export async function generateImage(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
   const startTime = Date.now();
 
-  const illustrativeStyle = `ABSOLUTE RULES:
-- ZERO text, words, letters, numbers, labels, captions, or writing of any kind in any language
-- NO people, NO human figures, NO human faces, NO human hands, NO characters
-- NO generic business/corporate imagery (no scales, no gears, no charts, no graphs, no arrows)
-
-STYLE: Bold 3D rendered medical/health illustration. Single focused subject centered in frame. Rich deep background (dark teal, deep navy, or rich emerald gradient). Dramatic studio lighting with rim light and soft shadows. Glossy materials with realistic reflections. Cinema 4D / Blender quality render. Ultra clean composition. 16:9 landscape format.`;
+  const illustrativeStyle = `\n\nFINAL RULES (override anything above if conflict):
+- ABSOLUTELY NO text, words, letters, numbers, labels, captions, watermarks, or writing of any kind in any language anywhere in the image
+- NO human figures, faces, hands, or any body parts belonging to people
+- NO generic corporate business imagery
+- Render quality: photorealistic editorial illustration, magazine cover quality, 16:9 landscape aspect ratio`;
   const fullPrompt = `${options.prompt}\n\n${illustrativeStyle}`;
 
   const googleApiKey = process.env.GOOGLE_API_KEY;
@@ -505,49 +504,51 @@ export async function generatePromptFromContent(
       messages: [
         {
           role: "system",
-          content: `You create image prompts for a health news portal. The image must represent the EXACT topic of the article.
+          content: `You are a creative director for a premium Arabic health news portal. Your job is to craft a vivid, expressive image generation prompt that perfectly illustrates the article's topic.
 
-CRITICAL CONSTRAINTS:
-- English ONLY
-- Describe ONE specific object/scene, NOT a collage of icons
-- NO people, NO human figures, NO faces, NO hands, NO characters
-- NO text, words, letters, numbers, labels in the image
-- NO generic corporate imagery (no gears, scales, charts, arrows, graphs)
-- NO abstract concepts - describe CONCRETE physical objects
+ANALYSIS PROCESS:
+1. Read the article carefully and identify: the EXACT medical topic, the key theme (discovery, warning, treatment, prevention, research, etc.), and any specific objects, organs, or substances mentioned.
+2. Choose the MOST EXPRESSIVE visual representation - something that tells the story at a glance.
+3. Think: what would a world-class editorial illustrator draw for this article?
 
-APPROACH: Think of the ONE most iconic physical object that represents this article's topic:
-- Diabetes article → a blood glucose meter with a test strip, close-up
-- Heart surgery → an anatomical heart model with a stent
-- New medication → a specific pill bottle or medicine capsule, close-up
-- Nutrition → the specific food items mentioned (e.g., salmon fillet, avocado)
-- Hospital → a modern hospital building exterior
-- Skin disease → microscopic view of skin cells
-- Eye health → a detailed realistic human eye cross-section
-- Dental → a tooth model or dental tools
+STYLE MANDATE: Photorealistic or semi-photorealistic editorial illustration. Rich, deep colors. High-quality 3D rendering aesthetic. Professional magazine cover quality.
 
-OUTPUT FORMAT: Write a short, focused prompt (2-3 sentences max) describing:
-1. The ONE main object/subject (specific, concrete, not abstract)
-2. Camera angle (close-up, macro, bird's eye, etc.)
-3. Lighting (dramatic studio lighting, rim light, volumetric light)
+CONTENT RULES:
+- Describe ONE powerful central subject that directly represents the article
+- Include the emotional/narrative tone (urgent, hopeful, scientific, etc.)
+- Use specific medical/scientific objects: specific organs, cells, molecules, medical devices, specific foods, specific body parts
+- Add environmental context when helpful (inside a body, laboratory setting, natural setting)
+- Specify lighting for maximum drama and clarity
 
-Example output: "Close-up 3D render of a blood glucose monitoring device with a test strip inserted, showing a small blood drop on the strip. Deep teal gradient background. Dramatic studio lighting with strong rim light and glossy reflections."
+FORBIDDEN:
+- People, faces, hands, human figures
+- Text, letters, numbers, labels, watermarks
+- Generic icons (stethoscope alone, DNA helix alone without context)
+- Corporate/business imagery (charts, graphs, arrows, gears, scales)
+- Flags, logos, brand names
 
-Return ONLY the prompt, nothing else.`
+GREAT EXAMPLES:
+- Diabetes article → "Macro 3D render of a human pancreatic cell releasing golden insulin molecules into the bloodstream, shown as glowing amber spheres floating in translucent red plasma, deep indigo background, volumetric god-rays, hyper-detailed cellular membrane texture"
+- Heart disease → "Cross-section of a human heart showing a partially blocked coronary artery with cholesterol plaque buildup in vivid detail, warm red tones with deep shadow, medical illustration style, dramatic side lighting"
+- Nutrition article about omega-3 → "Macro shot of a fresh salmon fillet revealing its internal fat marbling, surrounded by omega-3 molecular structures as glowing blue geometric shapes, dark emerald background, studio lighting"
+- Antibiotic resistance → "3D microscopic visualization of MRSA bacteria (golden spheres) resisting antibiotic molecules (blue crystalline structures) that shatter on contact, dark background with bioluminescent glow"
+
+Write a single detailed prompt (3-5 sentences). English only. Return ONLY the prompt text.`
         },
         {
           role: "user",
-          content: `Article title: ${title}\n\nArticle content:\n${content.substring(0, 1500)}`
+          content: `Article title: ${title}\n\nArticle content:\n${content.substring(0, 2500)}`
         }
       ],
-      max_completion_tokens: 500,
-      temperature: 0.5,
+      max_completion_tokens: 700,
+      temperature: 0.7,
     });
 
     return response.choices[0]?.message?.content?.trim() || 
-      "Close-up 3D render of a stethoscope and medical pill capsules on a glossy surface. Deep teal gradient background. Dramatic studio lighting with rim light and reflections.";
+      "Macro 3D render of a glowing human heart cross-section with visible arteries pulsing with translucent red blood flow. Deep navy to emerald gradient background with volumetric lighting. Hyper-detailed cellular texture with bioluminescent rim light.";
   } catch (error) {
     console.error("Error generating prompt:", error);
-    return "Close-up 3D render of a stethoscope and medical pill capsules on a glossy surface. Deep teal gradient background. Dramatic studio lighting with rim light and reflections.";
+    return "Macro 3D render of a glowing human heart cross-section with visible arteries pulsing with translucent red blood flow. Deep navy to emerald gradient background with volumetric lighting. Hyper-detailed cellular texture with bioluminescent rim light.";
   }
 }
 
