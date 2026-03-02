@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Heart, User, Home, BookOpen, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown } from "lucide-react";
+import { Menu, X, Heart, Home, BookOpen, Newspaper, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -11,7 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/hooks/useAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import logoImage from "@assets/LOGO-L_1769253692563.png";
 
@@ -29,15 +28,9 @@ const categories = [
 export default function Header() {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isAuthenticated, user } = useAuth();
 
   const navItems = [
     { label: "الرئيسية", path: "/", icon: Home },
-    ...(isAuthenticated ? [
-      { label: "المساعد الصحي", path: "/assistant", icon: Heart },
-      { label: "التغذية", path: "/nutrition", icon: Apple },
-      { label: "ملفي الصحي", path: "/profile", icon: Activity },
-    ] : []),
     { label: "المقالات", path: "/articles", icon: BookOpen },
     { label: "الأخبار", path: "/news", icon: Newspaper },
   ];
@@ -110,35 +103,6 @@ export default function Header() {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          {isAuthenticated ? (
-            <>
-              <Button variant="ghost" size="icon" className="hidden md:flex" data-testid="button-settings">
-                <Settings className="h-5 w-5" />
-              </Button>
-              <Button variant="outline" className="hidden md:flex gap-2" data-testid="button-profile">
-                <User className="h-4 w-4" />
-                {user?.firstName || user?.email || "حسابي"}
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="hidden md:flex" 
-                onClick={() => window.location.href = "/api/logout"}
-                data-testid="button-logout"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
-            </>
-          ) : (
-            <Button 
-              variant="default"
-              className="hidden md:flex"
-              onClick={() => window.location.href = "/api/login"}
-              data-testid="button-login-header"
-            >
-              تسجيل الدخول
-            </Button>
-          )}
 
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild className="md:hidden">
@@ -195,38 +159,6 @@ export default function Header() {
                       );
                     })}
                   </div>
-                </div>
-                <div className="mt-4 flex flex-col gap-2 border-t pt-4">
-                  {isAuthenticated ? (
-                    <>
-                      <Button variant="outline" className="w-full gap-2" data-testid="button-mobile-profile">
-                        <User className="h-4 w-4" />
-                        {user?.firstName || user?.email || "حسابي"}
-                      </Button>
-                      <Button variant="ghost" className="w-full gap-2" data-testid="button-mobile-settings">
-                        <Settings className="h-4 w-4" />
-                        الإعدادات
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        className="w-full gap-2" 
-                        onClick={() => window.location.href = "/api/logout"}
-                        data-testid="button-mobile-logout"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        تسجيل الخروج
-                      </Button>
-                    </>
-                  ) : (
-                    <Button 
-                      variant="default"
-                      className="w-full"
-                      onClick={() => window.location.href = "/api/login"}
-                      data-testid="button-mobile-login"
-                    >
-                      تسجيل الدخول
-                    </Button>
-                  )}
                 </div>
               </div>
             </SheetContent>
