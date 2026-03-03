@@ -483,12 +483,25 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
   const styleRules = `\n\nSTRICT RULES: No text, letters, numbers, watermarks, or writing of any kind. No human figures, faces, or hands. No corporate business clichés (no charts, gears, arrows). Photorealistic editorial quality, magazine cover standard.`;
   const fullPrompt = `${options.prompt}${styleRules}`;
 
-  // PRIMARY: gpt-image-1 via Replit AI Integrations (best quality)
+  // PRIMARY: Nano Banana 2 (gemini-3.1-flash-image-preview) via direct Google API key
+  const googleApiKey = process.env.GOOGLE_API_KEY;
+  if (googleApiKey) {
+    try {
+      console.log("Generating image via Nano Banana 2 (primary)...");
+      const result = await callGeminiImageGeneration(googleApiKey, fullPrompt);
+      if (result.success) return result;
+      console.warn("Nano Banana 2 failed:", result.error);
+    } catch (error: any) {
+      console.warn("Nano Banana 2 error, trying fallbacks:", error.message);
+    }
+  }
+
+  // FALLBACK 1: gpt-image-1 via Replit AI Integrations
   const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const openaiBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   if (openaiApiKey && openaiBaseUrl) {
     try {
-      console.log("Generating image via gpt-image-1 (primary)...");
+      console.log("Generating image via gpt-image-1 (fallback 1)...");
       const { default: OpenAI } = await import('openai');
       const client = new OpenAI({ apiKey: openaiApiKey, baseURL: openaiBaseUrl });
       const response = await client.images.generate({
@@ -504,20 +517,7 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
         return { success: true, imageBuffer, imageMimeType: 'image/png', revisedPrompt: fullPrompt, generationTimeMs: Date.now() - startTime };
       }
     } catch (error: any) {
-      console.warn("gpt-image-1 failed, trying Nano Banana 2:", error.message);
-    }
-  }
-
-  // FALLBACK 1: Nano Banana 2 (gemini-3.1-flash-image-preview) via direct Google API key
-  const googleApiKey = process.env.GOOGLE_API_KEY;
-  if (googleApiKey) {
-    try {
-      console.log("Generating image via Nano Banana 2 (fallback 1)...");
-      const result = await callGeminiImageGeneration(googleApiKey, fullPrompt);
-      if (result.success) return result;
-      console.warn("Nano Banana 2 failed:", result.error);
-    } catch (error: any) {
-      console.warn("Nano Banana 2 error, trying Replit Gemini:", error.message);
+      console.warn("gpt-image-1 failed, trying Replit Gemini:", error.message);
     }
   }
 
