@@ -43,6 +43,7 @@ function Router() {
       {!isAuthenticated ? (
         <>
           <Route path="/" component={Landing} />
+          <Route path="/nutrition" component={Nutrition} />
           <Route path="/articles" component={Articles} />
           <Route path="/news" component={News} />
           <Route path="/news/:id" component={NewsDetail} />
