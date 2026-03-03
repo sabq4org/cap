@@ -452,10 +452,11 @@ async function callGeminiImageGeneration(apiKey: string, prompt: string, baseUrl
 export async function generateImage(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
   const startTime = Date.now();
 
-  const illustrativeStyle = `\n\nSTYLE REQUIREMENTS (strictly follow this visual style):
-Flat vector editorial illustration in the style of premium health/tech infographic art. Soft muted color palette: steel blue, slate gray, pearl white, subtle warm gold accents, cool mint. Low-poly geometric background with subtle triangle mesh pattern. Elements connected by thin glowing circuit lines. Icons displayed inside frosted glass circles. Optional: small stylized human silhouettes in the foreground viewing a holographic display. City skyline silhouette in the background. Semi-transparent layered elements. Soft ambient lighting with no harsh shadows. Clean, professional, editorial magazine quality. 16:9 landscape format.
-
-ABSOLUTE RULE: ZERO text, words, letters, numbers, labels, watermarks, or writing of any kind anywhere in the image.`;
+  const illustrativeStyle = `\n\nFINAL RULES (override anything above if conflict):
+- ABSOLUTELY NO text, words, letters, numbers, labels, captions, watermarks, or writing of any kind in any language anywhere in the image
+- NO human figures, faces, hands, or any body parts belonging to people
+- NO generic corporate business imagery
+- Render quality: photorealistic editorial illustration, magazine cover quality, 16:9 landscape aspect ratio`;
   const fullPrompt = `${options.prompt}\n\n${illustrativeStyle}`;
 
   const googleApiKey = process.env.GOOGLE_API_KEY;
@@ -504,32 +505,36 @@ export async function generatePromptFromContent(
       messages: [
         {
           role: "system",
-          content: `You are a creative director for a premium Arabic health news portal. Your job is to craft an image generation prompt that matches a very specific visual style.
+          content: `You are a creative director for a premium Arabic health news portal. Your job is to craft a vivid, expressive image generation prompt that perfectly illustrates the article's topic.
 
-THE STYLE (you MUST match this exactly):
-Flat vector editorial illustration. Soft muted colors: steel blue, slate gray, pearl white, warm gold accents, cool mint green. Low-poly geometric triangle mesh background. Medical/health concept icons placed inside frosted glass circles, connected by thin glowing circuit lines. Optional small stylized human silhouettes in the foreground. City skyline silhouette faintly visible in the background. Layered semi-transparent elements. Clean, professional, premium editorial look.
+ANALYSIS PROCESS:
+1. Read the article carefully and identify: the EXACT medical topic, the key theme (discovery, warning, treatment, prevention, research, etc.), and any specific objects, organs, or substances mentioned.
+2. Choose the MOST EXPRESSIVE visual representation - something that tells the story at a glance.
+3. Think: what would a world-class editorial illustrator draw for this article?
 
-YOUR TASK:
-1. Read the article and identify the MAIN health topic (specific disease, treatment, nutrition, research, etc.)
-2. Select 3-4 relevant health icons/symbols that represent this topic (e.g., for heart disease: heart, ECG wave, blood vessel, stethoscope — all as flat vector icons inside circles)
-3. Describe how these icons connect to form the scene
+STYLE MANDATE: Photorealistic or semi-photorealistic editorial illustration. Rich, deep colors. High-quality 3D rendering aesthetic. Professional magazine cover quality.
 
 CONTENT RULES:
-- Describe the specific health-related icons that should appear in the circles
-- Mention the central dominant icon/concept
-- Include what background elements suit this topic (hospital, nature, tech lab, human body outline, etc.)
-- Keep the overall composition balanced and editorial
+- Describe ONE powerful central subject that directly represents the article
+- Include the emotional/narrative tone (urgent, hopeful, scientific, etc.)
+- Use specific medical/scientific objects: specific organs, cells, molecules, medical devices, specific foods, specific body parts
+- Add environmental context when helpful (inside a body, laboratory setting, natural setting)
+- Specify lighting for maximum drama and clarity
 
-FORBIDDEN in the image:
-- Any text, letters, numbers, labels, watermarks
-- Brand names, flags, logos
+FORBIDDEN:
+- People, faces, hands, human figures
+- Text, letters, numbers, labels, watermarks
+- Generic icons (stethoscope alone, DNA helix alone without context)
+- Corporate/business imagery (charts, graphs, arrows, gears, scales)
+- Flags, logos, brand names
 
-EXAMPLES:
-- Diabetes article → "Flat vector editorial scene with frosted glass circles containing: a blood glucose meter icon, a pancreas organ icon, an insulin syringe icon, and a healthy food plate icon — all connected by thin glowing teal circuit lines. Central large circle glows softly in gold. Low-poly steel blue triangle mesh background. Faint city skyline. Small stylized silhouettes of people at the bottom."
-- Heart disease → "Flat vector scene with interconnected frosted circles showing: an anatomical heart icon, an ECG wave icon, a blood drop icon, and a hospital cross icon — connected by blue circuit lines. Soft gradient from slate blue to pearl white background with low-poly triangles. Subtle city silhouette at the base."
-- Nutrition article → "Flat vector illustration with frosted circles containing: a salad bowl icon, a vitamin capsule icon, a DNA strand icon, and a scale icon — connected with warm gold circuit lines. Mint green and white low-poly background. Small human silhouettes in foreground."
+GREAT EXAMPLES:
+- Diabetes article → "Macro 3D render of a human pancreatic cell releasing golden insulin molecules into the bloodstream, shown as glowing amber spheres floating in translucent red plasma, deep indigo background, volumetric god-rays, hyper-detailed cellular membrane texture"
+- Heart disease → "Cross-section of a human heart showing a partially blocked coronary artery with cholesterol plaque buildup in vivid detail, warm red tones with deep shadow, medical illustration style, dramatic side lighting"
+- Nutrition article about omega-3 → "Macro shot of a fresh salmon fillet revealing its internal fat marbling, surrounded by omega-3 molecular structures as glowing blue geometric shapes, dark emerald background, studio lighting"
+- Antibiotic resistance → "3D microscopic visualization of MRSA bacteria (golden spheres) resisting antibiotic molecules (blue crystalline structures) that shatter on contact, dark background with bioluminescent glow"
 
-Write one detailed prompt (3-5 sentences). English only. Return ONLY the prompt text.`
+Write a single detailed prompt (3-5 sentences). English only. Return ONLY the prompt text.`
         },
         {
           role: "user",
@@ -541,10 +546,10 @@ Write one detailed prompt (3-5 sentences). English only. Return ONLY the prompt 
     });
 
     return response.choices[0]?.message?.content?.trim() || 
-      "Flat vector editorial illustration with frosted glass circles containing a stethoscope icon, a heart icon, a medical cross icon, and a pill capsule icon — all connected by thin glowing teal circuit lines. Central circle is larger and glows softly in warm gold. Low-poly steel blue and slate gray triangle mesh background. Faint city skyline silhouette. Small stylized human silhouettes standing in the foreground.";
+      "Macro 3D render of a glowing human heart cross-section with visible arteries pulsing with translucent red blood flow. Deep navy to emerald gradient background with volumetric lighting. Hyper-detailed cellular texture with bioluminescent rim light.";
   } catch (error) {
     console.error("Error generating prompt:", error);
-    return "Flat vector editorial illustration with frosted glass circles containing a stethoscope icon, a heart icon, a medical cross icon, and a pill capsule icon — all connected by thin glowing teal circuit lines. Central circle is larger and glows softly in warm gold. Low-poly steel blue and slate gray triangle mesh background. Faint city skyline silhouette. Small stylized human silhouettes standing in the foreground.";
+    return "Macro 3D render of a glowing human heart cross-section with visible arteries pulsing with translucent red blood flow. Deep navy to emerald gradient background with volumetric lighting. Hyper-detailed cellular texture with bioluminescent rim light.";
   }
 }
 
