@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Heart, User, Home, BookOpen, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown } from "lucide-react";
+import { Menu, X, Heart, User, Home, BookOpen, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -31,15 +31,17 @@ export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAuthenticated, user } = useAuth();
 
-  const navItems = [
-    { label: "الرئيسية", path: "/", icon: Home },
-    ...(isAuthenticated ? [
-      { label: "المساعد الصحي", path: "/assistant", icon: Heart },
-      { label: "التغذية", path: "/nutrition", icon: Apple },
-      { label: "ملفي الصحي", path: "/profile", icon: Activity },
-    ] : []),
-    { label: "المقالات", path: "/articles", icon: BookOpen },
-    { label: "الأخبار", path: "/news", icon: Newspaper },
+  const navItems = isAuthenticated ? [
+    { label: "الرئيسية", path: "/", icon: Newspaper, activePaths: ["/", "/news"] },
+    { label: "بوابتي الصحية", path: "/portal", icon: LayoutDashboard, activePaths: ["/portal"] },
+    { label: "المساعد الصحي", path: "/assistant", icon: Heart, activePaths: ["/assistant"] },
+    { label: "التغذية", path: "/nutrition", icon: Apple, activePaths: ["/nutrition"] },
+    { label: "ملفي الصحي", path: "/profile", icon: Activity, activePaths: ["/profile"] },
+    { label: "المقالات", path: "/articles", icon: BookOpen, activePaths: ["/articles"] },
+  ] : [
+    { label: "الرئيسية", path: "/", icon: Home, activePaths: ["/"] },
+    { label: "المقالات", path: "/articles", icon: BookOpen, activePaths: ["/articles"] },
+    { label: "الأخبار", path: "/news", icon: Newspaper, activePaths: ["/news"] },
   ];
 
   return (
@@ -52,7 +54,7 @@ export default function Header() {
         <nav className="hidden md:flex items-center gap-1" data-testid="nav-desktop">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location === item.path;
+            const isActive = item.activePaths.includes(location);
             return (
               <Link key={item.path} href={item.path}>
                 <Button
@@ -158,7 +160,7 @@ export default function Header() {
                 <nav className="flex flex-col gap-2">
                   {navItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = location === item.path;
+                    const isActive = item.activePaths.includes(location);
                     return (
                       <Link key={item.path} href={item.path}>
                         <Button
