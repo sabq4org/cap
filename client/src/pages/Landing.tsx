@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ const healthTips = [
 ];
 
 export default function Landing() {
+  const { isAuthenticated } = useAuth();
   const { data: news, isLoading: newsLoading } = useQuery<News[]>({
     queryKey: ["/api/news"],
   });
@@ -329,21 +331,58 @@ export default function Landing() {
           )}
         </div>
 
-        <div className="bg-gradient-to-l from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-lg p-6 md:p-8 text-center">
-          <h2 className="text-xl md:text-2xl font-bold mb-3">
-            هل تريد متابعة صحتك بشكل أفضل؟
-          </h2>
-          <p className="text-muted-foreground mb-4 max-w-xl mx-auto">
-            سجّل دخولك للوصول إلى المساعد الصحي الذكي، متتبع المؤشرات الحيوية، ومتتبع التغذية
-          </p>
-          <Button 
-            size="lg"
-            onClick={() => window.location.href = "/api/login"}
-            data-testid="button-login"
-          >
-            سجّل الدخول الآن
-          </Button>
-        </div>
+        {isAuthenticated ? (
+          <div className="bg-gradient-to-l from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-lg p-6 md:p-8">
+            <h2 className="text-xl md:text-2xl font-bold mb-6 text-center">خدماتك الصحية</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Link href="/assistant">
+                <Button variant="outline" className="w-full h-16 flex flex-col gap-1 text-sm" data-testid="button-quick-assistant">
+                  <Heart className="h-5 w-5 text-primary" />
+                  المساعد الصحي
+                </Button>
+              </Link>
+              <Link href="/nutrition">
+                <Button variant="outline" className="w-full h-16 flex flex-col gap-1 text-sm" data-testid="button-quick-nutrition">
+                  <Apple className="h-5 w-5 text-primary" />
+                  متتبع التغذية
+                </Button>
+              </Link>
+              <Link href="/profile">
+                <Button variant="outline" className="w-full h-16 flex flex-col gap-1 text-sm" data-testid="button-quick-profile">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  ملفي الصحي
+                </Button>
+              </Link>
+              <Link href="/articles">
+                <Button variant="outline" className="w-full h-16 flex flex-col gap-1 text-sm" data-testid="button-quick-articles">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  المقالات
+                </Button>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-gradient-to-l from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-lg p-6 md:p-8 text-center">
+            <h2 className="text-xl md:text-2xl font-bold mb-3">
+              هل تريد متابعة صحتك بشكل أفضل؟
+            </h2>
+            <p className="text-muted-foreground mb-4 max-w-xl mx-auto">
+              سجّل دخولك للوصول إلى المساعد الصحي الذكي، متتبع المؤشرات الحيوية، ومتتبع التغذية
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Link href="/register">
+                <Button size="lg" data-testid="button-register-cta">
+                  إنشاء حساب مجاناً
+                </Button>
+              </Link>
+              <Link href="/login">
+                <Button size="lg" variant="outline" data-testid="button-login">
+                  تسجيل الدخول
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
