@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Newspaper, Search, Clock, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { AIImageBadge } from "@/components/AIImageBadge";
 import type { News as NewsType } from "@shared/schema";
 import newsImage1 from "@assets/stock_images/medical_health_healt_fdb22ee1.jpg";
 import newsImage2 from "@assets/stock_images/medical_health_healt_2bc2bc37.jpg";
@@ -199,11 +200,14 @@ export default function News() {
                     className="hover-elevate cursor-pointer transition-all overflow-hidden h-full"
                     data-testid={`news-card-${item.id}`}
                   >
-                    <img 
-                      src={item.imageUrl || newsImages[index % newsImages.length]} 
-                      alt={item.title}
-                      className="w-full h-32 md:h-36 object-cover"
-                    />
+                    <div className="relative">
+                      <img 
+                        src={item.imageUrl || newsImages[index % newsImages.length]} 
+                        alt={item.title}
+                        className="w-full h-32 md:h-36 object-cover"
+                      />
+                      <AIImageBadge imageUrl={item.imageUrl} size="sm" />
+                    </div>
                     <CardContent className="p-3" dir="rtl">
                       <Badge 
                         className={`${categoryColors[item.category] || ""} text-sm mb-2`}

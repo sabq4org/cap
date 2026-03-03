@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Star
 } from "lucide-react";
+import { AIImageBadge } from "@/components/AIImageBadge";
 import defaultNewsImage from "@assets/stock_images/healthcare_medical_n_906373b9.jpg";
 import newsImage1 from "@assets/stock_images/medical_health_healt_fdb22ee1.jpg";
 import newsImage2 from "@assets/stock_images/medical_health_healt_2bc2bc37.jpg";
@@ -124,6 +125,7 @@ export default function Landing() {
                             alt={item.title}
                             className="absolute inset-0 w-full h-full object-cover"
                           />
+                          <AIImageBadge imageUrl={item.imageUrl} size="md" />
                         </div>
                         <div className="p-4 md:p-6 flex flex-col justify-center order-2 min-h-[300px] md:min-h-[400px]">
                           <Badge className={`${categoryColors[item.category] || ""} w-fit mb-3 text-sm`}>
@@ -215,11 +217,14 @@ export default function Landing() {
               {latestNews.map((item, index) => (
                 <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
                   <Card className="hover-elevate overflow-hidden cursor-pointer h-full" data-testid={`card-latest-news-${item.id}`}>
-                    <img 
-                      src={item.imageUrl || newsImages[index % newsImages.length]} 
-                      alt={item.title}
-                      className="w-full h-24 md:h-28 object-cover"
-                    />
+                    <div className="relative">
+                      <img 
+                        src={item.imageUrl || newsImages[index % newsImages.length]} 
+                        alt={item.title}
+                        className="w-full h-24 md:h-28 object-cover"
+                      />
+                      <AIImageBadge imageUrl={item.imageUrl} size="sm" />
+                    </div>
                     <CardContent className="p-3">
                       <Badge className={`${categoryColors[item.category] || ""} text-sm mb-2`}>
                         {categoryLabels[item.category] || item.category}

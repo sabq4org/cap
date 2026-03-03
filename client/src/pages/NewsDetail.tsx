@@ -41,6 +41,7 @@ import {
   TrendingUp
 } from "lucide-react";
 import { SiX, SiWhatsapp } from "react-icons/si";
+import { AIImageBadge } from "@/components/AIImageBadge";
 import type { News } from "@shared/schema";
 import newsImage1 from "@assets/stock_images/medical_health_healt_fdb22ee1.jpg";
 import newsImage2 from "@assets/stock_images/medical_health_healt_2bc2bc37.jpg";
@@ -349,6 +350,7 @@ export default function NewsDetail() {
                   className="w-full h-auto"
                   data-testid="img-news-cover"
                 />
+                <AIImageBadge imageUrl={news.imageUrl} size="md" />
                 {news.imageAlt && (
                   <figcaption className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent p-4">
                     <div className="flex items-center gap-2 text-white/90">
