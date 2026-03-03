@@ -449,47 +449,94 @@ async function callGeminiImageGeneration(apiKey: string, prompt: string, baseUrl
   return { success: true, imageBuffer, imageMimeType: 'image/png', revisedPrompt: prompt, generationTimeMs };
 }
 
+async function cropTo16x9(imageBuffer: Buffer): Promise<Buffer> {
+  try {
+    const sharp = (await import('sharp')).default;
+    const metadata = await sharp(imageBuffer).metadata();
+    if (metadata.width && metadata.height) {
+      const targetRatio = 16 / 9;
+      const currentRatio = metadata.width / metadata.height;
+      let cropWidth = metadata.width;
+      let cropHeight = metadata.height;
+      if (currentRatio < targetRatio) {
+        cropHeight = Math.round(metadata.width / targetRatio);
+      } else {
+        cropWidth = Math.round(metadata.height * targetRatio);
+      }
+      const left = Math.round((metadata.width - cropWidth) / 2);
+      const top = Math.round((metadata.height - cropHeight) / 2);
+      return await sharp(imageBuffer)
+        .extract({ left, top, width: cropWidth, height: cropHeight })
+        .resize(1280, 720)
+        .png()
+        .toBuffer();
+    }
+  } catch (err) {
+    console.error("Crop error (using original):", err);
+  }
+  return imageBuffer;
+}
+
 export async function generateImage(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
   const startTime = Date.now();
 
-  const illustrativeStyle = `\n\nFINAL RULES (override anything above if conflict):
-- ABSOLUTELY NO text, words, letters, numbers, labels, captions, watermarks, or writing of any kind in any language anywhere in the image
-- NO human figures, faces, hands, or any body parts belonging to people
-- NO generic corporate business imagery
-- Render quality: photorealistic editorial illustration, magazine cover quality, 16:9 landscape aspect ratio`;
-  const fullPrompt = `${options.prompt}\n\n${illustrativeStyle}`;
+  const styleRules = `\n\nSTRICT RULES: No text, letters, numbers, watermarks, or writing of any kind. No human figures, faces, or hands. No corporate business clichés (no charts, gears, arrows). Photorealistic editorial quality, magazine cover standard.`;
+  const fullPrompt = `${options.prompt}${styleRules}`;
 
-  const googleApiKey = process.env.GOOGLE_API_KEY;
-  if (googleApiKey) {
+  // PRIMARY: gpt-image-1 via Replit AI Integrations (best quality)
+  const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const openaiBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  if (openaiApiKey && openaiBaseUrl) {
     try {
-      console.log("Generating image via GOOGLE_API_KEY (direct)...");
-      const result = await callGeminiImageGeneration(googleApiKey, fullPrompt);
-      if (result.success) return result;
-      console.warn("GOOGLE_API_KEY failed:", result.error);
+      console.log("Generating image via gpt-image-1 (primary)...");
+      const { default: OpenAI } = await import('openai');
+      const client = new OpenAI({ apiKey: openaiApiKey, baseURL: openaiBaseUrl });
+      const response = await client.images.generate({
+        model: "gpt-image-1",
+        prompt: fullPrompt,
+        size: "1536x1024",
+      });
+      const base64 = (response.data[0] as any)?.b64_json;
+      if (base64) {
+        let imageBuffer = Buffer.from(base64, 'base64');
+        imageBuffer = await cropTo16x9(imageBuffer);
+        console.log("gpt-image-1 generation successful");
+        return { success: true, imageBuffer, imageMimeType: 'image/png', revisedPrompt: fullPrompt, generationTimeMs: Date.now() - startTime };
+      }
     } catch (error: any) {
-      console.warn("GOOGLE_API_KEY error, falling back to Replit AI Integrations:", error.message);
+      console.warn("gpt-image-1 failed, trying Nano Banana 2:", error.message);
     }
   }
 
+  // FALLBACK 1: Nano Banana 2 (gemini-3.1-flash-image-preview) via direct Google API key
+  const googleApiKey = process.env.GOOGLE_API_KEY;
+  if (googleApiKey) {
+    try {
+      console.log("Generating image via Nano Banana 2 (fallback 1)...");
+      const result = await callGeminiImageGeneration(googleApiKey, fullPrompt);
+      if (result.success) return result;
+      console.warn("Nano Banana 2 failed:", result.error);
+    } catch (error: any) {
+      console.warn("Nano Banana 2 error, trying Replit Gemini:", error.message);
+    }
+  }
+
+  // FALLBACK 2: Gemini via Replit AI Integrations
   const replitGeminiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
   const replitGeminiUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
   if (replitGeminiKey && replitGeminiUrl) {
     try {
-      console.log("Generating image via Replit AI Integrations (fallback)...");
+      console.log("Generating image via Replit Gemini (fallback 2)...");
       return await callGeminiImageGeneration(replitGeminiKey, fullPrompt, replitGeminiUrl, "gemini-2.5-flash-image");
     } catch (error: any) {
-      console.error("Replit AI Integrations error:", error.message);
-      return {
-        success: false,
-        error: error.message || "فشل في توليد الصورة",
-        generationTimeMs: Date.now() - startTime,
-      };
+      console.error("All image generation methods failed:", error.message);
+      return { success: false, error: error.message || "فشل في توليد الصورة", generationTimeMs: Date.now() - startTime };
     }
   }
 
   return {
     success: false,
-    error: "لا يوجد مفتاح API لتوليد الصور. يرجى إعداد GOOGLE_API_KEY أو تكامل Gemini",
+    error: "لا يوجد مفتاح API لتوليد الصور",
     generationTimeMs: Date.now() - startTime,
   };
 }
@@ -501,7 +548,7 @@ export async function generatePromptFromContent(
 ): Promise<string> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",

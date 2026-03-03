@@ -2921,12 +2921,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "العنوان أو المحتوى مطلوب لتوليد الصورة" });
       }
 
-      const promptText = content ? content.substring(0, 1000) : title;
+      const promptText = content || title || '';
       const imagePrompt = await generatePromptFromContent(
         title || '',
         promptText,
         style || 'artistic'
       );
+      console.log("[Image Generation] Generated prompt:", imagePrompt);
 
       const result = await generateImage({ prompt: imagePrompt });
 
