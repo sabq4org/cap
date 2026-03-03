@@ -143,6 +143,17 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // Admin panel sessions are always authenticated - inject synthetic user
+  if ((req.session as any).adminAuthenticated) {
+    if (!req.user) {
+      (req as any).user = {
+        claims: { sub: "admin" },
+        localAuth: true,
+      };
+    }
+    return next();
+  }
+
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user) {

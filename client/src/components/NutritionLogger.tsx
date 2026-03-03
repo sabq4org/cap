@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Plus, Apple, Flame, Beef, Wheat, Droplets, Trash2, LogIn } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ function formatTime(date: string | Date) {
 
 export default function NutritionLogger() {
   const { toast } = useToast();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     mealName: "",
@@ -47,6 +49,7 @@ export default function NutritionLogger() {
       return res.json();
     },
     retry: false,
+    enabled: isAuthenticated,
   });
 
   const addMutation = useMutation({
@@ -76,7 +79,7 @@ export default function NutritionLogger() {
     addMutation.mutate(form);
   };
 
-  if (error?.message === "unauthorized") {
+  if (!authLoading && !isAuthenticated) {
     return (
       <Card className="w-full max-w-2xl">
         <CardContent className="flex flex-col items-center justify-center py-16 gap-4 text-center">
@@ -85,9 +88,14 @@ export default function NutritionLogger() {
           </div>
           <h3 className="text-lg font-semibold">تسجيل الدخول مطلوب</h3>
           <p className="text-muted-foreground text-sm">سجّل دخولك لتتبع تغذيتك اليومية وحفظ وجباتك</p>
-          <Button asChild className="mt-2">
-            <Link href="/api/auth/login">تسجيل الدخول</Link>
-          </Button>
+          <div className="flex gap-3 mt-2">
+            <Button asChild>
+              <Link href="/login">تسجيل الدخول</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/register">إنشاء حساب</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );

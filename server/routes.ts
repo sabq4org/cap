@@ -1611,12 +1611,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   ];
 
   // Admin login endpoint
-  app.post('/api/admin/login', (req, res) => {
+  app.post('/api/admin/login', async (req, res) => {
     const { username, password } = req.body;
     
     // Simple admin authentication
     if (username === "admin" && password === "capsule2025") {
       (req.session as any).adminAuthenticated = true;
+      // Ensure admin user record exists in DB for FK references
+      try {
+        const existing = await storage.getUser("admin");
+        if (!existing) {
+          await storage.upsertUser({
+            id: "admin",
+            email: "admin@capsulah.com",
+            firstName: "مدير",
+            lastName: "النظام",
+            role: "super_admin",
+            authProvider: "local",
+          });
+        }
+      } catch (e) {
+        console.error("Admin user seed error:", e);
+      }
       req.session.save((err) => {
         if (err) console.error("Session save error:", err);
         return res.json({ success: true, message: "تم تسجيل الدخول بنجاح" });
