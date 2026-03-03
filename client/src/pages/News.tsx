@@ -148,7 +148,7 @@ export default function News() {
           </div>
           <p className="text-muted-foreground text-lg">
             آخر الأخبار والتطورات في المجال الطبي والصحي
-            {total > 0 && <span className="text-sm mr-2">({total} خبر)</span>}
+            {total > 0 && <span className="text-sm me-2">({total} خبر)</span>}
           </p>
         </div>
 

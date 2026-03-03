@@ -207,7 +207,7 @@ export default function NutritionLogger() {
               <Flame className="h-5 w-5 text-primary" />
               <span className="font-semibold">السعرات اليومية</span>
             </div>
-            <div className="text-left" dir="ltr">
+            <div className="text-start" dir="ltr">
               <span className="text-2xl font-bold">{totalCalories}</span>
               <span className="text-muted-foreground"> / {TARGET_CALORIES}</span>
             </div>

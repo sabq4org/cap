@@ -212,6 +212,8 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    direction: rtl;
+    text-align: right;
   }
 }
 

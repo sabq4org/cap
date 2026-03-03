@@ -45,7 +45,7 @@ export default function Privacy() {
             <p className="text-sm md:text-base text-muted-foreground leading-relaxed mb-4">
               قد نقوم تلقائيًا بجمع بعض المعلومات غير الشخصية لأغراض تحليلية وتحسين تجربة الاستخدام، مثل:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-sm md:text-base text-muted-foreground mr-4">
+            <ul className="list-disc list-inside space-y-2 text-sm md:text-base text-muted-foreground ms-4">
               <li>نوع المتصفح وإصداره</li>
               <li>الجهاز المستخدم</li>
               <li>الصفحات التي تمت زيارتها</li>

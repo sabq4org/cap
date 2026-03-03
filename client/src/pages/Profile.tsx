@@ -124,7 +124,7 @@ export default function Profile() {
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold">متتبعاتي الصحية</h2>
                   <Button variant="default" size="sm" data-testid="button-add-tracker">
-                    <Plus className="h-4 w-4 ml-2" />
+                    <Plus className="h-4 w-4 me-2" />
                     إضافة قياس
                   </Button>
                 </div>

@@ -72,7 +72,7 @@ export default function SymptomChecker() {
             <p className="text-base leading-relaxed">
               بناءً على الأعراض التي ذكرتها، ننصحك بما يلي:
             </p>
-            <ul className="space-y-2 mr-4">
+            <ul className="space-y-2 ms-4">
               <li className="flex items-start gap-2">
                 <div className="h-1.5 w-1.5 rounded-full bg-primary mt-2" />
                 <span>مراقبة الأعراض بعناية خلال الـ 24-48 ساعة القادمة</span>
