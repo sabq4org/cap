@@ -111,11 +111,11 @@ export default function Profile() {
 
           <Tabs defaultValue="vitals" className="w-full">
             <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
-              <TabsTrigger value="vitals" data-testid="tab-vitals">
-                المؤشرات الحيوية
-              </TabsTrigger>
               <TabsTrigger value="symptoms" data-testid="tab-symptoms">
                 فاحص الأعراض
+              </TabsTrigger>
+              <TabsTrigger value="vitals" data-testid="tab-vitals">
+                المؤشرات الحيوية
               </TabsTrigger>
             </TabsList>
 
