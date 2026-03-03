@@ -67,6 +67,9 @@ export interface IStorage {
   // User operations - mandatory for Replit Auth
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createLocalUser(data: { email: string; passwordHash: string; firstName: string; lastName?: string | null; authProvider?: string }): Promise<User>;
+  updateUserLastLogin(userId: string): Promise<void>;
 
   // Health profile operations
   getHealthProfile(userId: string): Promise<HealthProfile | undefined>;
@@ -160,6 +163,28 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createLocalUser(data: { email: string; passwordHash: string; firstName: string; lastName?: string | null; authProvider?: string }): Promise<User> {
+    const [user] = await db.insert(users).values({
+      email: data.email,
+      passwordHash: data.passwordHash,
+      firstName: data.firstName,
+      lastName: data.lastName ?? null,
+      authProvider: data.authProvider ?? "local",
+      role: "subscriber",
+      isActive: true,
+    }).returning();
+    return user;
+  }
+
+  async updateUserLastLogin(userId: string): Promise<void> {
+    await db.update(users).set({ lastLoginAt: new Date(), updatedAt: new Date() }).where(eq(users.id, userId));
   }
 
   // Health profile operations

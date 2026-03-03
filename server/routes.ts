@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupLocalAuth, registerLocalAuthRoutes } from "./localAuth";
 import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, generateInfographicPrompt, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle } from "./openai";
 import { 
   insertGenerationSettingsSchema, 
@@ -201,6 +202,8 @@ function generateShortCode(): string {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   await setupAuth(app);
+  setupLocalAuth(app);
+  registerLocalAuthRoutes(app);
 
   // Setup object storage routes for file uploads
   registerObjectStorageRoutes(app);

@@ -25,6 +25,8 @@ import AdminUsers from "@/pages/AdminUsers";
 import AdminRadar from "@/pages/AdminRadar";
 import AdminInfographic from "@/pages/AdminInfographic";
 import AdminGenerationSettings from "@/pages/AdminGenerationSettings";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -43,6 +45,8 @@ function Router() {
       {!isAuthenticated ? (
         <>
           <Route path="/" component={Landing} />
+          <Route path="/login" component={Login} />
+          <Route path="/register" component={Register} />
           <Route path="/nutrition" component={Nutrition} />
           <Route path="/articles" component={Articles} />
           <Route path="/news" component={News} />

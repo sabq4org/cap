@@ -130,14 +130,18 @@ export default function Header() {
               </Button>
             </>
           ) : (
-            <Button 
-              variant="default"
-              className="hidden md:flex"
-              onClick={() => window.location.href = "/api/login"}
-              data-testid="button-login-header"
-            >
-              تسجيل الدخول
-            </Button>
+            <div className="hidden md:flex items-center gap-2">
+              <Link href="/login">
+                <Button variant="ghost" data-testid="button-login-header">
+                  تسجيل الدخول
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button variant="default" data-testid="button-register-header">
+                  إنشاء حساب
+                </Button>
+              </Link>
+            </div>
           )}
 
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -218,14 +222,18 @@ export default function Header() {
                       </Button>
                     </>
                   ) : (
-                    <Button 
-                      variant="default"
-                      className="w-full"
-                      onClick={() => window.location.href = "/api/login"}
-                      data-testid="button-mobile-login"
-                    >
-                      تسجيل الدخول
-                    </Button>
+                    <>
+                      <Link href="/login" onClick={() => setMobileOpen(false)}>
+                        <Button variant="outline" className="w-full" data-testid="button-mobile-login">
+                          تسجيل الدخول
+                        </Button>
+                      </Link>
+                      <Link href="/register" onClick={() => setMobileOpen(false)}>
+                        <Button variant="default" className="w-full" data-testid="button-mobile-register">
+                          إنشاء حساب جديد
+                        </Button>
+                      </Link>
+                    </>
                   )}
                 </div>
               </div>

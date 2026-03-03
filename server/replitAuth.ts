@@ -122,13 +122,22 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/logout", (req, res) => {
+    const user = req.user as any;
+    const isLocalAuth = user?.localAuth === true;
     req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+      if (isLocalAuth) {
+        req.session?.destroy(() => {
+          res.clearCookie("connect.sid");
+          res.redirect("/");
+        });
+      } else {
+        res.redirect(
+          client.buildEndSessionUrl(config, {
+            client_id: process.env.REPL_ID!,
+            post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+          }).href
+        );
+      }
     });
   });
 }
@@ -136,19 +145,26 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
-  // Check if user is authenticated and has required session data
-  if (!req.isAuthenticated() || !user || !user.expires_at) {
+  if (!req.isAuthenticated() || !user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // Local auth users - no token refresh needed
+  if (user.localAuth === true) {
+    return next();
+  }
+
+  // Replit Auth users - require expires_at
+  if (!user.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   const now = Math.floor(Date.now() / 1000);
-  
-  // If token is still valid, proceed
+
   if (now <= user.expires_at) {
     return next();
   }
 
-  // Token expired, try to refresh
   const refreshToken = user.refresh_token;
   if (!refreshToken) {
     return res.status(401).json({ message: "Unauthorized" });

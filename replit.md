@@ -9,10 +9,15 @@
 All core features have been successfully implemented and tested:
 
 ✅ **Authentication System**
-- Replit Auth (OIDC) integration complete
-- Session management with PostgreSQL storage
-- Protected routes middleware
-- Critical bug fix: isAuthenticated middleware now returns proper 401 JSON responses
+- Dual auth: Replit Auth (OIDC) + Local Email/Password
+- Registration page (/register) with name, email, password + strength meter
+- Login page (/login) with form validation and "Show password" toggle
+- bcryptjs (cost 12) for password hashing
+- Local auth users stored with authProvider="local" and passwordHash in users table
+- isAuthenticated middleware handles both local (no token refresh) and Replit (token refresh)
+- /api/logout handles both: local auth → clear session → redirect /; Replit → OIDC end session
+- session management with PostgreSQL storage
+- Header shows "تسجيل الدخول" and "إنشاء حساب" for guests; profile + logout for auth users
 
 ✅ **AI Health Assistant**
 - OpenAI GPT-5 integration via Replit AI Integrations
