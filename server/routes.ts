@@ -588,8 +588,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
+      // Admin session (from admin panel login)
+      if (req.session?.adminAuthenticated) {
+        return res.json({
+          id: "admin",
+          email: "admin@capsulah.com",
+          firstName: "مدير",
+          lastName: "النظام",
+          role: "super_admin",
+          isActive: true,
+          profileImageUrl: null,
+          authProvider: "admin",
+          createdAt: null,
+          updatedAt: null,
+          lastLoginAt: null,
+        });
+      }
+      // Regular user (Passport auth)
+      if (!req.isAuthenticated || !req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       res.json(user);
@@ -1597,7 +1617,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Simple admin authentication
     if (username === "admin" && password === "capsule2025") {
       (req.session as any).adminAuthenticated = true;
-      return res.json({ success: true, message: "تم تسجيل الدخول بنجاح" });
+      req.session.save((err) => {
+        if (err) console.error("Session save error:", err);
+        return res.json({ success: true, message: "تم تسجيل الدخول بنجاح" });
+      });
+      return;
     }
     
     return res.status(401).json({ success: false, message: "اسم المستخدم أو كلمة المرور غير صحيحة" });
