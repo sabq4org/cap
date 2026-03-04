@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Heart, User, Home, BookOpen, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown, LayoutDashboard } from "lucide-react";
+import { Menu, X, Heart, User, Home, BookOpen, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown, LayoutDashboard, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -115,9 +115,14 @@ export default function Header() {
           <ThemeToggle />
           {isAuthenticated ? (
             <>
-              <Button variant="ghost" size="icon" className="hidden md:flex" data-testid="button-settings">
-                <Settings className="h-5 w-5" />
-              </Button>
+              {user?.id === "admin" && (
+                <Link href="/admin/dashboard">
+                  <Button variant="default" size="sm" className="hidden md:flex gap-2 bg-emerald-700 hover:bg-emerald-800 text-white" data-testid="button-admin-dashboard">
+                    <ShieldCheck className="h-4 w-4" />
+                    لوحة التحكم
+                  </Button>
+                </Link>
+              )}
               <Button variant="outline" className="hidden md:flex gap-2" data-testid="button-profile">
                 <User className="h-4 w-4" />
                 {user?.firstName || user?.email || "حسابي"}
@@ -206,6 +211,14 @@ export default function Header() {
                 <div className="mt-4 flex flex-col gap-2 border-t pt-4">
                   {isAuthenticated ? (
                     <>
+                      {user?.id === "admin" && (
+                        <Link href="/admin/dashboard" onClick={() => setMobileOpen(false)}>
+                          <Button variant="default" className="w-full gap-2 bg-emerald-700 hover:bg-emerald-800 text-white" data-testid="button-mobile-admin">
+                            <ShieldCheck className="h-4 w-4" />
+                            لوحة التحكم
+                          </Button>
+                        </Link>
+                      )}
                       <Button variant="outline" className="w-full gap-2" data-testid="button-mobile-profile">
                         <User className="h-4 w-4" />
                         {user?.firstName || user?.email || "حسابي"}
