@@ -743,61 +743,62 @@ ${englishContent.substring(0, 4000)}
 الرابط: ${sourceUrl}`;
 
   try {
-    // Try with JSON response format first (more reliable)
+    // Use gpt-4o with function calling for reliable structured output
+    // gpt-5 has issues with structured output on Replit AI Integrations
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage }
-      ],
+      ] as any,
       max_completion_tokens: 4096,
-      response_format: { type: "json_object" }
-    });
-
-    const content = response.choices[0]?.message?.content;
-    console.log("OpenAI translation response received, length:", content?.length || 0);
-    
-    if (content) {
-      try {
-        const parsed = JSON.parse(content);
-        if (parsed.title && parsed.content) {
-          return {
-            title: parsed.title,
-            subtitle: parsed.subtitle || '',
-            content: parsed.content,
-            summary: parsed.summary || '',
-            seoTitle: parsed.seoTitle || parsed.title,
-            seoDescription: parsed.seoDescription || parsed.summary || '',
-            keywords: parsed.keywords || [],
-            category: parsed.category || 'misc',
-            importanceScore: parsed.importanceScore || 5,
-            isBreaking: parsed.isBreaking || false
-          };
-        }
-      } catch (parseError) {
-        console.error("Failed to parse JSON response:", parseError);
-        // Try extracting JSON from content
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          if (parsed.title && parsed.content) {
-            return {
-              title: parsed.title,
-              subtitle: parsed.subtitle || '',
-              content: parsed.content,
-              summary: parsed.summary || '',
-              seoTitle: parsed.seoTitle || parsed.title,
-              seoDescription: parsed.seoDescription || parsed.summary || '',
-              keywords: parsed.keywords || [],
-              category: parsed.category || 'misc',
-              importanceScore: parsed.importanceScore || 5,
-              isBreaking: parsed.isBreaking || false
-            };
+      tools: [{
+        type: "function",
+        function: {
+          name: "save_translation",
+          description: "حفظ الترجمة التحريرية المعالجة للخبر الصحي",
+          parameters: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "العنوان الرئيسي بالعربية" },
+              subtitle: { type: "string", description: "العنوان الفرعي بالعربية" },
+              content: { type: "string", description: "المحتوى المترجم بتنسيق HTML" },
+              summary: { type: "string", description: "ملخص قصير بالعربية" },
+              seoTitle: { type: "string", description: "عنوان SEO محسن" },
+              seoDescription: { type: "string", description: "وصف SEO" },
+              keywords: { type: "array", items: { type: "string" }, description: "الكلمات المفتاحية" },
+              category: { type: "string", enum: ["health-news", "saudi-health", "nutrition", "quality-life", "health-reports", "misc"] },
+              importanceScore: { type: "number", description: "درجة الأهمية 1-10" },
+              isBreaking: { type: "boolean", description: "هل هو خبر عاجل؟" }
+            },
+            required: ["title", "content", "summary", "category", "importanceScore"]
           }
         }
+      }],
+      tool_choice: { type: "function", function: { name: "save_translation" } }
+    });
+
+    const toolCall = response.choices[0]?.message?.tool_calls?.[0] as any;
+    console.log("Translation tool call received:", toolCall ? "yes" : "no");
+
+    if (toolCall?.function?.arguments) {
+      const parsed = JSON.parse(toolCall.function.arguments);
+      if (parsed.title && parsed.content) {
+        return {
+          title: parsed.title,
+          subtitle: parsed.subtitle || '',
+          content: parsed.content,
+          summary: parsed.summary || '',
+          seoTitle: parsed.seoTitle || parsed.title,
+          seoDescription: parsed.seoDescription || parsed.summary || '',
+          keywords: parsed.keywords || [],
+          category: parsed.category || 'misc',
+          importanceScore: parsed.importanceScore || 5,
+          isBreaking: parsed.isBreaking || false
+        };
       }
     }
-    
+
     throw new Error("Failed to get translated content - no valid response from AI");
   } catch (error: any) {
     console.error("Translation error:", error?.message || error);
