@@ -101,6 +101,7 @@ export default function AdminRadar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddSource, setShowAddSource] = useState(false);
   const [showAddKeyword, setShowAddKeyword] = useState(false);
+  const [processingItemId, setProcessingItemId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [newKeywordForm, setNewKeywordForm] = useState({
     keyword: "",
@@ -247,20 +248,23 @@ export default function AdminRadar() {
   // Process and publish with image download
   const processAndPublishMutation = useMutation({
     mutationFn: async (id: string) => {
+      setProcessingItemId(id);
       const res = await apiRequest("POST", `/api/radar/items/${id}/process-and-publish`);
       return res.json();
     },
     onSuccess: (data) => {
+      setProcessingItemId(null);
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items/stats"] });
       toast({ 
-        title: "تم نشر الخبر بنجاح",
-        description: data.imageUploaded ? "تم رفع الصورة أيضاً" : "بدون صورة",
+        title: "تم إنشاء المسودة بنجاح",
+        description: data.imageUploaded ? "تمت الترجمة ورفع الصورة" : "تمت الترجمة بدون صورة",
       });
     },
     onError: (error: any) => {
+      setProcessingItemId(null);
       toast({ 
-        title: "فشل في المعالجة والنشر", 
+        title: "فشل في المعالجة", 
         description: error?.message || "حدث خطأ",
         variant: "destructive" 
       });
@@ -645,15 +649,15 @@ export default function AdminRadar() {
                             </div>
                           )}
                           <div className="flex-1 p-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <h3 className="font-semibold line-clamp-1 mb-1">
+                            <div className="flex items-start gap-4">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold line-clamp-2 mb-1 leading-snug">
                                   {item.titleAr || item.title}
                                 </h3>
-                                <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                                <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                                   {item.summaryAr || item.summary}
                                 </p>
-                                <div className="flex flex-wrap items-center gap-2 text-xs">
+                                <div className="flex flex-wrap items-center gap-2 text-xs mb-3">
                                   <Badge variant="outline" className={statusColors[item.status]}>
                                     {statusLabels[item.status]}
                                   </Badge>
@@ -667,80 +671,68 @@ export default function AdminRadar() {
                                       أهمية: {item.relevanceScore}%
                                     </Badge>
                                   )}
+                                  {item.titleAr && (
+                                    <Badge variant="outline" className="bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300">
+                                      مترجم
+                                    </Badge>
+                                  )}
                                   <span className="text-muted-foreground">
                                     {formatDate(item.publishedAt || item.fetchedAt)}
                                   </span>
                                 </div>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <a 
-                                  href={item.originalUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-muted-foreground hover:text-primary"
-                                >
-                                  <ExternalLink className="h-4 w-4" />
-                                </a>
-                                {!item.titleAr && (
-                                  <Button 
-                                    size="icon" 
-                                    variant="ghost"
-                                    className="h-8 w-8 text-purple-600"
-                                    onClick={() => translateItemMutation.mutate(item.id)}
-                                    disabled={translateItemMutation.isPending}
-                                    title="ترجمة تحريرية"
-                                    data-testid={`button-translate-${item.id}`}
-                                  >
-                                    <Brain className={`h-4 w-4 ${translateItemMutation.isPending ? "animate-pulse" : ""}`} />
-                                  </Button>
-                                )}
-                                {item.status === "pending" && (
-                                  <>
-                                    <Button 
-                                      size="icon" 
-                                      variant="ghost"
-                                      className="h-8 w-8 text-green-600"
-                                      onClick={() => updateStatusMutation.mutate({ id: item.id, status: "approved" })}
-                                      data-testid={`button-approve-${item.id}`}
+
+                                {/* Action row */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {item.status !== "published" && item.status !== "rejected" && (
+                                    <Button
+                                      size="sm"
+                                      className="gap-1.5 bg-primary"
+                                      onClick={() => processAndPublishMutation.mutate(item.id)}
+                                      disabled={processingItemId === item.id}
+                                      data-testid={`button-auto-publish-${item.id}`}
                                     >
-                                      <CheckCircle className="h-4 w-4" />
+                                      {processingItemId === item.id ? (
+                                        <>
+                                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                          جاري الترجمة والنشر...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Zap className="h-3.5 w-3.5" />
+                                          ترجمة ونشر مسودة
+                                        </>
+                                      )}
                                     </Button>
-                                    <Button 
-                                      size="icon" 
+                                  )}
+                                  {item.status === "published" && (
+                                    <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">
+                                      <CheckCircle className="h-3 w-3 ml-1" />
+                                      تم النشر كمسودة
+                                    </Badge>
+                                  )}
+                                  {item.status !== "published" && (
+                                    <Button
+                                      size="sm"
                                       variant="ghost"
-                                      className="h-8 w-8 text-red-600"
+                                      className="h-8 text-red-500 hover:text-red-700 hover:bg-red-50"
                                       onClick={() => updateStatusMutation.mutate({ id: item.id, status: "rejected" })}
+                                      disabled={processingItemId === item.id}
                                       data-testid={`button-reject-${item.id}`}
                                     >
-                                      <XCircle className="h-4 w-4" />
+                                      <XCircle className="h-3.5 w-3.5 ml-1" />
+                                      رفض
                                     </Button>
-                                  </>
-                                )}
-                                {item.status === "approved" && (
-                                  <>
-                                    <Button 
-                                      size="icon" 
-                                      variant="ghost"
-                                      className="h-8 w-8 text-blue-600"
-                                      onClick={() => publishItemMutation.mutate(item.id)}
-                                      title="نشر سريع"
-                                      data-testid={`button-publish-${item.id}`}
-                                    >
-                                      <Send className="h-4 w-4" />
-                                    </Button>
-                                    <Button 
-                                      size="icon" 
-                                      variant="ghost"
-                                      className="h-8 w-8 text-emerald-600"
-                                      onClick={() => processAndPublishMutation.mutate(item.id)}
-                                      disabled={processAndPublishMutation.isPending}
-                                      title="معالجة ونشر (مع الصورة)"
-                                      data-testid={`button-process-${item.id}`}
-                                    >
-                                      <Download className={`h-4 w-4 ${processAndPublishMutation.isPending ? "animate-pulse" : ""}`} />
-                                    </Button>
-                                  </>
-                                )}
+                                  )}
+                                  <a
+                                    href={item.originalUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                    المصدر
+                                  </a>
+                                </div>
                               </div>
                             </div>
                           </div>
