@@ -1092,126 +1092,102 @@ export function buildInfographicAIPrompt(data: InfographicData): string {
   const primary = data.visualDesign?.primaryColor || "#059669";
   const secondary = data.visualDesign?.secondaryColor || "#10b981";
   const layout = data.visualDesign?.layout || "vertical";
-  const style = data.visualDesign?.style || "modern";
   const hasStats = data.dataVisualization?.hasStatistics;
   const points = data.bulletPoints || [];
   const title = data.title || "";
-
-  // Detect topic to pick a relevant hero illustration
   const topicLower = (title + " " + (data.subtitle || "")).toLowerCase();
-  let heroDesc = "a vibrant medical health illustration with glowing anatomical elements, healing energy, and scientific symbols";
+
+  // Choose topic-aware hero illustration
+  let heroArt = "glowing DNA helix and human body silhouette filled with health icons, surrounded by floating medical symbols";
+  let moodColor = "deep teal and midnight blue";
   if (topicLower.match(/قلب|ضغط|نبض|heart|blood/)) {
-    heroDesc = "a large glowing red anatomical heart with ECG heartbeat line, surrounded by blood cell particles and medical cross symbols — vibrant, detailed flat illustration";
+    heroArt = "a detailed glowing anatomical heart mid-beat, arteries branching outward, ECG wave cutting across, warm red-orange glow on dark background";
+    moodColor = "deep crimson and warm coral";
   } else if (topicLower.match(/سكر|سكري|انسولين|diabetes|glucose/)) {
-    heroDesc = "a large flat illustration of a glucose meter displaying a number, blood drop, and sugar crystals with prohibition symbol — colorful medical art";
+    heroArt = "a stylized glucose molecule crystal glowing in purple light, with a blood drop and a needle icon, energy ripples around it";
+    moodColor = "deep purple and electric violet";
   } else if (topicLower.match(/تغذية|غذاء|أكل|وجبة|سعرات|nutrition|food|diet/)) {
-    heroDesc = "a colorful arrangement of fresh fruits, vegetables, grains, and healthy foods from above — vibrant flat illustration with vitamins and nutrition icons";
+    heroArt = "an overhead explosion of vibrant fresh foods — avocado, berries, grains, greens — radiating outward from center, colorful and lush";
+    moodColor = "forest green and warm amber";
   } else if (topicLower.match(/نوم|نوم|sleep|راحة/)) {
-    heroDesc = "a serene illustration of a person sleeping peacefully under a starry sky with moon and sleep wave icons — calming flat art";
+    heroArt = "a serene night sky scene with a crescent moon, stars, and soft sleep waves flowing over a resting silhouette";
+    moodColor = "midnight navy and soft indigo";
   } else if (topicLower.match(/فيتامين|vitamin|مكمل|supplement/)) {
-    heroDesc = "large colorful vitamin capsules and supplement pills floating with molecular structures and body silhouette — bright flat illustration";
+    heroArt = "translucent glowing vitamin capsules floating in space, molecular structures orbiting them, sun rays in the background";
+    moodColor = "golden amber and sky blue";
   } else if (topicLower.match(/وزن|رياضة|تمرين|لياقة|fitness|exercise|weight/)) {
-    heroDesc = "flat illustration of athletic shoes, dumbbells, a heart rate monitor, and healthy body silhouette with energy waves";
-  } else if (topicLower.match(/إفراط|إفراط|excess|خطر|danger|تحذير/)) {
-    heroDesc = "a bold warning illustration: an oversized portion of food with red danger signals, warning triangles, and health alert icons — dramatic flat art";
+    heroArt = "dynamic silhouette of an athlete mid-motion, surrounded by energy rings, heartbeat line, and fitness icons";
+    moodColor = "electric blue and neon green";
+  } else if (topicLower.match(/إفراط|excess|خطر|danger|تحذير|ضار/)) {
+    heroArt = "a dramatic split image: left side dark with overflowing food and warning symbols, right side bright with balanced healthy plate and green checkmark — high contrast";
+    moodColor = "warning red and dark charcoal";
   } else if (topicLower.match(/مناعة|immune|فيروس|virus|بكتير/)) {
-    heroDesc = "dramatic close-up illustration of white blood cells fighting virus particles — colorful shield and immunity symbol, flat medical art";
-  } else if (topicLower.match(/ضغط الدم|hypertension|pressure/)) {
-    heroDesc = "a blood pressure gauge at high reading with red warning, arteries cross-section, and medical alert icons — bold flat illustration";
+    heroArt = "microscopic battlefield: bright white blood cells as warriors surrounding dark virus particles, shield emblem glowing in center";
+    moodColor = "electric cyan and deep navy";
   } else if (topicLower.match(/ماء|شرب|hydration|ترطيب|water/)) {
-    heroDesc = "a large water drop surrounded by hydration percentage circles, body silhouette filled with water waves — fresh blue flat illustration";
+    heroArt = "a giant luminous water drop reflecting a healthy body silhouette inside it, surrounded by smaller droplets and wave rings";
+    moodColor = "ocean blue and aqua teal";
   } else if (topicLower.match(/دماغ|مخ|ذاكرة|brain|mental|عقل/)) {
-    heroDesc = "a glowing illustrated brain with neural connections, lightbulb, and thought waves — colorful flat medical art";
+    heroArt = "a glowing human brain half-anatomy half-circuit-board, with golden neural synapses firing, floating thoughts as light dots";
+    moodColor = "electric gold and deep purple";
+  } else if (topicLower.match(/لقيمات|لقيمة|حلوى|رمضان|حلويات/)) {
+    heroArt = "a dramatic overhead shot of golden fried dough balls (luqaimat) surrounded by honey drizzle and sugar crystals, with a subtle red warning glow and health alert halo";
+    moodColor = "warm amber and deep red";
   }
-
-  // Icon suggestion per point (mapped to topic keywords)
-  const iconMap: Record<string, string> = {
-    "ارتفاع": "upward arrow danger icon",
-    "انخفاض": "downward arrow icon",
-    "قلب": "heart icon",
-    "دم": "blood drop icon",
-    "سكر": "sugar/glucose icon",
-    "وزن": "scale icon",
-    "تعب": "tired face icon",
-    "نوم": "moon sleep icon",
-    "أكل": "fork and knife icon",
-    "شرب": "water glass icon",
-    "رياضة": "dumbbell icon",
-    "خطر": "warning triangle icon",
-    "توصية": "checkmark badge icon",
-    "نصيحة": "lightbulb icon",
-    "دواء": "pill capsule icon",
-    "طبيب": "stethoscope icon",
-  };
-
-  const pointsList = points.slice(0, 7).map((p, i) => {
-    const iconHint = Object.entries(iconMap).find(([k]) => p.text.includes(k))?.[1] || "checkmark circle icon";
-    const highlightPart = p.highlight ? ` | big bold badge: "${p.highlight}"` : "";
-    return `  ${i + 1}. Icon: [${iconHint}] — Text: "${p.text}"${highlightPart}`;
-  }).join("\n");
 
   const sizeGuide = layout === "horizontal"
-    ? "wide landscape format 1200×630 pixels (16:9)"
+    ? "1200×630 px wide landscape"
     : layout === "grid"
-    ? "square format 1080×1080 pixels (1:1)"
-    : "tall portrait format 800×1200 pixels (2:3)";
+    ? "1080×1080 px square"
+    : "800×1200 px tall portrait";
 
-  let statsSection = "";
-  if (hasStats) {
-    const statsPoints = points.filter(p => p.highlight).slice(0, 4);
-    if (statsPoints.length >= 2) {
-      statsSection = `
-STATISTICS BAR (visual data):
-Below the points, draw a row of circular progress rings or horizontal bars for:
-${statsPoints.map(p => `  • "${p.highlight}" — labeled "${p.text.substring(0, 25)}"`).join("\n")}
-Style: colorful filled arcs or bars, with number prominently in center.`;
-    }
-  }
+  const pointsDesc = points.slice(0, 6).map((p, i) => {
+    const num = String(i + 1).padStart(2, "0");
+    const stat = p.highlight ? ` — stat: ${p.highlight}` : "";
+    return `  ${num}. ${p.text}${stat}`;
+  }).join("\n");
 
-  return `Design a VISUALLY RICH, magazine-quality Arabic health infographic poster in ${sizeGuide}.
+  const statsDesc = hasStats && points.filter(p => p.highlight).length >= 2
+    ? `\nAt the bottom, show a clean visual data section: large glowing numbers (${points.filter(p => p.highlight).slice(0, 3).map(p => p.highlight).join(", ")}) each beneath a minimal label, arranged in a horizontal row like a stat counter — no boxes, just floating numbers with a thin glowing underline.`
+    : "";
 
-═══════════════════════════════════════════
-ZONE 1 — HERO VISUAL (top 35% of poster):
-═══════════════════════════════════════════
-Draw: ${heroDesc}
-Requirements: Large, colorful, detailed, fills the full width. Use rich colors, shadows, and depth.
-Overlay the title on a semi-transparent gradient band across the bottom of this hero zone:
-  TITLE: "${title}" — Arabic, bold, white, large text
-${data.subtitle ? `  SUBTITLE: "${data.subtitle}" — Arabic, smaller, light text below title` : ""}
+  return `You are a world-class infographic designer creating an award-winning Arabic health poster.
 
-═══════════════════════════════════════════
-ZONE 2 — CONTENT CARDS (middle 55% of poster):
-═══════════════════════════════════════════
-Display each point as a CARD ROW (right-to-left layout):
-${pointsList}
+SIZE: ${sizeGuide}. Final output must be a single clean poster image, no mock-ups, no device frames.
 
-Card design per point:
-- RIGHT side: circle badge with number (01, 02, 03...) in accent color ${secondary}
-- CENTER-RIGHT: the icon from the list above, colorful flat style, size 32×32px
-- CENTER: Arabic text, white, readable
-- LEFT side (if highlight exists): large bold colored badge/pill with the highlight value in ${secondary}
-- Card background: dark card #1a1a2e with subtle rounded border, left-border accent bar in ${primary}
+─── TOP THIRD: HERO ARTWORK ───
+Fill the top portion with this cinematic illustration:
+${heroArt}
+This image should feel like a premium editorial photo. Rich lighting, depth, atmosphere. Let it bleed edge-to-edge.
+Over this image, at the very bottom of the hero zone, place the title in large bold Arabic typography:
+"${title}"
+${data.subtitle ? `Below that, smaller: "${data.subtitle}"` : ""}
+Use a soft dark gradient fade beneath the text so it reads clearly over the artwork.
 
-${statsSection}
+─── MIDDLE: INFORMATION FLOW ───
+Below the hero, on a clean dark background (${moodColor} tones, no harsh borders), display these points in a flowing vertical list:
 
-═══════════════════════════════════════════
-ZONE 3 — FOOTER (bottom 10%):
-═══════════════════════════════════════════
-${data.conclusion ? `Conclusion text: "${data.conclusion}" — italic, light grey, centered` : ""}
-Brand: "كبسولة ● منصة صحية ذكية" — small, bottom right, accent color
+${pointsDesc}
 
-═══════════════════════════════════════════
-OVERALL STYLE REQUIREMENTS:
-═══════════════════════════════════════════
-- Background: deep dark gradient from ${primary}22 to #0a0a1a
-- All Arabic text RIGHT-TO-LEFT, legible, clear
-- Rich color palette: ${primary} and ${secondary} as accent colors
-- Style: ${style}, premium, Canva-quality
-- Include: colorful flat icons, progress bars/rings (if stats), gradients, shadows
-- ICONS MUST BE VISIBLE AND CLEAR — one per bullet point
-- The hero illustration MUST be prominent (no empty space at top)
-- High visual density: this is a poster, not a document
-- DO NOT make it look like a Word document`;
+Design language for each point — NO BOXES, NO FRAMES:
+• A softly glowing circular number (${secondary} glow) floats to the right
+• A single relevant flat icon sits beside the number — heart, lightning bolt, fork, shield, drop, warning triangle, etc. — colorful, simple, clear
+• The Arabic text flows naturally to the left of the icon, white, clean, generous line-height
+• If a stat exists, the number appears large and bold in ${secondary} color, floating at the far left as an accent — not in a box
+• A hairline horizontal separator (subtle, low-opacity) divides each point from the next${statsDesc}
+
+─── BOTTOM: CLOSE ───
+${data.conclusion ? `A single closing thought: "${data.conclusion}" — italic, soft grey, centered, with a thin decorative line above it` : ""}
+Tiny brand mark bottom-right: "كبسولة" in ${secondary}.
+
+─── DESIGN SOUL ───
+Think: Bloomberg infographic meets Arabic newspaper editorial design.
+The layout breathes. There is generous whitespace. Typography is the hero alongside the illustration.
+NO hard rectangular borders around text. NO boxes. NO frames.
+Colors feel rich and intentional — ${moodColor} palette.
+Icons are decorative, not functional — they enhance visual rhythm.
+This should look like it belongs in a premium health magazine, not a PowerPoint slide.
+Arabic text flows right-to-left throughout.`;
 }
 
 export async function generateInfographicImage(data: InfographicData): Promise<ImageGenerationResult> {
