@@ -122,6 +122,23 @@ export default function AdminInfographic() {
     },
   });
 
+  const generateAiImageMutation = useMutation({
+    mutationFn: async (infData: InfographicData) => {
+      const res = await apiRequest("POST", "/api/admin/infographic/generate-ai-image", infData);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setAiInfographicImage(data.imageUrl);
+      toast({
+        title: "✓ تم توليد الإنفوجرافيك",
+        description: `Nano Banana 2 — ${((data.generationTimeMs || 0) / 1000).toFixed(1)} ثانية`,
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ في توليد الصورة", description: error.message || "فشل في توليد الصورة", variant: "destructive" });
+    },
+  });
+
   const extractMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/admin/infographic/extract-from-text", { text: rawText });
@@ -130,28 +147,10 @@ export default function AdminInfographic() {
     onSuccess: (data) => {
       setExtractedData(data);
       setAiInfographicImage(null);
-      toast({ title: "تم استخراج البيانات", description: "تمت معالجة النص بنجاح" });
+      generateAiImageMutation.mutate(data);
     },
     onError: (error: any) => {
       toast({ title: "خطأ في المعالجة", description: error.message || "فشل في استخراج البيانات", variant: "destructive" });
-    },
-  });
-
-  const generateAiImageMutation = useMutation({
-    mutationFn: async () => {
-      if (!extractedData) throw new Error("لا توجد بيانات مستخرجة");
-      const res = await apiRequest("POST", "/api/admin/infographic/generate-ai-image", extractedData);
-      return res.json();
-    },
-    onSuccess: (data) => {
-      setAiInfographicImage(data.imageUrl);
-      toast({
-        title: "تم توليد الإنفوجرافيك",
-        description: `Nano Banana 2 — ${((data.generationTimeMs || 0) / 1000).toFixed(1)} ثانية`,
-      });
-    },
-    onError: (error: any) => {
-      toast({ title: "خطأ في التوليد", description: error.message || "فشل في توليد الصورة", variant: "destructive" });
     },
   });
 
@@ -205,199 +204,140 @@ export default function AdminInfographic() {
           </TabsList>
 
           <TabsContent value="from-text" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-primary" />
-                      الصق النص أو السيناريو
-                    </CardTitle>
-                    <CardDescription>
-                      ضع أي نص صحي أو مقالة أو سيناريو وسيستخرج الذكاء الاصطناعي منه إنفوجرافيك احترافي
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Textarea
-                      placeholder="مثال: أظهرت دراسة حديثة أن 85% من البالغين يعانون من نقص فيتامين د... أو: نصائح للوقاية من السكري: أولاً..."
-                      value={rawText}
-                      onChange={(e) => setRawText(e.target.value)}
-                      className="min-h-[220px] text-sm leading-relaxed"
-                      data-testid="textarea-raw-text"
-                    />
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">{rawText.length} حرف</span>
+            {/* INPUT ROW */}
+            <Card>
+              <CardContent className="pt-5 space-y-3">
+                <Textarea
+                  placeholder="الصق أي نص صحي أو مقالة أو نصائح... سيحوّله الذكاء الاصطناعي إلى إنفوجرافيك احترافي بنصوص وأرقام ومخططات"
+                  value={rawText}
+                  onChange={(e) => setRawText(e.target.value)}
+                  className="min-h-[140px] text-sm leading-relaxed"
+                  data-testid="textarea-raw-text"
+                  disabled={extractMutation.isPending || generateAiImageMutation.isPending}
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{rawText.length} حرف</span>
+                  <div className="flex gap-2">
+                    {aiInfographicImage && extractedData && (
                       <Button
-                        onClick={() => extractMutation.mutate()}
-                        disabled={rawText.trim().length < 20 || extractMutation.isPending}
-                        className="gap-2"
-                        data-testid="button-extract-infographic"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => generateAiImageMutation.mutate(extractedData)}
+                        disabled={generateAiImageMutation.isPending || extractMutation.isPending}
+                        className="gap-1"
                       >
-                        {extractMutation.isPending ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            جاري التحليل...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="h-4 w-4" />
-                            استخرج إنفوجرافيك
-                          </>
-                        )}
+                        <RefreshCw className="h-3 w-3" />
+                        أعد التوليد
                       </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    )}
+                    <Button
+                      onClick={() => extractMutation.mutate()}
+                      disabled={rawText.trim().length < 20 || extractMutation.isPending || generateAiImageMutation.isPending}
+                      className="gap-2"
+                      data-testid="button-extract-infographic"
+                    >
+                      {extractMutation.isPending ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" />تحليل النص... (1/2)</>
+                      ) : generateAiImageMutation.isPending ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" />Nano Banana 2 يولّد... (2/2)</>
+                      ) : (
+                        <><Sparkles className="h-4 w-4" />ولّد إنفوجرافيك AI</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                {extractedData && (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-2 text-base">
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        البيانات المستخرجة
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {/* Title */}
-                      <div className="space-y-1">
-                        <p className="font-bold text-sm">{extractedData.title}</p>
-                        {extractedData.subtitle && (
-                          <p className="text-xs text-muted-foreground">{extractedData.subtitle}</p>
-                        )}
+            {/* RESULT AREA */}
+            {(extractMutation.isPending || generateAiImageMutation.isPending || aiInfographicImage) && (
+              <div className="space-y-4">
+                {/* Loading states */}
+                {(extractMutation.isPending || generateAiImageMutation.isPending) && (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="py-10 text-center space-y-5">
+                      <div className="relative mx-auto w-20 h-20">
+                        <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
+                        <div className="relative w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Sparkles className="h-10 w-10 text-primary animate-pulse" />
+                        </div>
                       </div>
 
-                      {/* Visual Design */}
-                      {extractedData.visualDesign && (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="outline" className="gap-1 text-xs">
-                            <Palette className="h-3 w-3" />
-                            {extractedData.visualDesign.layout}
-                          </Badge>
-                          <Badge variant="outline" className="gap-1 text-xs">
-                            <AlignLeft className="h-3 w-3" />
-                            {extractedData.visualDesign.style}
-                          </Badge>
-                          <div className="flex gap-1">
-                            <div className="w-5 h-5 rounded-full border border-border" style={{ background: extractedData.visualDesign.primaryColor }} title="اللون الأساسي" />
-                            <div className="w-5 h-5 rounded-full border border-border" style={{ background: extractedData.visualDesign.secondaryColor }} title="اللون الثانوي" />
+                      {/* Phases */}
+                      <div className="space-y-3 max-w-xs mx-auto">
+                        <div className={`flex items-center gap-3 text-sm ${!extractMutation.isPending ? "text-green-600" : "text-foreground"}`}>
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${!extractMutation.isPending ? "bg-green-100 text-green-600" : "bg-primary text-primary-foreground animate-pulse"}`}>
+                            {!extractMutation.isPending ? "✓" : "1"}
                           </div>
+                          <span>{!extractMutation.isPending ? "تم تحليل النص واستخراج البيانات" : "جارٍ تحليل النص واستخراج البيانات..."}</span>
                         </div>
-                      )}
-
-                      {/* Bullet points */}
-                      {extractedData.bulletPoints && extractedData.bulletPoints.length > 0 && (
-                        <ul className="space-y-1.5">
-                          {extractedData.bulletPoints.map((pt, i) => (
-                            <li key={i} className="flex items-center gap-2 text-xs">
-                              <span className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 font-bold">{i + 1}</span>
-                              <span className="flex-1 text-foreground">{pt.text}</span>
-                              {pt.highlight && (
-                                <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
-                                  {pt.highlight}
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-
-                      {extractedData.conclusion && (
-                        <div className="bg-muted rounded-lg p-2 text-xs italic text-muted-foreground border-r-2 border-primary">
-                          {extractedData.conclusion}
+                        <div className={`flex items-center gap-3 text-sm ${aiInfographicImage ? "text-green-600" : generateAiImageMutation.isPending ? "text-foreground" : "text-muted-foreground"}`}>
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${aiInfographicImage ? "bg-green-100 text-green-600" : generateAiImageMutation.isPending ? "bg-primary text-primary-foreground animate-pulse" : "bg-muted text-muted-foreground"}`}>
+                            {aiInfographicImage ? "✓" : "2"}
+                          </div>
+                          <span>{generateAiImageMutation.isPending ? "Nano Banana 2 يرسم الإنفوجرافيك بنصوص ومخططات..." : "توليد صورة الإنفوجرافيك"}</span>
                         </div>
-                      )}
-
-                      <div className="flex gap-2 pt-1 flex-wrap">
-                        <Button
-                          size="sm"
-                          onClick={() => generateAiImageMutation.mutate()}
-                          disabled={generateAiImageMutation.isPending}
-                          className="gap-1 flex-1"
-                          data-testid="button-generate-ai-infographic"
-                        >
-                          {generateAiImageMutation.isPending ? (
-                            <><Loader2 className="h-3 w-3 animate-spin" />جارٍ التوليد...</>
-                          ) : (
-                            <><Sparkles className="h-3 w-3" />توليد صورة AI</>
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => extractMutation.mutate()}
-                          disabled={extractMutation.isPending}
-                          className="gap-1"
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                          أعد الاستخراج
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                 )}
-              </div>
 
-              <div>
-                {generateAiImageMutation.isPending ? (
-                  <Card className="h-full min-h-[380px] flex items-center justify-center">
-                    <CardContent className="text-center py-16 space-y-4">
-                      <div className="relative mx-auto w-16 h-16">
-                        <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
-                        <div className="relative w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Sparkles className="h-8 w-8 text-primary animate-pulse" />
-                        </div>
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">Nano Banana 2 يولّد الإنفوجرافيك...</p>
-                        <p className="text-xs text-muted-foreground mt-1">نصوص · أرقام · مخططات بيانية</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : aiInfographicImage ? (
+                {/* AI Image Result */}
+                {aiInfographicImage && (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-primary" />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm font-semibold">
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
                         إنفوجرافيك AI — Nano Banana 2
                       </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="gap-1 h-7 text-xs"
-                          onClick={() => generateAiImageMutation.mutate()}>
-                          <RefreshCw className="h-3 w-3" />أعد التوليد
+                      <a href={aiInfographicImage} download target="_blank" rel="noreferrer">
+                        <Button size="sm" className="gap-1">
+                          <Download className="h-3 w-3" />
+                          تحميل الصورة
                         </Button>
-                        <a href={aiInfographicImage} download target="_blank" rel="noreferrer">
-                          <Button size="sm" className="gap-1 h-7 text-xs">
-                            <Download className="h-3 w-3" />تحميل
-                          </Button>
-                        </a>
-                      </div>
+                      </a>
                     </div>
-                    <div className="rounded-xl overflow-hidden border border-border shadow-lg">
-                      <img src={aiInfographicImage} alt="إنفوجرافيك AI" className="w-full object-contain" />
+                    <div className="rounded-2xl overflow-hidden border border-border shadow-xl">
+                      <img
+                        src={aiInfographicImage}
+                        alt="إنفوجرافيك AI"
+                        className="w-full object-contain"
+                        data-testid="img-ai-infographic"
+                      />
                     </div>
-                    <p className="text-xs text-muted-foreground text-center">
-                      أو شاهد المعاينة الهيكلية ↓
-                    </p>
-                    <InfographicRenderer data={extractedData!} />
+                    {/* Compact data summary */}
+                    {extractedData?.bulletPoints && (
+                      <details className="text-xs text-muted-foreground">
+                        <summary className="cursor-pointer hover:text-foreground transition-colors py-1">
+                          عرض البيانات المستخرجة ({extractedData.bulletPoints.length} نقاط)
+                        </summary>
+                        <div className="mt-2 p-3 bg-muted rounded-lg space-y-1.5 text-foreground">
+                          <p className="font-semibold">{extractedData.title}</p>
+                          {extractedData.bulletPoints.map((pt, i) => (
+                            <div key={i} className="flex gap-2">
+                              <span className="text-primary font-bold flex-shrink-0">{i+1}.</span>
+                              <span>{pt.text}</span>
+                              {pt.highlight && <span className="text-primary font-bold mr-auto">{pt.highlight}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
                   </div>
-                ) : extractedData ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      معاينة هيكلية — اضغط "توليد صورة AI" للحصول على النسخة الكاملة
-                    </div>
-                    <InfographicRenderer data={extractedData} />
-                  </div>
-                ) : (
-                  <Card className="h-full min-h-[300px] flex items-center justify-center border-dashed">
-                    <CardContent className="text-center text-muted-foreground py-12">
-                      <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                      <p className="text-sm">ضع النص وانتظر المعاينة هنا</p>
-                    </CardContent>
-                  </Card>
                 )}
               </div>
-            </div>
+            )}
+
+            {/* Empty state */}
+            {!extractMutation.isPending && !generateAiImageMutation.isPending && !aiInfographicImage && (
+              <div className="text-center py-16 text-muted-foreground space-y-3">
+                <div className="w-20 h-20 rounded-2xl bg-muted mx-auto flex items-center justify-center">
+                  <Sparkles className="h-10 w-10 opacity-30" />
+                </div>
+                <p className="text-sm">الصق نصاً واضغط "ولّد إنفوجرافيك AI"</p>
+                <p className="text-xs opacity-70">سيقوم Nano Banana 2 بتوليد صورة احترافية كاملة</p>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="create" className="space-y-6">
