@@ -1095,60 +1095,123 @@ export function buildInfographicAIPrompt(data: InfographicData): string {
   const style = data.visualDesign?.style || "modern";
   const hasStats = data.dataVisualization?.hasStatistics;
   const points = data.bulletPoints || [];
+  const title = data.title || "";
 
-  const highlightItems = points.filter(p => p.highlight);
-  const regularPoints = points;
-
-  let chartSection = "";
-  if (hasStats && highlightItems.length >= 2) {
-    const chartBars = highlightItems.slice(0, 5).map(p => `"${p.highlight}" labeled "${p.text.substring(0, 20)}"`).join(", ");
-    chartSection = `
-CHART: Include a clean horizontal bar chart at the bottom showing: ${chartBars}. Style: thin colored bars with percentage labels at the end, minimalist.`;
+  // Detect topic to pick a relevant hero illustration
+  const topicLower = (title + " " + (data.subtitle || "")).toLowerCase();
+  let heroDesc = "a vibrant medical health illustration with glowing anatomical elements, healing energy, and scientific symbols";
+  if (topicLower.match(/قلب|ضغط|نبض|heart|blood/)) {
+    heroDesc = "a large glowing red anatomical heart with ECG heartbeat line, surrounded by blood cell particles and medical cross symbols — vibrant, detailed flat illustration";
+  } else if (topicLower.match(/سكر|سكري|انسولين|diabetes|glucose/)) {
+    heroDesc = "a large flat illustration of a glucose meter displaying a number, blood drop, and sugar crystals with prohibition symbol — colorful medical art";
+  } else if (topicLower.match(/تغذية|غذاء|أكل|وجبة|سعرات|nutrition|food|diet/)) {
+    heroDesc = "a colorful arrangement of fresh fruits, vegetables, grains, and healthy foods from above — vibrant flat illustration with vitamins and nutrition icons";
+  } else if (topicLower.match(/نوم|نوم|sleep|راحة/)) {
+    heroDesc = "a serene illustration of a person sleeping peacefully under a starry sky with moon and sleep wave icons — calming flat art";
+  } else if (topicLower.match(/فيتامين|vitamin|مكمل|supplement/)) {
+    heroDesc = "large colorful vitamin capsules and supplement pills floating with molecular structures and body silhouette — bright flat illustration";
+  } else if (topicLower.match(/وزن|رياضة|تمرين|لياقة|fitness|exercise|weight/)) {
+    heroDesc = "flat illustration of athletic shoes, dumbbells, a heart rate monitor, and healthy body silhouette with energy waves";
+  } else if (topicLower.match(/إفراط|إفراط|excess|خطر|danger|تحذير/)) {
+    heroDesc = "a bold warning illustration: an oversized portion of food with red danger signals, warning triangles, and health alert icons — dramatic flat art";
+  } else if (topicLower.match(/مناعة|immune|فيروس|virus|بكتير/)) {
+    heroDesc = "dramatic close-up illustration of white blood cells fighting virus particles — colorful shield and immunity symbol, flat medical art";
+  } else if (topicLower.match(/ضغط الدم|hypertension|pressure/)) {
+    heroDesc = "a blood pressure gauge at high reading with red warning, arteries cross-section, and medical alert icons — bold flat illustration";
+  } else if (topicLower.match(/ماء|شرب|hydration|ترطيب|water/)) {
+    heroDesc = "a large water drop surrounded by hydration percentage circles, body silhouette filled with water waves — fresh blue flat illustration";
+  } else if (topicLower.match(/دماغ|مخ|ذاكرة|brain|mental|عقل/)) {
+    heroDesc = "a glowing illustrated brain with neural connections, lightbulb, and thought waves — colorful flat medical art";
   }
 
-  const pointsList = regularPoints.slice(0, 7).map((p, i) =>
-    `  ${String(i + 1).padStart(2, "0")}. "${p.text}"${p.highlight ? ` — highlighted badge showing "${p.highlight}"` : ""}`
-  ).join("\n");
+  // Icon suggestion per point (mapped to topic keywords)
+  const iconMap: Record<string, string> = {
+    "ارتفاع": "upward arrow danger icon",
+    "انخفاض": "downward arrow icon",
+    "قلب": "heart icon",
+    "دم": "blood drop icon",
+    "سكر": "sugar/glucose icon",
+    "وزن": "scale icon",
+    "تعب": "tired face icon",
+    "نوم": "moon sleep icon",
+    "أكل": "fork and knife icon",
+    "شرب": "water glass icon",
+    "رياضة": "dumbbell icon",
+    "خطر": "warning triangle icon",
+    "توصية": "checkmark badge icon",
+    "نصيحة": "lightbulb icon",
+    "دواء": "pill capsule icon",
+    "طبيب": "stethoscope icon",
+  };
+
+  const pointsList = points.slice(0, 7).map((p, i) => {
+    const iconHint = Object.entries(iconMap).find(([k]) => p.text.includes(k))?.[1] || "checkmark circle icon";
+    const highlightPart = p.highlight ? ` | big bold badge: "${p.highlight}"` : "";
+    return `  ${i + 1}. Icon: [${iconHint}] — Text: "${p.text}"${highlightPart}`;
+  }).join("\n");
 
   const sizeGuide = layout === "horizontal"
-    ? "WIDE horizontal format (16:9 ratio)"
+    ? "wide landscape format 1200×630 pixels (16:9)"
     : layout === "grid"
-    ? "SQUARE format (1:1 ratio)"
-    : "TALL vertical format (4:5 ratio)";
+    ? "square format 1080×1080 pixels (1:1)"
+    : "tall portrait format 800×1200 pixels (2:3)";
 
-  return `Create a professional Arabic journalism infographic in ${sizeGuide}.
+  let statsSection = "";
+  if (hasStats) {
+    const statsPoints = points.filter(p => p.highlight).slice(0, 4);
+    if (statsPoints.length >= 2) {
+      statsSection = `
+STATISTICS BAR (visual data):
+Below the points, draw a row of circular progress rings or horizontal bars for:
+${statsPoints.map(p => `  • "${p.highlight}" — labeled "${p.text.substring(0, 25)}"`).join("\n")}
+Style: colorful filled arcs or bars, with number prominently in center.`;
+    }
+  }
 
-CONTENT:
-- Main Title (large, bold, at top): "${data.title}"
-${data.subtitle ? `- Subtitle (smaller, below title): "${data.subtitle}"` : ""}
+  return `Design a VISUALLY RICH, magazine-quality Arabic health infographic poster in ${sizeGuide}.
 
-NUMBERED BULLET POINTS (display in RTL Arabic, right-to-left layout):
+═══════════════════════════════════════════
+ZONE 1 — HERO VISUAL (top 35% of poster):
+═══════════════════════════════════════════
+Draw: ${heroDesc}
+Requirements: Large, colorful, detailed, fills the full width. Use rich colors, shadows, and depth.
+Overlay the title on a semi-transparent gradient band across the bottom of this hero zone:
+  TITLE: "${title}" — Arabic, bold, white, large text
+${data.subtitle ? `  SUBTITLE: "${data.subtitle}" — Arabic, smaller, light text below title` : ""}
+
+═══════════════════════════════════════════
+ZONE 2 — CONTENT CARDS (middle 55% of poster):
+═══════════════════════════════════════════
+Display each point as a CARD ROW (right-to-left layout):
 ${pointsList}
 
-${chartSection}
+Card design per point:
+- RIGHT side: circle badge with number (01, 02, 03...) in accent color ${secondary}
+- CENTER-RIGHT: the icon from the list above, colorful flat style, size 32×32px
+- CENTER: Arabic text, white, readable
+- LEFT side (if highlight exists): large bold colored badge/pill with the highlight value in ${secondary}
+- Card background: dark card #1a1a2e with subtle rounded border, left-border accent bar in ${primary}
 
-${data.conclusion ? `CONCLUSION BOX (at bottom): "${data.conclusion}"` : ""}
-BRAND FOOTER: "كبسولة" in small text at very bottom.
+${statsSection}
 
-VISUAL DESIGN:
-- Primary color: ${primary} (dark background tones, header gradient)
-- Accent color: ${secondary} (highlights, number badges, chart bars, accents)
-- Style: ${style}, clean, professional news design
-- Background: deep dark gradient using shades of primary color
-- Each bullet point: has a small square badge with the number (01, 02, 03...) in accent color on the right side
-- Highlighted values (statistics): displayed in large bold accent-colored text next to or within the bullet
-- Typography: clean modern sans-serif Arabic font, all text in Arabic (right to left)
-- Layout direction: RIGHT TO LEFT (RTL) — all text aligns to the right
+═══════════════════════════════════════════
+ZONE 3 — FOOTER (bottom 10%):
+═══════════════════════════════════════════
+${data.conclusion ? `Conclusion text: "${data.conclusion}" — italic, light grey, centered` : ""}
+Brand: "كبسولة ● منصة صحية ذكية" — small, bottom right, accent color
 
-MUST INCLUDE:
-- All Arabic text as written above, rendered clearly and legibly
-- Color-coded numbered tabs for each point
-- Thin decorative line or gradient bar at top and bottom
-- Clean white or light text on dark background
-- Professional infographic grid/card layout
-
-DO NOT include: people, faces, hands, complex photography, cartoons, or any icons other than geometric shapes.
-This is a DATA INFOGRAPHIC — clean text, numbers, and shapes only.`;
+═══════════════════════════════════════════
+OVERALL STYLE REQUIREMENTS:
+═══════════════════════════════════════════
+- Background: deep dark gradient from ${primary}22 to #0a0a1a
+- All Arabic text RIGHT-TO-LEFT, legible, clear
+- Rich color palette: ${primary} and ${secondary} as accent colors
+- Style: ${style}, premium, Canva-quality
+- Include: colorful flat icons, progress bars/rings (if stats), gradients, shadows
+- ICONS MUST BE VISIBLE AND CLEAR — one per bullet point
+- The hero illustration MUST be prominent (no empty space at top)
+- High visual density: this is a poster, not a document
+- DO NOT make it look like a Word document`;
 }
 
 export async function generateInfographicImage(data: InfographicData): Promise<ImageGenerationResult> {
