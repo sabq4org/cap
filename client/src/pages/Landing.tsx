@@ -18,9 +18,10 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
-  Star
+  Star,
+  Brain
 } from "lucide-react";
-import { AIImageBadge } from "@/components/AIImageBadge";
+import { isAiGeneratedImage } from "@/components/AIImageBadge";
 import defaultNewsImage from "@assets/stock_images/healthcare_medical_n_906373b9.jpg";
 import newsImage1 from "@assets/stock_images/medical_health_healt_fdb22ee1.jpg";
 import newsImage2 from "@assets/stock_images/medical_health_healt_2bc2bc37.jpg";
@@ -127,12 +128,16 @@ export default function Landing() {
                             alt={item.title}
                             className="absolute inset-0 w-full h-full object-cover"
                           />
-                          <AIImageBadge imageUrl={item.imageUrl} size="md" />
                         </div>
                         <div className="p-4 md:p-6 flex flex-col justify-center order-2 min-h-[300px] md:min-h-[400px]">
-                          <Badge className={`${categoryColors[item.category] || ""} w-fit mb-3 text-sm`}>
-                            {categoryLabels[item.category] || item.category}
-                          </Badge>
+                          <div className="flex items-center gap-2 mb-3 flex-wrap">
+                            <Badge className={`${categoryColors[item.category] || ""} w-fit text-sm`}>
+                              {categoryLabels[item.category] || item.category}
+                            </Badge>
+                            {isAiGeneratedImage(item.imageUrl) && (
+                              <Brain className="h-4 w-4 text-sky-500" />
+                            )}
+                          </div>
                           <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3 group-hover:text-primary transition-colors">
                             {item.title}
                           </h2>
@@ -225,12 +230,16 @@ export default function Landing() {
                         alt={item.title}
                         className="w-full h-24 md:h-28 object-cover"
                       />
-                      <AIImageBadge imageUrl={item.imageUrl} size="sm" />
                     </div>
                     <CardContent className="p-3">
-                      <Badge className={`${categoryColors[item.category] || ""} text-sm mb-2`}>
-                        {categoryLabels[item.category] || item.category}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                        <Badge className={`${categoryColors[item.category] || ""} text-sm`}>
+                          {categoryLabels[item.category] || item.category}
+                        </Badge>
+                        {isAiGeneratedImage(item.imageUrl) && (
+                          <Brain className="h-3.5 w-3.5 text-sky-500" />
+                        )}
+                      </div>
                       <h4 className="font-semibold text-xs md:text-sm line-clamp-2 mb-1">
                         {item.title}
                       </h4>
