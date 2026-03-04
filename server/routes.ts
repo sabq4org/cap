@@ -5,7 +5,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupLocalAuth, registerLocalAuthRoutes } from "./localAuth";
-import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle } from "./openai";
+import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle } from "./openai";
 import { 
   insertGenerationSettingsSchema, 
   insertImageGenerationSchema, 
@@ -2609,6 +2609,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting template:", error);
       res.status(500).json({ message: "Failed to delete template" });
+    }
+  });
+
+  // Extract infographic data from raw text
+  app.post('/api/admin/infographic/extract-from-text', isAdminAuthenticated, async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text || typeof text !== 'string' || text.trim().length < 20) {
+        return res.status(400).json({ message: "يرجى إدخال نص كافٍ (20 حرف على الأقل)" });
+      }
+      const infographicData = await extractInfographicFromText(text.trim());
+      res.json(infographicData);
+    } catch (error) {
+      console.error("Error extracting infographic from text:", error);
+      res.status(500).json({ message: "فشل في استخراج البيانات من النص" });
     }
   });
 

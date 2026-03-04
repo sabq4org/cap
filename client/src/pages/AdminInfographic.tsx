@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Wand2, Loader2, Download, RefreshCw, 
-  LayoutTemplate, Plus, Image as ImageIcon, Sparkles
+  LayoutTemplate, Plus, Image as ImageIcon, Sparkles,
+  FileText, CheckCircle2, BarChart3, ListChecks, Heart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import AdminSidebar from "@/components/AdminSidebar";
+import InfographicRenderer, { type InfographicData } from "@/components/InfographicRenderer";
 
 interface InfographicTemplate {
   id: string;
@@ -61,6 +63,9 @@ export default function AdminInfographic() {
     description: "",
   });
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+
+  const [rawText, setRawText] = useState("");
+  const [extractedData, setExtractedData] = useState<InfographicData | null>(null);
 
   const { data: templates, isLoading: templatesLoading } = useQuery<InfographicTemplate[]>({
     queryKey: ["/api/admin/infographic/templates"],
@@ -116,6 +121,20 @@ export default function AdminInfographic() {
     },
   });
 
+  const extractMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/infographic/extract-from-text", { text: rawText });
+      return res.json() as Promise<InfographicData>;
+    },
+    onSuccess: (data) => {
+      setExtractedData(data);
+      toast({ title: "تم استخراج البيانات", description: "تمت معالجة النص بنجاح" });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ في المعالجة", description: error.message || "فشل في استخراج البيانات", variant: "destructive" });
+    },
+  });
+
   const handleGenerate = () => {
     if (!title) {
       toast({
@@ -149,17 +168,156 @@ export default function AdminInfographic() {
         </header>
 
         <main className="flex-1 p-6 overflow-auto">
-        <Tabs defaultValue="create" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+        <Tabs defaultValue="from-text" className="space-y-6">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
+            <TabsTrigger value="from-text" className="gap-2">
+              <FileText className="h-4 w-4" />
+              من نص
+            </TabsTrigger>
             <TabsTrigger value="create" className="gap-2">
               <Wand2 className="h-4 w-4" />
-              توليد جديد
+              يدوي
             </TabsTrigger>
             <TabsTrigger value="history" className="gap-2">
               <ImageIcon className="h-4 w-4" />
               السجل
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="from-text" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-primary" />
+                      الصق النص أو السيناريو
+                    </CardTitle>
+                    <CardDescription>
+                      ضع أي نص صحي أو مقالة أو سيناريو وسيستخرج الذكاء الاصطناعي منه إنفوجرافيك احترافي
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Textarea
+                      placeholder="مثال: أظهرت دراسة حديثة أن 85% من البالغين يعانون من نقص فيتامين د... أو: نصائح للوقاية من السكري: أولاً..."
+                      value={rawText}
+                      onChange={(e) => setRawText(e.target.value)}
+                      className="min-h-[220px] text-sm leading-relaxed"
+                      data-testid="textarea-raw-text"
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">{rawText.length} حرف</span>
+                      <Button
+                        onClick={() => extractMutation.mutate()}
+                        disabled={rawText.trim().length < 20 || extractMutation.isPending}
+                        className="gap-2"
+                        data-testid="button-extract-infographic"
+                      >
+                        {extractMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            جاري التحليل...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4" />
+                            استخرج إنفوجرافيك
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {extractedData && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        البيانات المستخرجة
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="gap-1">
+                          {extractedData.template === "stats" ? <BarChart3 className="h-3 w-3" /> :
+                           extractedData.template === "tips" ? <ListChecks className="h-3 w-3" /> :
+                           <Heart className="h-3 w-3" />}
+                          {extractedData.template === "stats" ? "إحصائيات" :
+                           extractedData.template === "tips" ? "نصائح" : "صحة"}
+                        </Badge>
+                        <span className="font-semibold text-sm">{extractedData.title}</span>
+                      </div>
+
+                      {extractedData.subtitle && (
+                        <p className="text-sm text-muted-foreground">{extractedData.subtitle}</p>
+                      )}
+
+                      {extractedData.stats && extractedData.stats.length > 0 && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {extractedData.stats.map((stat, i) => (
+                            <div key={i} className="bg-primary/5 border border-primary/20 rounded-lg p-2 text-center">
+                              <div className="text-lg font-bold text-primary">{stat.value}</div>
+                              <div className="text-xs text-muted-foreground">{stat.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {extractedData.points && extractedData.points.length > 0 && (
+                        <ul className="space-y-1">
+                          {extractedData.points.map((point, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm">
+                              <span className="mt-0.5 w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center flex-shrink-0">{i + 1}</span>
+                              {point}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {extractedData.conclusion && (
+                        <div className="bg-muted rounded-lg p-3 text-sm italic text-muted-foreground border-r-2 border-primary">
+                          {extractedData.conclusion}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => extractMutation.mutate()}
+                          disabled={extractMutation.isPending}
+                          className="gap-1"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          أعد الاستخراج
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              <div>
+                {extractedData ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      معاينة الإنفوجرافيك
+                    </div>
+                    <InfographicRenderer data={extractedData} />
+                  </div>
+                ) : (
+                  <Card className="h-full min-h-[300px] flex items-center justify-center border-dashed">
+                    <CardContent className="text-center text-muted-foreground py-12">
+                      <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                      <p className="text-sm">ضع النص وانتظر المعاينة هنا</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </TabsContent>
 
           <TabsContent value="create" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

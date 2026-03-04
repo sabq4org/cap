@@ -878,6 +878,89 @@ export async function evaluateNewsImportance(
   }
 }
 
+export interface InfographicData {
+  title: string;
+  subtitle?: string;
+  stats?: { value: string; label: string }[];
+  points?: string[];
+  conclusion?: string;
+  template: 'stats' | 'tips' | 'health';
+}
+
+export async function extractInfographicFromText(text: string): Promise<InfographicData> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `أنت خبير في تصميم الإنفوجرافيك الصحي. مهمتك استخراج المعلومات الأساسية من النص وتحويلها إلى هيكل مناسب لإنفوجرافيك جذاب.
+القواعد:
+- العنوان يجب أن يكون موجزاً وقوياً (أقل من 10 كلمات)
+- الإحصائيات: أرقام أو نسب مئوية واضحة من النص
+- النقاط: معلومات أو نصائح أساسية (3-5 نقاط)
+- اختر القالب المناسب: stats (عند وجود إحصائيات مهمة), tips (للنصائح والإرشادات), health (للمعلومات الصحية العامة)`,
+        },
+        {
+          role: "user",
+          content: `استخرج من هذا النص محتوى إنفوجرافيك:\n\n${text}`,
+        },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "create_infographic",
+            description: "إنشاء هيكل إنفوجرافيك من النص",
+            parameters: {
+              type: "object",
+              properties: {
+                title: { type: "string", description: "عنوان الإنفوجرافيك (موجز وقوي)" },
+                subtitle: { type: "string", description: "عنوان فرعي اختياري" },
+                stats: {
+                  type: "array",
+                  description: "أبرز الإحصائيات والأرقام (2-4 فقط)",
+                  items: {
+                    type: "object",
+                    properties: {
+                      value: { type: "string", description: "الرقم أو النسبة مثل 85% أو 1200" },
+                      label: { type: "string", description: "وصف الإحصائية" },
+                    },
+                    required: ["value", "label"],
+                  },
+                },
+                points: {
+                  type: "array",
+                  description: "النقاط الرئيسية أو النصائح (3-5 نقاط)",
+                  items: { type: "string" },
+                },
+                conclusion: { type: "string", description: "خلاصة أو توصية مهمة (جملة واحدة)" },
+                template: {
+                  type: "string",
+                  enum: ["stats", "tips", "health"],
+                  description: "القالب الأنسب للمحتوى",
+                },
+              },
+              required: ["title", "template"],
+            },
+          },
+        },
+      ],
+      tool_choice: { type: "function", function: { name: "create_infographic" } },
+    });
+
+    const toolCall = response.choices[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      const parsed = JSON.parse(toolCall.function.arguments);
+      return parsed as InfographicData;
+    }
+    return { title: "إنفوجرافيك صحي", template: "health" };
+  } catch (error) {
+    console.error("Error extracting infographic from text:", error);
+    return { title: "إنفوجرافيك صحي", template: "health" };
+  }
+}
+
 export async function generateInfographicPrompt(
   title: string,
   data: Record<string, any>,
