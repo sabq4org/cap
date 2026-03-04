@@ -100,7 +100,15 @@ export default function AdminRadar() {
   const [statusFilter, setStatusFilter] = useState("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddSource, setShowAddSource] = useState(false);
+  const [showAddKeyword, setShowAddKeyword] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [newKeywordForm, setNewKeywordForm] = useState({
+    keyword: "",
+    keywordAr: "",
+    category: "health-news",
+    weight: 1,
+    isExclude: false,
+  });
   const [newSource, setNewSource] = useState({
     name: "",
     nameAr: "",
@@ -329,6 +337,32 @@ export default function AdminRadar() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/radar/sources"] });
       toast({ title: "تم حذف المصدر" });
+    },
+  });
+
+  const addKeywordMutation = useMutation({
+    mutationFn: async (data: typeof newKeywordForm) => {
+      const res = await apiRequest("POST", "/api/radar/keywords", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/keywords"] });
+      setShowAddKeyword(false);
+      setNewKeywordForm({ keyword: "", keywordAr: "", category: "health-news", weight: 1, isExclude: false });
+      toast({ title: "تمت إضافة الكلمة المفتاحية" });
+    },
+    onError: () => {
+      toast({ title: "فشل في إضافة الكلمة", variant: "destructive" });
+    },
+  });
+
+  const deleteKeywordMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/radar/keywords/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/keywords"] });
+      toast({ title: "تم حذف الكلمة المفتاحية" });
     },
   });
 
@@ -933,43 +967,153 @@ export default function AdminRadar() {
           <TabsContent value="keywords" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>الكلمات المفتاحية</CardTitle>
-                <CardDescription>
-                  الكلمات المستخدمة لتصفية وتصنيف الأخبار
-                </CardDescription>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>الكلمات المفتاحية</CardTitle>
+                    <CardDescription>
+                      الكلمات المستخدمة لتصفية وتصنيف الأخبار
+                    </CardDescription>
+                  </div>
+                  <Dialog open={showAddKeyword} onOpenChange={setShowAddKeyword}>
+                    <DialogTrigger asChild>
+                      <Button data-testid="button-add-keyword">
+                        <Plus className="h-4 w-4 ml-2" />
+                        إضافة كلمة
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md" dir="rtl">
+                      <DialogHeader>
+                        <DialogTitle>إضافة كلمة مفتاحية جديدة</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>الكلمة (إنجليزي / عربي)</Label>
+                          <Input
+                            value={newKeywordForm.keyword}
+                            onChange={(e) => setNewKeywordForm({ ...newKeywordForm, keyword: e.target.value })}
+                            placeholder="diabetes / سكري"
+                            data-testid="input-keyword"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>الكلمة بالعربي (اختياري)</Label>
+                          <Input
+                            value={newKeywordForm.keywordAr}
+                            onChange={(e) => setNewKeywordForm({ ...newKeywordForm, keywordAr: e.target.value })}
+                            placeholder="داء السكري"
+                            data-testid="input-keyword-ar"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>التصنيف</Label>
+                            <Select
+                              value={newKeywordForm.category}
+                              onValueChange={(v) => setNewKeywordForm({ ...newKeywordForm, category: v })}
+                            >
+                              <SelectTrigger data-testid="select-keyword-category">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(categoryLabels).map(([value, label]) => (
+                                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>الوزن (1-10)</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={10}
+                              value={newKeywordForm.weight}
+                              onChange={(e) => setNewKeywordForm({ ...newKeywordForm, weight: parseInt(e.target.value) || 1 })}
+                              data-testid="input-keyword-weight"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 rounded-lg border">
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">كلمة استبعاد</div>
+                            <div className="text-xs text-muted-foreground">استبعاد الأخبار التي تحتوي على هذه الكلمة</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setNewKeywordForm({ ...newKeywordForm, isExclude: !newKeywordForm.isExclude })}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${newKeywordForm.isExclude ? "bg-destructive" : "bg-muted"}`}
+                            data-testid="toggle-keyword-exclude"
+                          >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${newKeywordForm.isExclude ? "translate-x-1" : "translate-x-6"}`} />
+                          </button>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          onClick={() => addKeywordMutation.mutate(newKeywordForm)}
+                          disabled={!newKeywordForm.keyword || addKeywordMutation.isPending}
+                          data-testid="button-save-keyword"
+                        >
+                          {addKeywordMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent>
                 {keywordsLoading ? (
-                  <div className="space-y-4">
-                    {[...Array(3)].map((_, i) => (
-                      <Skeleton key={i} className="h-10 w-full" />
+                  <div className="flex flex-wrap gap-2">
+                    {[...Array(8)].map((_, i) => (
+                      <Skeleton key={i} className="h-8 w-24 rounded-full" />
                     ))}
                   </div>
                 ) : keywords?.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>لا توجد كلمات مفتاحية</p>
-                    <Button 
-                      variant="outline" 
-                      className="mt-4"
-                      onClick={() => seedMutation.mutate()}
-                    >
-                      إضافة كلمات افتراضية
-                    </Button>
+                    <div className="flex gap-2 justify-center mt-4">
+                      <Button 
+                        variant="outline"
+                        onClick={() => seedMutation.mutate()}
+                      >
+                        إضافة كلمات افتراضية
+                      </Button>
+                      <Button onClick={() => setShowAddKeyword(true)}>
+                        <Plus className="h-4 w-4 ml-2" />
+                        إضافة كلمة
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {keywords?.map((kw) => (
-                      <Badge 
-                        key={kw.id} 
-                        variant={kw.isExclude ? "destructive" : "secondary"}
-                        className="text-sm py-1 px-3"
+                      <div
+                        key={kw.id}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${
+                          kw.isExclude
+                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200"
+                            : "bg-secondary text-secondary-foreground"
+                        }`}
+                        data-testid={`keyword-badge-${kw.id}`}
                       >
-                        {kw.keywordAr || kw.keyword}
+                        <span>{kw.keywordAr || kw.keyword}</span>
                         {kw.weight && kw.weight > 1 && (
-                          <span className="mr-1 opacity-60">({kw.weight})</span>
+                          <span className="opacity-50 text-xs">×{kw.weight}</span>
                         )}
-                      </Badge>
+                        {kw.isExclude && (
+                          <span className="opacity-60 text-xs">(استبعاد)</span>
+                        )}
+                        <button
+                          onClick={() => deleteKeywordMutation.mutate(kw.id)}
+                          disabled={deleteKeywordMutation.isPending}
+                          className="opacity-40 hover:opacity-100 transition-opacity mr-1"
+                          title="حذف"
+                          data-testid={`button-delete-keyword-${kw.id}`}
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
