@@ -20,7 +20,6 @@ import About from "@/pages/About";
 import Privacy from "@/pages/Privacy";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
-import AdminNewsCreate from "@/pages/AdminNewsCreate";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminRadar from "@/pages/AdminRadar";
 import AdminInfographic from "@/pages/AdminInfographic";
@@ -42,37 +41,21 @@ function Router() {
 
   return (
     <Switch>
-      {!isAuthenticated ? (
-        <>
-          <Route path="/" component={Landing} />
-          <Route path="/login" component={Login} />
-          <Route path="/register" component={Register} />
-          <Route path="/nutrition" component={Nutrition} />
-          <Route path="/articles" component={Articles} />
-          <Route path="/news" component={News} />
-          <Route path="/news/:id" component={NewsDetail} />
-          <Route path="/n/:shortCode" component={NewsDetail} />
-          <Route path="/keyword/:keyword" component={KeywordPage} />
-          <Route path="/about" component={About} />
-          <Route path="/privacy" component={Privacy} />
-        </>
-      ) : (
-        <>
-          <Route path="/" component={Landing} />
-          <Route path="/portal" component={Home} />
-          <Route path="/assistant" component={Assistant} />
-          <Route path="/nutrition" component={Nutrition} />
-          <Route path="/profile" component={Profile} />
-          <Route path="/articles" component={Articles} />
-          <Route path="/news" component={News} />
-          <Route path="/news/:id" component={NewsDetail} />
-          <Route path="/n/:shortCode" component={NewsDetail} />
-          <Route path="/keyword/:keyword" component={KeywordPage} />
-          <Route path="/about" component={About} />
-          <Route path="/privacy" component={Privacy} />
-          <Route component={NotFound} />
-        </>
-      )}
+      <Route path="/" component={Landing} />
+      <Route path="/portal">{isAuthenticated ? <Home /> : <Login />}</Route>
+      <Route path="/assistant">{isAuthenticated ? <Assistant /> : <Login />}</Route>
+      <Route path="/nutrition" component={Nutrition} />
+      <Route path="/profile">{isAuthenticated ? <Profile /> : <Login />}</Route>
+      <Route path="/articles" component={Articles} />
+      <Route path="/news" component={News} />
+      <Route path="/news/:id" component={NewsDetail} />
+      <Route path="/n/:shortCode" component={NewsDetail} />
+      <Route path="/keyword/:keyword" component={KeywordPage} />
+      <Route path="/about" component={About} />
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/login">{isAuthenticated ? <Landing /> : <Login />}</Route>
+      <Route path="/register">{isAuthenticated ? <Landing /> : <Register />}</Route>
+      <Route component={NotFound} />
     </Switch>
   );
 }
