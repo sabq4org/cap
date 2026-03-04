@@ -734,8 +734,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/admin/clear-news", isAdminAuthenticated, async (req, res) => {
     try {
       const { pool } = await import("./db");
-      const result = await pool.query("DELETE FROM news");
-      res.json({ message: "تم حذف جميع الأخبار", deletedCount: result.rowCount });
+      const r1 = await pool.query("DELETE FROM radar_items");
+      const r2 = await pool.query("DELETE FROM radar_fetch_logs");
+      const r3 = await pool.query("DELETE FROM radar_alerts");
+      const r4 = await pool.query("DELETE FROM radar_notifications");
+      const r5 = await pool.query("DELETE FROM news");
+      const r6 = await pool.query("DELETE FROM articles");
+      const total = (r1.rowCount||0)+(r2.rowCount||0)+(r3.rowCount||0)+(r4.rowCount||0)+(r5.rowCount||0)+(r6.rowCount||0);
+      res.json({
+        message: "تم حذف جميع الأخبار من قاعدة البيانات",
+        details: {
+          radar_items: r1.rowCount,
+          radar_fetch_logs: r2.rowCount,
+          radar_alerts: r3.rowCount,
+          radar_notifications: r4.rowCount,
+          news: r5.rowCount,
+          articles: r6.rowCount,
+        },
+        total,
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
