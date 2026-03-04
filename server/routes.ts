@@ -5,7 +5,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupLocalAuth, registerLocalAuthRoutes } from "./localAuth";
-import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, generateInfographicPrompt, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle } from "./openai";
+import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle } from "./openai";
 import { 
   insertGenerationSettingsSchema, 
   insertImageGenerationSchema, 
@@ -2958,19 +2958,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==========================================
   app.post('/api/admin/generate-image-ai', isAdminAuthenticated, async (req, res) => {
     try {
-      const { title, content, style } = req.body;
+      const { title, content, summary, category, style, mood } = req.body;
 
       if (!title && !content) {
         return res.status(400).json({ message: "العنوان أو المحتوى مطلوب لتوليد الصورة" });
       }
 
-      const promptText = content || title || '';
-      const imagePrompt = await generatePromptFromContent(
-        title || '',
-        promptText,
-        style || 'artistic'
-      );
-      console.log("[Image Generation] Generated prompt:", imagePrompt);
+      const imagePrompt = buildNewsImagePrompt({
+        title: title || '',
+        summary: summary || (content ? content.substring(0, 300) : ''),
+        category: category || 'health',
+        style: style || 'photorealistic',
+        mood: mood || 'neutral',
+        language: 'Arabic',
+      });
+      console.log("[Image Generation] Built prompt:", imagePrompt.substring(0, 200));
 
       const result = await generateImage({ prompt: imagePrompt });
 

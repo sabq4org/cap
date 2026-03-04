@@ -477,6 +477,59 @@ async function cropTo16x9(imageBuffer: Buffer): Promise<Buffer> {
   return imageBuffer;
 }
 
+export function buildNewsImagePrompt(options: {
+  title: string;
+  summary?: string;
+  category?: string;
+  style?: "photorealistic" | "illustration" | "abstract";
+  mood?: "neutral" | "positive" | "serious" | "breaking";
+  language?: string;
+}): string {
+  const {
+    title,
+    summary = "",
+    category = "health",
+    style = "photorealistic",
+    mood = "neutral",
+    language = "Arabic",
+  } = options;
+
+  const styleDescriptions: Record<string, string> = {
+    photorealistic: "professional photojournalism style, high quality, realistic, clean minimal composition",
+    illustration: "modern digital illustration, clean and professional, minimal design",
+    abstract: "abstract artistic representation, contemporary design, clean and modern",
+  };
+
+  const moodDescriptions: Record<string, string> = {
+    neutral: "balanced, professional, informative tone",
+    positive: "uplifting, bright, optimistic feel",
+    serious: "serious professional tone, authoritative",
+    breaking: "dramatic, attention-grabbing, urgent feel",
+  };
+
+  return `Create a professional news image for this article:
+Title: ${title}
+${summary ? `Summary: ${summary}` : ""}
+Category: ${category}
+Language: ${language} news context
+Style: ${styleDescriptions[style] || styleDescriptions.photorealistic}
+Mood: ${moodDescriptions[mood] || moodDescriptions.neutral}
+
+CRITICAL REQUIREMENTS:
+- ABSOLUTELY NO TEXT, LETTERS, WORDS, NUMBERS, CHARACTERS, OR TYPOGRAPHY OF ANY KIND IN THE IMAGE
+- NO Arabic text, NO English text, NO text in any language whatsoever
+- NO watermarks, NO logos, NO signs with writing, NO banners with text
+- NO newspapers, books, or any objects containing visible text
+- The image must be 100% text-free and purely visual
+- High quality, suitable for news publication
+- Culturally appropriate for ${language} news context
+- Professional and credible
+- 16:9 aspect ratio
+- Focus on visual storytelling through imagery only
+- Clean, modern composition with no textual elements
+- No human figures, faces, hands, or bodies`;
+}
+
 export async function generateImage(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
   const startTime = Date.now();
 

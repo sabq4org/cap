@@ -1005,8 +1005,11 @@ export default function AdminDashboard() {
     try {
       const res = await apiRequest("POST", "/api/admin/generate-image-ai", {
         title: formData.title,
+        summary: formData.subtitle || formData.summary || '',
         content: formData.content,
-        style: 'artistic',
+        category: formData.category || 'health',
+        style: 'photorealistic',
+        mood: 'neutral',
       });
       const data = await res.json();
 

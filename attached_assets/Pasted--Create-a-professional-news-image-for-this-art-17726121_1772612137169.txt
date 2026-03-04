@@ -1,0 +1,55 @@
+هذا هو البرومبت الفعلي اللي يُرسل لنموذج توليد الصور:
+
+Create a professional news image for this article:
+Title: ${articleTitle}
+Summary: ${articleSummary}
+Category: ${category}
+Language: ${language} news context
+Style: ${style}
+Mood: ${mood}
+CRITICAL REQUIREMENTS:
+- ABSOLUTELY NO TEXT, LETTERS, WORDS, NUMBERS, CHARACTERS, OR TYPOGRAPHY OF ANY KIND IN THE IMAGE
+- NO Arabic text, NO English text, NO text in any language whatsoever
+- NO watermarks, NO logos, NO signs with writing, NO banners with text
+- NO newspapers, books, or any objects containing visible text
+- The image must be 100% text-free and purely visual
+- High quality, suitable for news publication
+- Culturally appropriate for ${language} news context
+- Professional and credible
+- 16:9 aspect ratio
+- Focus on visual storytelling through imagery only
+- Clean, modern composition with no textual elements
+القيم الديناميكية
+Style (نمط الصورة):
+
+القيمة	الوصف
+photorealistic	professional photojournalism style, high quality, realistic
+illustration	modern digital illustration, clean and professional
+abstract	abstract artistic representation, contemporary design
+infographic	infographic style, data visualization, modern design
+Mood (المزاج):
+
+القيمة	الوصف
+breaking	dramatic, urgent, attention-grabbing
+neutral	balanced, professional, informative
+positive	uplifting, bright, optimistic
+serious	serious tone, professional, authoritative
+dramatic	high contrast, dramatic lighting, impactful
+البرومبت الاحتياطي (autoImageGenerationService.ts)
+يُستخدم لتوليد "smart prompt" يُحفظ كبيانات وصفية:
+
+Professional news image for article titled: "${title}"
+Category: ${category}
+Summary: ${excerpt}
+Style requirements:
+- Professional journalism quality
+- Culturally appropriate for ${language} audience
+- Modern, clean composition
+- No text or watermarks
+- Suitable for news publication
+- Visually engaging and relevant to the topic
+طريقة الاستخدام
+المدخلات: عنوان المقال + ملخصه + التصنيف + اللغة
+الإعدادات الافتراضية: Style = photorealistic ، Mood = neutral
+نسبة الأبعاد: 16:9 دائماً
+القاعدة الأهم: منع أي نص أو حروف في الصورة نهائياً
