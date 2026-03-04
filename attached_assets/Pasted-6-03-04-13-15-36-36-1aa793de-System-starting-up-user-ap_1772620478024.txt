@@ -1,0 +1,92 @@
+6-03-04 13:15:36.36
+1aa793de
+System
+starting up user application
+2026-03-04 13:15:36.36
+1aa793de
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-03-04 13:15:36.37
+1aa793de
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-03-04 13:15:38.33
+c019b244
+User
+10:15:38 AM [express] GET /api/n/rlEaSbU 200 in 3596ms :: {"id":"cd6d6daf-e3fa-4ffb-88b7-7d674dca74a1…
+2026-03-04 13:15:38.50
+c019b244
+User
+10:15:38 AM [express] GET /api/news 200 in 3778ms :: [{"id":"27abc528-41d2-476e-bbe0-441564cb6832","s…
+2026-03-04 13:15:44.09
+c019b244
+System
+system: received signal terminated
+2026-03-04 13:15:44.11
+c019b244
+System
+command finished with error [node ./dist/index.cjs]: signal: terminated
+2026-03-04 13:15:44.16
+c019b244
+System
+main done, exiting
+2026-03-04 13:15:56.73
+1aa793de
+User
+10:15:55 AM [express] serving on port 5000
+2026-03-04 13:16:32.24
+1aa793de
+User
+10:16:32 AM [express] GET /api/auth/user 401 in 2ms :: {"message":"Unauthorized"}
+2026-03-04 13:16:32.67
+1aa793de
+User
+10:16:32 AM [express] GET /api/n/41YuuXg 200 in 152ms :: {"id":"27abc528-41d2-476e-bbe0-441564cb6832"…
+2026-03-04 13:16:34.77
+1aa793de
+User
+10:16:34 AM [express] GET /api/news 304 in 2228ms :: [{"id":"27abc528-41d2-476e-bbe0-441564cb6832","s…
+2026-03-04 13:17:11.06
+1aa793de
+User
+10:17:11 AM [express] GET /api/admin/infographic/jobs 304 in 144ms :: []
+2026-03-04 13:17:11.06
+1aa793de
+User
+10:17:11 AM [express] GET /api/admin/generation/usage 304 in 173ms :: {"images":"0","infographics":"0…
+2026-03-04 13:17:11.13
+1aa793de
+User
+10:17:11 AM [express] GET /api/admin/infographic/templates 304 in 304ms :: [{"id":"bd804bcf-079a-4653…
+2026-03-04 13:17:18.41
+1aa793de
+User
+10:17:18 AM [express] POST /api/admin/infographic/extract-from-text 200 in 3361ms :: {"title":"5 أضرا…
+2026-03-04 13:17:50.24
+1aa793de
+User
+10:17:50 AM [express] POST /api/admin/infographic/extract-from-text 200 in 4977ms :: {"title":"أضرار …
+2026-03-04 13:20:17.03
+1aa793de
+User
+10:20:17 AM [express] POST /api/admin/login 401 in 1ms :: {"success":false,"message":"اسم المستخدم أو…
+2026-03-04 13:21:55.90
+1aa793de
+User
+10:21:55 AM [express] POST /api/admin/login 200 in 733ms :: {"success":true,"message":"تم تسجيل الدخو…
+2026-03-04 13:21:56.43
+1aa793de
+User
+10:21:56 AM [express] GET /api/articles 200 in 82ms :: []
+2026-03-04 13:21:57.54
+1aa793de
+User
+10:21:57 AM [express] GET /api/news 200 in 1111ms :: [{"id":"27abc528-41d2-476e-bbe0-441564cb6832","s…
+2026-03-04 13:21:58.08
+1aa793de
+User
+10:21:58 AM [express] GET /api/admin/stats 200 in 1650ms :: {"totalNews":7354,"publishedNews":6751,"d…
+2026-03-04 13:28:19.77
+1aa793de
+User
+10:28:19 AM [express] POST /api/admin/login 401 in 1ms :: {"success":false,"message":"اسم المستخدم أو…
