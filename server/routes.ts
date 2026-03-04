@@ -5,7 +5,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupLocalAuth, registerLocalAuthRoutes } from "./localAuth";
-import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle } from "./openai";
+import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, generateInfographicImage, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle } from "./openai";
 import { 
   insertGenerationSettingsSchema, 
   insertImageGenerationSchema, 
@@ -2624,6 +2624,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error extracting infographic from text:", error);
       res.status(500).json({ message: "فشل في استخراج البيانات من النص" });
+    }
+  });
+
+  // Generate infographic as AI image (Nano Banana 2)
+  app.post('/api/admin/infographic/generate-ai-image', isAdminAuthenticated, async (req, res) => {
+    try {
+      const data = req.body;
+      if (!data?.title) {
+        return res.status(400).json({ message: "بيانات الإنفوجرافيك غير مكتملة" });
+      }
+
+      const result = await generateInfographicImage(data);
+      if (!result.success || !result.imageBuffer) {
+        return res.status(500).json({ message: result.error || "فشل في توليد الإنفوجرافيك" });
+      }
+
+      const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
+      if (!privateObjectDir) {
+        return res.status(500).json({ message: "مخزن الملفات غير مهيأ" });
+      }
+
+      const { randomUUID } = await import('node:crypto');
+      const fileName = `infographic-ai-${randomUUID()}.png`;
+      const fullPath = `${privateObjectDir}/uploads/${fileName}`;
+      const pathParts = fullPath.startsWith('/') ? fullPath.slice(1).split('/') : fullPath.split('/');
+      const bucketName = pathParts[0];
+      const objectName = pathParts.slice(1).join('/');
+
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      await file.save(result.imageBuffer, { contentType: 'image/png', resumable: false });
+
+      const imageUrl = `/objects/uploads/${fileName}`;
+      res.json({
+        imageUrl,
+        generationTimeMs: result.generationTimeMs,
+        message: "تم توليد الإنفوجرافيك بنجاح",
+      });
+    } catch (error: any) {
+      console.error("Infographic AI image error:", error);
+      res.status(500).json({ message: error.message || "فشل في التوليد" });
     }
   });
 

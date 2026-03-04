@@ -1086,4 +1086,110 @@ ${categoriesList}
   }
 }
 
+// ── INFOGRAPHIC AI IMAGE GENERATION ──────────────────────────────────────
+
+export function buildInfographicAIPrompt(data: InfographicData): string {
+  const primary = data.visualDesign?.primaryColor || "#059669";
+  const secondary = data.visualDesign?.secondaryColor || "#10b981";
+  const layout = data.visualDesign?.layout || "vertical";
+  const style = data.visualDesign?.style || "modern";
+  const hasStats = data.dataVisualization?.hasStatistics;
+  const points = data.bulletPoints || [];
+
+  const highlightItems = points.filter(p => p.highlight);
+  const regularPoints = points;
+
+  let chartSection = "";
+  if (hasStats && highlightItems.length >= 2) {
+    const chartBars = highlightItems.slice(0, 5).map(p => `"${p.highlight}" labeled "${p.text.substring(0, 20)}"`).join(", ");
+    chartSection = `
+CHART: Include a clean horizontal bar chart at the bottom showing: ${chartBars}. Style: thin colored bars with percentage labels at the end, minimalist.`;
+  }
+
+  const pointsList = regularPoints.slice(0, 7).map((p, i) =>
+    `  ${String(i + 1).padStart(2, "0")}. "${p.text}"${p.highlight ? ` — highlighted badge showing "${p.highlight}"` : ""}`
+  ).join("\n");
+
+  const sizeGuide = layout === "horizontal"
+    ? "WIDE horizontal format (16:9 ratio)"
+    : layout === "grid"
+    ? "SQUARE format (1:1 ratio)"
+    : "TALL vertical format (4:5 ratio)";
+
+  return `Create a professional Arabic journalism infographic in ${sizeGuide}.
+
+CONTENT:
+- Main Title (large, bold, at top): "${data.title}"
+${data.subtitle ? `- Subtitle (smaller, below title): "${data.subtitle}"` : ""}
+
+NUMBERED BULLET POINTS (display in RTL Arabic, right-to-left layout):
+${pointsList}
+
+${chartSection}
+
+${data.conclusion ? `CONCLUSION BOX (at bottom): "${data.conclusion}"` : ""}
+BRAND FOOTER: "كبسولة" in small text at very bottom.
+
+VISUAL DESIGN:
+- Primary color: ${primary} (dark background tones, header gradient)
+- Accent color: ${secondary} (highlights, number badges, chart bars, accents)
+- Style: ${style}, clean, professional news design
+- Background: deep dark gradient using shades of primary color
+- Each bullet point: has a small square badge with the number (01, 02, 03...) in accent color on the right side
+- Highlighted values (statistics): displayed in large bold accent-colored text next to or within the bullet
+- Typography: clean modern sans-serif Arabic font, all text in Arabic (right to left)
+- Layout direction: RIGHT TO LEFT (RTL) — all text aligns to the right
+
+MUST INCLUDE:
+- All Arabic text as written above, rendered clearly and legibly
+- Color-coded numbered tabs for each point
+- Thin decorative line or gradient bar at top and bottom
+- Clean white or light text on dark background
+- Professional infographic grid/card layout
+
+DO NOT include: people, faces, hands, complex photography, cartoons, or any icons other than geometric shapes.
+This is a DATA INFOGRAPHIC — clean text, numbers, and shapes only.`;
+}
+
+export async function generateInfographicImage(data: InfographicData): Promise<ImageGenerationResult> {
+  const startTime = Date.now();
+  const prompt = buildInfographicAIPrompt(data);
+
+  const googleApiKey = process.env.GOOGLE_API_KEY;
+  if (!googleApiKey) {
+    return { success: false, error: "مفتاح Google API غير مهيأ" };
+  }
+
+  try {
+    console.log("[Infographic AI] Generating with Nano Banana 2...");
+    const { GoogleGenAI, Modality } = await import('@google/genai');
+    const ai = new GoogleGenAI({ apiKey: googleApiKey });
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-image-preview",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { responseModalities: [Modality.IMAGE, Modality.TEXT] } as any,
+    });
+
+    const candidate = response.candidates?.[0];
+    const imagePart = candidate?.content?.parts?.find((part: any) => part.inlineData);
+
+    if (!imagePart?.inlineData?.data) {
+      return { success: false, error: "لم يُولَّد الإنفوجرافيك، حاول مرة أخرى", generationTimeMs: Date.now() - startTime };
+    }
+
+    const imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
+    return {
+      success: true,
+      imageBuffer,
+      imageMimeType: 'image/png',
+      revisedPrompt: prompt,
+      generationTimeMs: Date.now() - startTime,
+    };
+  } catch (error: any) {
+    console.error("[Infographic AI] Generation error:", error.message);
+    return { success: false, error: error.message || "فشل في التوليد", generationTimeMs: Date.now() - startTime };
+  }
+}
+
 export default openai;

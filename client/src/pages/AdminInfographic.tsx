@@ -66,6 +66,7 @@ export default function AdminInfographic() {
 
   const [rawText, setRawText] = useState("");
   const [extractedData, setExtractedData] = useState<InfographicData | null>(null);
+  const [aiInfographicImage, setAiInfographicImage] = useState<string | null>(null);
 
   const { data: templates, isLoading: templatesLoading } = useQuery<InfographicTemplate[]>({
     queryKey: ["/api/admin/infographic/templates"],
@@ -128,10 +129,29 @@ export default function AdminInfographic() {
     },
     onSuccess: (data) => {
       setExtractedData(data);
+      setAiInfographicImage(null);
       toast({ title: "تم استخراج البيانات", description: "تمت معالجة النص بنجاح" });
     },
     onError: (error: any) => {
       toast({ title: "خطأ في المعالجة", description: error.message || "فشل في استخراج البيانات", variant: "destructive" });
+    },
+  });
+
+  const generateAiImageMutation = useMutation({
+    mutationFn: async () => {
+      if (!extractedData) throw new Error("لا توجد بيانات مستخرجة");
+      const res = await apiRequest("POST", "/api/admin/infographic/generate-ai-image", extractedData);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setAiInfographicImage(data.imageUrl);
+      toast({
+        title: "تم توليد الإنفوجرافيك",
+        description: `Nano Banana 2 — ${((data.generationTimeMs || 0) / 1000).toFixed(1)} ثانية`,
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ في التوليد", description: error.message || "فشل في توليد الصورة", variant: "destructive" });
     },
   });
 
@@ -287,7 +307,20 @@ export default function AdminInfographic() {
                         </div>
                       )}
 
-                      <div className="flex gap-2 pt-1">
+                      <div className="flex gap-2 pt-1 flex-wrap">
+                        <Button
+                          size="sm"
+                          onClick={() => generateAiImageMutation.mutate()}
+                          disabled={generateAiImageMutation.isPending}
+                          className="gap-1 flex-1"
+                          data-testid="button-generate-ai-infographic"
+                        >
+                          {generateAiImageMutation.isPending ? (
+                            <><Loader2 className="h-3 w-3 animate-spin" />جارٍ التوليد...</>
+                          ) : (
+                            <><Sparkles className="h-3 w-3" />توليد صورة AI</>
+                          )}
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -305,11 +338,53 @@ export default function AdminInfographic() {
               </div>
 
               <div>
-                {extractedData ? (
+                {generateAiImageMutation.isPending ? (
+                  <Card className="h-full min-h-[380px] flex items-center justify-center">
+                    <CardContent className="text-center py-16 space-y-4">
+                      <div className="relative mx-auto w-16 h-16">
+                        <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
+                        <div className="relative w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Sparkles className="h-8 w-8 text-primary animate-pulse" />
+                        </div>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">Nano Banana 2 يولّد الإنفوجرافيك...</p>
+                        <p className="text-xs text-muted-foreground mt-1">نصوص · أرقام · مخططات بيانية</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : aiInfographicImage ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        إنفوجرافيك AI — Nano Banana 2
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="gap-1 h-7 text-xs"
+                          onClick={() => generateAiImageMutation.mutate()}>
+                          <RefreshCw className="h-3 w-3" />أعد التوليد
+                        </Button>
+                        <a href={aiInfographicImage} download target="_blank" rel="noreferrer">
+                          <Button size="sm" className="gap-1 h-7 text-xs">
+                            <Download className="h-3 w-3" />تحميل
+                          </Button>
+                        </a>
+                      </div>
+                    </div>
+                    <div className="rounded-xl overflow-hidden border border-border shadow-lg">
+                      <img src={aiInfographicImage} alt="إنفوجرافيك AI" className="w-full object-contain" />
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center">
+                      أو شاهد المعاينة الهيكلية ↓
+                    </p>
+                    <InfographicRenderer data={extractedData!} />
+                  </div>
+                ) : extractedData ? (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Sparkles className="h-4 w-4 text-primary" />
-                      معاينة الإنفوجرافيك
+                      معاينة هيكلية — اضغط "توليد صورة AI" للحصول على النسخة الكاملة
                     </div>
                     <InfographicRenderer data={extractedData} />
                   </div>
