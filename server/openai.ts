@@ -480,7 +480,7 @@ async function cropTo16x9(imageBuffer: Buffer): Promise<Buffer> {
 export async function generateImage(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
   const startTime = Date.now();
 
-  const styleRules = `\n\nSTRICT RULES: No text, letters, numbers, watermarks, or writing of any kind. No human figures, faces, or hands. No corporate business clichés (no charts, gears, arrows). Photorealistic editorial quality, magazine cover standard.`;
+  const styleRules = `\n\nSTRICT RULES: No text, letters, numbers, watermarks, or writing of any kind. No human figures, faces, hands, or bodies. Clean simple composition. No 3D renders, no sci-fi effects, no complex backgrounds. Photorealistic photography style.`;
   const fullPrompt = `${options.prompt}${styleRules}`;
 
   // PRIMARY: Nano Banana 2 (gemini-3.1-flash-image-preview) via direct Google API key
@@ -552,51 +552,60 @@ export async function generatePromptFromContent(
       messages: [
         {
           role: "system",
-          content: `You are a creative director for a premium Arabic health news portal. Your job is to craft a vivid, expressive image generation prompt that perfectly illustrates the article's topic.
+          content: `You are a photo art director for a clean, modern Arabic health news portal. Generate a simple, focused image prompt.
 
-ANALYSIS PROCESS:
-1. Read the article carefully and identify: the EXACT medical topic, the key theme (discovery, warning, treatment, prevention, research, etc.), and any specific objects, organs, or substances mentioned.
-2. Choose the MOST EXPRESSIVE visual representation - something that tells the story at a glance.
-3. Think: what would a world-class editorial illustrator draw for this article?
+CORE PRINCIPLE: One clear subject. Clean background. Simple composition.
 
-STYLE MANDATE: Photorealistic or semi-photorealistic editorial illustration. Rich, deep colors. High-quality 3D rendering aesthetic. Professional magazine cover quality.
+STYLE: Clean editorial photography. Soft natural or studio lighting. Uncluttered. Professional but approachable.
 
-CONTENT RULES:
-- Describe ONE powerful central subject that directly represents the article
-- Include the emotional/narrative tone (urgent, hopeful, scientific, etc.)
-- Use specific medical/scientific objects: specific organs, cells, molecules, medical devices, specific foods, specific body parts
-- Add environmental context when helpful (inside a body, laboratory setting, natural setting)
-- Specify lighting for maximum drama and clarity
+PROCESS:
+1. Identify the single most recognizable object or scene that represents this article's topic.
+2. Describe it simply and clearly — no complex scenes, no multiple elements competing for attention.
+3. Choose a clean, neutral background that complements the subject.
+
+GOOD SUBJECT TYPES:
+- A specific food or ingredient (for nutrition topics)
+- A specific medical device or tool in use (blood pressure cuff, inhaler, etc.)
+- A relevant plant, fruit, or natural element
+- A close-up of a body part in a clean medical context (an ear, a knee, an eye — no faces)
+- A relevant everyday object (running shoes, a scale, a pill organizer)
+
+LIGHTING & BACKGROUND:
+- Soft natural daylight or clean studio lighting
+- Clean white, light grey, or soft pastel background
+- Subtle shadow for depth, nothing dramatic
 
 FORBIDDEN:
-- People, faces, hands, human figures
-- Text, letters, numbers, labels, watermarks
-- Generic icons (stethoscope alone, DNA helix alone without context)
-- Corporate/business imagery (charts, graphs, arrows, gears, scales)
-- Flags, logos, brand names
+- People, faces, hands, bodies
+- Text, numbers, labels, watermarks
+- Complex 3D renders, microscopic cells, molecules
+- Dramatic "god-rays", bioluminescent glow, sci-fi aesthetics
+- Multiple competing subjects
+- Abstract concepts
 
-GREAT EXAMPLES:
-- Diabetes article → "Macro 3D render of a human pancreatic cell releasing golden insulin molecules into the bloodstream, shown as glowing amber spheres floating in translucent red plasma, deep indigo background, volumetric god-rays, hyper-detailed cellular membrane texture"
-- Heart disease → "Cross-section of a human heart showing a partially blocked coronary artery with cholesterol plaque buildup in vivid detail, warm red tones with deep shadow, medical illustration style, dramatic side lighting"
-- Nutrition article about omega-3 → "Macro shot of a fresh salmon fillet revealing its internal fat marbling, surrounded by omega-3 molecular structures as glowing blue geometric shapes, dark emerald background, studio lighting"
-- Antibiotic resistance → "3D microscopic visualization of MRSA bacteria (golden spheres) resisting antibiotic molecules (blue crystalline structures) that shatter on contact, dark background with bioluminescent glow"
+EXAMPLES:
+- Heart health → "A fresh red apple and a small bowl of walnuts on a clean white marble surface, soft diffused natural light, simple top-down composition, minimal shadow"
+- Diabetes → "A glucose meter displaying a reading next to a small pile of blueberries on a light grey surface, soft studio lighting, clean minimal composition"
+- Sleep health → "A simple white pillow on crisp linen sheets with a small lavender sprig beside it, soft warm morning light, calm and restful feel"
+- Vaccination → "A single clean glass vial and a hypodermic needle on a sterile white surface, clinical studio lighting, simple composition"
+- Omega-3 → "Fresh salmon fillet with a lemon wedge and fresh herbs on a white ceramic plate, natural side lighting, food photography style"
 
-Write a single detailed prompt (3-5 sentences). English only. Return ONLY the prompt text.`
+Write ONE concise prompt (1-2 sentences max). English only. Return ONLY the prompt text.`
         },
         {
           role: "user",
-          content: `Article title: ${title}\n\nArticle content:\n${content.substring(0, 2500)}`
+          content: `Article title: ${title}\n\nArticle content:\n${content.substring(0, 1500)}`
         }
       ],
-      max_completion_tokens: 700,
-      temperature: 0.7,
+      max_completion_tokens: 300,
+      temperature: 0.5,
     });
 
-    return response.choices[0]?.message?.content?.trim() || 
-      "Macro 3D render of a glowing human heart cross-section with visible arteries pulsing with translucent red blood flow. Deep navy to emerald gradient background with volumetric lighting. Hyper-detailed cellular texture with bioluminescent rim light.";
+    return response.choices[0]?.message?.content?.trim() ||
+      "A stethoscope resting on a clean white surface beside a green apple, soft natural light, simple minimal composition.";
   } catch (error) {
     console.error("Error generating prompt:", error);
-    return "Macro 3D render of a glowing human heart cross-section with visible arteries pulsing with translucent red blood flow. Deep navy to emerald gradient background with volumetric lighting. Hyper-detailed cellular texture with bioluminescent rim light.";
+    return "A stethoscope resting on a clean white surface beside a green apple, soft natural light, simple minimal composition.";
   }
 }
 
