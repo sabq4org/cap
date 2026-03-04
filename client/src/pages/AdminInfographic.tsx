@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
-  Wand2, Loader2, Download, RefreshCw, 
+  Wand2, Loader2, Download, RefreshCw,
   LayoutTemplate, Plus, Image as ImageIcon, Sparkles,
-  FileText, CheckCircle2, BarChart3, ListChecks, Heart
+  FileText, CheckCircle2, Palette, AlignLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -238,45 +238,51 @@ export default function AdminInfographic() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="gap-1">
-                          {extractedData.template === "stats" ? <BarChart3 className="h-3 w-3" /> :
-                           extractedData.template === "tips" ? <ListChecks className="h-3 w-3" /> :
-                           <Heart className="h-3 w-3" />}
-                          {extractedData.template === "stats" ? "إحصائيات" :
-                           extractedData.template === "tips" ? "نصائح" : "صحة"}
-                        </Badge>
-                        <span className="font-semibold text-sm">{extractedData.title}</span>
+                      {/* Title */}
+                      <div className="space-y-1">
+                        <p className="font-bold text-sm">{extractedData.title}</p>
+                        {extractedData.subtitle && (
+                          <p className="text-xs text-muted-foreground">{extractedData.subtitle}</p>
+                        )}
                       </div>
 
-                      {extractedData.subtitle && (
-                        <p className="text-sm text-muted-foreground">{extractedData.subtitle}</p>
-                      )}
-
-                      {extractedData.stats && extractedData.stats.length > 0 && (
-                        <div className="grid grid-cols-2 gap-2">
-                          {extractedData.stats.map((stat, i) => (
-                            <div key={i} className="bg-primary/5 border border-primary/20 rounded-lg p-2 text-center">
-                              <div className="text-lg font-bold text-primary">{stat.value}</div>
-                              <div className="text-xs text-muted-foreground">{stat.label}</div>
-                            </div>
-                          ))}
+                      {/* Visual Design */}
+                      {extractedData.visualDesign && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <Palette className="h-3 w-3" />
+                            {extractedData.visualDesign.layout}
+                          </Badge>
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <AlignLeft className="h-3 w-3" />
+                            {extractedData.visualDesign.style}
+                          </Badge>
+                          <div className="flex gap-1">
+                            <div className="w-5 h-5 rounded-full border border-border" style={{ background: extractedData.visualDesign.primaryColor }} title="اللون الأساسي" />
+                            <div className="w-5 h-5 rounded-full border border-border" style={{ background: extractedData.visualDesign.secondaryColor }} title="اللون الثانوي" />
+                          </div>
                         </div>
                       )}
 
-                      {extractedData.points && extractedData.points.length > 0 && (
-                        <ul className="space-y-1">
-                          {extractedData.points.map((point, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm">
-                              <span className="mt-0.5 w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center flex-shrink-0">{i + 1}</span>
-                              {point}
+                      {/* Bullet points */}
+                      {extractedData.bulletPoints && extractedData.bulletPoints.length > 0 && (
+                        <ul className="space-y-1.5">
+                          {extractedData.bulletPoints.map((pt, i) => (
+                            <li key={i} className="flex items-center gap-2 text-xs">
+                              <span className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 font-bold">{i + 1}</span>
+                              <span className="flex-1 text-foreground">{pt.text}</span>
+                              {pt.highlight && (
+                                <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+                                  {pt.highlight}
+                                </span>
+                              )}
                             </li>
                           ))}
                         </ul>
                       )}
 
                       {extractedData.conclusion && (
-                        <div className="bg-muted rounded-lg p-3 text-sm italic text-muted-foreground border-r-2 border-primary">
+                        <div className="bg-muted rounded-lg p-2 text-xs italic text-muted-foreground border-r-2 border-primary">
                           {extractedData.conclusion}
                         </div>
                       )}

@@ -881,10 +881,25 @@ export async function evaluateNewsImportance(
 export interface InfographicData {
   title: string;
   subtitle?: string;
+  bulletPoints?: { icon: string; text: string; highlight?: string }[];
+  keywords?: string[];
+  description?: string;
+  visualDesign?: {
+    primaryColor: string;
+    secondaryColor: string;
+    style: 'modern' | 'classic' | 'minimalist' | 'colorful' | 'professional';
+    layout: 'vertical' | 'horizontal' | 'grid' | 'timeline' | 'comparison';
+    visualElements?: string[];
+  };
+  dataVisualization?: {
+    hasStatistics: boolean;
+    statisticsFormat?: string;
+  };
+  conclusion?: string;
+  // legacy compat
+  template?: 'stats' | 'tips' | 'health';
   stats?: { value: string; label: string }[];
   points?: string[];
-  conclusion?: string;
-  template: 'stats' | 'tips' | 'health';
 }
 
 export async function extractInfographicFromText(text: string): Promise<InfographicData> {
@@ -894,16 +909,30 @@ export async function extractInfographicFromText(text: string): Promise<Infograp
       messages: [
         {
           role: "system",
-          content: `أنت خبير في تصميم الإنفوجرافيك الصحي. مهمتك استخراج المعلومات الأساسية من النص وتحويلها إلى هيكل مناسب لإنفوجرافيك جذاب.
-القواعد:
-- العنوان يجب أن يكون موجزاً وقوياً (أقل من 10 كلمات)
-- الإحصائيات: أرقام أو نسب مئوية واضحة من النص
-- النقاط: معلومات أو نصائح أساسية (3-5 نقاط)
-- اختر القالب المناسب: stats (عند وجود إحصائيات مهمة), tips (للنصائح والإرشادات), health (للمعلومات الصحية العامة)`,
+          content: `أنت خبير في تصميم الإنفوجرافيك الصحفي وتحويل المحتوى النصي إلى محتوى بصري جذاب.
+
+المهمة: قم بتحليل المحتوى واقترح تصميم إنفوجرافيك احترافي يناسب القارئ العربي.
+
+المطلوب:
+1. عنوان جذاب وقصير (أقصى 10 كلمات)
+2. عنوان فرعي توضيحي (أقصى 15 كلمة)
+3. من 4 إلى 7 نقاط رئيسية مع أيقونة مناسبة لكل نقطة ورقم/نسبة بارزة إن وُجدت
+4. اقتراح التصميم المرئي: الألوان المناسبة وأسلوب التصميم والتخطيط
+5. خلاصة أو توصية مهمة
+
+معايير الأيقونات - اختر من هذه القائمة فقط:
+heart, activity, brain, shield, leaf, droplet, thermometer, zap, target, award, 
+trending-up, users, clock, calendar, check-circle, alert-triangle, star, percent,
+pill, stethoscope, apple, dna, eye, lungs, bone, microscope, syringe
+
+معايير الألوان: يجب أن تكون احترافية ومريحة للعين، مناسبة للموضوع الصحي.
+- للأخبار التحذيرية: درجات الأحمر أو البرتقالي
+- للوقاية والصحة: درجات الأخضر أو الأزرق
+- للإحصائيات: درجات البنفسجي أو الأزرق الداكن`,
         },
         {
           role: "user",
-          content: `استخرج من هذا النص محتوى إنفوجرافيك:\n\n${text}`,
+          content: `حلّل هذا النص وأنتج بيانات الإنفوجرافيك:\n\n${text.substring(0, 3000)}`,
         },
       ],
       tools: [
@@ -911,37 +940,46 @@ export async function extractInfographicFromText(text: string): Promise<Infograp
           type: "function",
           function: {
             name: "create_infographic",
-            description: "إنشاء هيكل إنفوجرافيك من النص",
+            description: "إنشاء هيكل إنفوجرافيك احترافي من النص",
             parameters: {
               type: "object",
               properties: {
-                title: { type: "string", description: "عنوان الإنفوجرافيك (موجز وقوي)" },
-                subtitle: { type: "string", description: "عنوان فرعي اختياري" },
-                stats: {
+                title: { type: "string" },
+                subtitle: { type: "string" },
+                bulletPoints: {
                   type: "array",
-                  description: "أبرز الإحصائيات والأرقام (2-4 فقط)",
+                  description: "النقاط الرئيسية (4-7 نقاط)",
                   items: {
                     type: "object",
                     properties: {
-                      value: { type: "string", description: "الرقم أو النسبة مثل 85% أو 1200" },
-                      label: { type: "string", description: "وصف الإحصائية" },
+                      icon: { type: "string", description: "اسم الأيقونة من القائمة المحددة" },
+                      text: { type: "string", description: "نص النقطة (جملة واحدة موجزة)" },
+                      highlight: { type: "string", description: "رقم أو نسبة بارزة مرتبطة بالنقطة (اختياري)" },
                     },
-                    required: ["value", "label"],
+                    required: ["icon", "text"],
                   },
                 },
-                points: {
-                  type: "array",
-                  description: "النقاط الرئيسية أو النصائح (3-5 نقاط)",
-                  items: { type: "string" },
+                conclusion: { type: "string", description: "خلاصة أو توصية (جملة واحدة)" },
+                visualDesign: {
+                  type: "object",
+                  properties: {
+                    primaryColor: { type: "string", description: "اللون الأساسي hex مثل #2563eb" },
+                    secondaryColor: { type: "string", description: "اللون الثانوي hex" },
+                    style: { type: "string", enum: ["modern", "classic", "minimalist", "colorful", "professional"] },
+                    layout: { type: "string", enum: ["vertical", "horizontal", "grid", "timeline", "comparison"] },
+                  },
+                  required: ["primaryColor", "secondaryColor", "style", "layout"],
                 },
-                conclusion: { type: "string", description: "خلاصة أو توصية مهمة (جملة واحدة)" },
-                template: {
-                  type: "string",
-                  enum: ["stats", "tips", "health"],
-                  description: "القالب الأنسب للمحتوى",
+                dataVisualization: {
+                  type: "object",
+                  properties: {
+                    hasStatistics: { type: "boolean" },
+                    statisticsFormat: { type: "string", enum: ["percentage", "number", "comparison"] },
+                  },
+                  required: ["hasStatistics"],
                 },
               },
-              required: ["title", "template"],
+              required: ["title", "bulletPoints", "visualDesign"],
             },
           },
         },
