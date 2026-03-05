@@ -6,7 +6,7 @@ import {
   TrendingUp, Eye, LogOut, Plus, Edit, Trash2, Search,
   Activity, Utensils, Heart, Settings, ChevronLeft, BarChart3,
   Calendar, Clock, ArrowUpRight, ArrowDownRight, Sparkles, Menu, X,
-  Save, Loader2, ChevronRight, Image, Upload, ImagePlus, Download, Globe, Check, AlertCircle, CheckSquare, Square, Star, Shield, Apple, Radar, Wand2, LayoutTemplate, ChevronsLeft, ChevronsRight, ArrowUpDown
+  Save, Loader2, ChevronRight, Image, Upload, ImagePlus, Download, Globe, Check, AlertCircle, CheckSquare, Square, Star, Shield, Apple, Radar, Wand2, LayoutTemplate, ChevronsLeft, ChevronsRight, ArrowUpDown, Rss
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -322,12 +322,20 @@ export default function AdminDashboard() {
     scheduledNews: number;
     deletedNews: number;
     featuredNews: number;
+    todayNews: number;
+    miscNews: number;
     totalArticles: number;
     publishedArticles: number;
     draftArticles: number;
+    miscArticles: number;
+    totalContent: number;
+    publishedContent: number;
+    unclassified: number;
     totalUsers: number;
     totalChatSessions: number;
     totalChatMessages: number;
+    totalRadarSources: number;
+    activeRadarSources: number;
   }>({ queryKey: ["/api/admin/stats"] });
   // Admin news with server-side pagination
   const { data: adminNewsData, isLoading: isLoadingAdminNews } = useQuery<{ news: any[]; total: number; page: number; totalPages: number }>({ 
@@ -1130,35 +1138,37 @@ export default function AdminDashboard() {
 
   const stats: StatCard[] = [
     { 
-      title: "الأخبار المنشورة", 
-      value: String(dashboardStats?.publishedNews || 0), 
-      change: `${dashboardStats?.draftNews || 0} مسودة`,
+      title: "إجمالي المحتوى", 
+      value: String(dashboardStats?.totalContent || 0), 
+      change: `${dashboardStats?.publishedContent || 0} منشور`,
       changeType: "up",
       icon: Newspaper,
       color: "from-sky-50 to-sky-100 dark:from-sky-950/20 dark:to-sky-900/20"
     },
     { 
-      title: "المقالات", 
-      value: String(dashboardStats?.publishedArticles || 0), 
-      change: `${dashboardStats?.draftArticles || 0} مسودة`,
+      title: "أُضيف اليوم", 
+      value: String(dashboardStats?.todayNews || 0), 
+      change: `${dashboardStats?.scheduledNews || 0} مجدول`,
       changeType: "up",
-      icon: BookOpen,
+      icon: Clock,
       color: "from-emerald-50 to-emerald-100 dark:from-emerald-950/20 dark:to-emerald-900/20"
     },
     { 
-      title: "المستخدمين", 
-      value: String(dashboardStats?.totalUsers || 0), 
-      change: `${dashboardStats?.totalChatSessions || 0} محادثة`,
-      changeType: "up",
-      icon: Users,
-      color: "from-violet-50 to-violet-100 dark:from-violet-950/20 dark:to-violet-900/20"
+      title: "غير مصنّف", 
+      value: String(dashboardStats?.unclassified || 0), 
+      change: `${dashboardStats?.miscNews || 0} خبر + ${dashboardStats?.miscArticles || 0} مقال`,
+      changeType: (dashboardStats?.unclassified || 0) > 50 ? "down" : "up",
+      icon: AlertCircle,
+      color: (dashboardStats?.unclassified || 0) > 50 
+        ? "from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/20"
+        : "from-violet-50 to-violet-100 dark:from-violet-950/20 dark:to-violet-900/20"
     },
     { 
-      title: "المحادثات", 
-      value: String(dashboardStats?.totalChatMessages || 0), 
-      change: "رسالة",
+      title: "مصادر الرادار", 
+      value: String(dashboardStats?.totalRadarSources || 0), 
+      change: `${dashboardStats?.activeRadarSources || 0} نشطة`,
       changeType: "up",
-      icon: MessageSquare,
+      icon: Rss,
       color: "from-amber-50 to-amber-100 dark:from-amber-950/20 dark:to-amber-900/20"
     },
   ];
@@ -3528,23 +3538,23 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-4 md:grid-cols-2 gap-2 md:gap-3">
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 md:p-4 border border-white/10 text-center">
                 <Newspaper className="h-4 w-4 md:h-6 md:w-6 mx-auto text-white/80 mb-0.5 md:mb-1" />
-                <p className="text-base md:text-2xl font-bold text-white">{dashboardStats?.publishedNews || 0}</p>
-                <p className="text-[10px] md:text-xs text-white/60">أخبار</p>
+                <p className="text-base md:text-2xl font-bold text-white">{dashboardStats?.totalContent || 0}</p>
+                <p className="text-[10px] md:text-xs text-white/60">إجمالي المحتوى</p>
               </div>
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 md:p-4 border border-white/10 text-center">
-                <Users className="h-4 w-4 md:h-6 md:w-6 mx-auto text-white/80 mb-0.5 md:mb-1" />
-                <p className="text-base md:text-2xl font-bold text-white">{dashboardStats?.totalUsers || 0}</p>
-                <p className="text-[10px] md:text-xs text-white/60">مستخدم</p>
+                <Clock className="h-4 w-4 md:h-6 md:w-6 mx-auto text-white/80 mb-0.5 md:mb-1" />
+                <p className="text-base md:text-2xl font-bold text-white">{dashboardStats?.todayNews || 0}</p>
+                <p className="text-[10px] md:text-xs text-white/60">أُضيف اليوم</p>
               </div>
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 md:p-4 border border-white/10 text-center">
                 <BookOpen className="h-4 w-4 md:h-6 md:w-6 mx-auto text-white/80 mb-0.5 md:mb-1" />
-                <p className="text-base md:text-2xl font-bold text-white">{dashboardStats?.publishedArticles || 0}</p>
-                <p className="text-[10px] md:text-xs text-white/60">مقال</p>
+                <p className="text-base md:text-2xl font-bold text-white">{dashboardStats?.publishedContent || 0}</p>
+                <p className="text-[10px] md:text-xs text-white/60">منشور</p>
               </div>
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 md:p-4 border border-white/10 text-center">
-                <Eye className="h-4 w-4 md:h-6 md:w-6 mx-auto text-white/80 mb-0.5 md:mb-1" />
-                <p className="text-base md:text-2xl font-bold text-white">{dashboardStats?.totalNews || 0}</p>
-                <p className="text-[10px] md:text-xs text-white/60">إجمالي</p>
+                <AlertCircle className="h-4 w-4 md:h-6 md:w-6 mx-auto text-white/80 mb-0.5 md:mb-1" />
+                <p className="text-base md:text-2xl font-bold text-white">{dashboardStats?.unclassified || 0}</p>
+                <p className="text-[10px] md:text-xs text-white/60">غير مصنّف</p>
               </div>
             </div>
           </div>
@@ -3742,30 +3752,64 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Activity Feed */}
+        {/* Activity Feed - Real Data */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <div className="w-1 h-6 bg-primary rounded-full" />
-              آخر النشاطات
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <div className="w-1 h-6 bg-primary rounded-full" />
+                آخر الإضافات
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setLocation('/admin/news')}>عرض الكل</Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentActivities.map((activity, index) => (
-                <div key={index} className="flex items-start gap-3" data-testid={`activity-${index}`}>
-                  <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${
-                    activity.type === 'news' ? 'bg-blue-500' :
-                    activity.type === 'user' ? 'bg-purple-500' :
-                    activity.type === 'article' ? 'bg-green-500' :
-                    'bg-orange-500'
-                  }`} />
-                  <div>
-                    <p className="text-sm">{activity.action}</p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
+            {/* Summary pills */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium">
+                <Newspaper className="h-3 w-3" />
+                {dashboardStats?.publishedNews || 0} خبر منشور
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-medium">
+                <Clock className="h-3 w-3" />
+                {dashboardStats?.scheduledNews || 0} مجدول
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-medium">
+                <Edit className="h-3 w-3" />
+                {dashboardStats?.draftNews || 0} مسودة
+              </span>
+              {(dashboardStats?.unclassified || 0) > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-medium">
+                  <AlertCircle className="h-3 w-3" />
+                  {dashboardStats?.unclassified} غير مصنّف
+                </span>
+              )}
+            </div>
+            <div className="space-y-3">
+              {news?.slice(0, 5).map((item: any, index: number) => {
+                const addedAt = item.createdAt ? new Date(item.createdAt) : null;
+                const diffMs = addedAt ? Date.now() - addedAt.getTime() : 0;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMins / 60);
+                const diffDays = Math.floor(diffHours / 24);
+                const timeLabel = diffMins < 60 ? `منذ ${diffMins} دقيقة` : diffHours < 24 ? `منذ ${diffHours} ساعة` : `منذ ${diffDays} يوم`;
+                return (
+                  <div key={item.id} className="flex items-start gap-3 group" data-testid={`activity-${index}`}>
+                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${item.status === 'published' ? 'bg-blue-500' : item.status === 'scheduled' ? 'bg-amber-500' : 'bg-slate-400'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate leading-snug">{item.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted-foreground">{timeLabel}</span>
+                        <span className="text-xs text-muted-foreground">·</span>
+                        <span className="text-xs text-muted-foreground">{item.status === 'published' ? 'منشور' : item.status === 'scheduled' ? 'مجدول' : 'مسودة'}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+              {(!news || news.length === 0) && (
+                <p className="text-center text-muted-foreground py-4 text-sm">لا توجد أخبار بعد</p>
+              )}
             </div>
           </CardContent>
         </Card>

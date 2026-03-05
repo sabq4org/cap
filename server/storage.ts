@@ -669,7 +669,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDashboardStats() {
-    // Get all news and count by status
     const allNews = await db.select().from(news);
     const publishedNews = allNews.filter(n => n.status === 'published').length;
     const draftNews = allNews.filter(n => n.status === 'draft').length;
@@ -677,17 +676,21 @@ export class DatabaseStorage implements IStorage {
     const deletedNews = allNews.filter(n => n.status === 'deleted').length;
     const featuredNews = allNews.filter(n => n.isFeatured).length;
 
-    // Get articles count
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const todayNews = allNews.filter(n => n.createdAt && new Date(n.createdAt) >= yesterday).length;
+    const miscNews = allNews.filter(n => n.category === 'misc' || n.category === 'منوعات').length;
+
     const allArticles = await db.select().from(articles);
     const publishedArticles = allArticles.filter(a => a.status === 'published').length;
     const draftArticles = allArticles.filter(a => a.status === 'draft').length;
+    const miscArticles = allArticles.filter(a => a.category === 'misc' || a.category === 'منوعات').length;
 
-    // Get users count
     const allUsers = await db.select().from(users);
-
-    // Get chat stats
     const allChatSessions = await db.select().from(chatSessions);
     const allChatMessages = await db.select().from(chatMessages);
+
+    const allRadarSources = await db.select().from(radarSources);
+    const activeRadarSources = allRadarSources.filter(s => s.isActive).length;
 
     return {
       totalNews: allNews.length,
@@ -696,12 +699,20 @@ export class DatabaseStorage implements IStorage {
       scheduledNews,
       deletedNews,
       featuredNews,
+      todayNews,
+      miscNews,
       totalArticles: allArticles.length,
       publishedArticles,
       draftArticles,
+      miscArticles,
+      totalContent: allNews.length + allArticles.length,
+      publishedContent: publishedNews + publishedArticles,
+      unclassified: miscNews + miscArticles,
       totalUsers: allUsers.length,
       totalChatSessions: allChatSessions.length,
       totalChatMessages: allChatMessages.length,
+      totalRadarSources: allRadarSources.length,
+      activeRadarSources,
     };
   }
 
