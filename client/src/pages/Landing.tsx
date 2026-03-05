@@ -83,9 +83,10 @@ export default function Landing() {
     });
   };
 
-  // Separate featured news from regular news (max 3 featured)
-  const featuredNewsList = (news?.filter(n => n.isFeatured) || []).slice(0, 3);
-  const regularNews = news?.filter(n => !n.isFeatured) || [];
+  // Featured news for the carousel (all featured items, no limit)
+  const featuredNewsList = news?.filter(n => n.isFeatured) || [];
+  // All news shown in the latest section (including featured ones)
+  const allNewsList = news || [];
   
   // Carousel state for featured news
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -102,8 +103,8 @@ export default function Landing() {
   const nextSlide = () => setCurrentSlide(prev => (prev + 1) % featuredNewsList.length);
   const prevSlide = () => setCurrentSlide(prev => (prev - 1 + featuredNewsList.length) % featuredNewsList.length);
   
-  // Show all regular news in latest section
-  const latestNews = regularNews.slice(0, 20);
+  // Show all news in latest section (featured + non-featured)
+  const latestNews = allNewsList.slice(0, 20);
   const latestArticles = articles?.slice(0, 3) || [];
 
   return (
