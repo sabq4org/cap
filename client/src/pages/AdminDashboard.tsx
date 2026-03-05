@@ -60,6 +60,48 @@ interface Category {
   isActive: boolean;
 }
 
+// ─── Saudi Timezone Helpers (UTC+3, Asia/Riyadh) ─────────────────────────────
+const SAUDI_TZ = 'Asia/Riyadh';
+
+/** Current time as a datetime-local string in Saudi timezone (for min/value) */
+function getSaudiNow(): string {
+  const now = new Date();
+  const saudi = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+  return saudi.toISOString().slice(0, 16);
+}
+
+/** Convert datetime-local value (Saudi time) to UTC ISO string for the server */
+function saudiInputToISO(localStr: string): string {
+  if (!localStr) return '';
+  return new Date(localStr + ':00+03:00').toISOString();
+}
+
+/** Convert UTC ISO string from DB to datetime-local value in Saudi timezone */
+function isoToSaudiInput(isoStr: string): string {
+  if (!isoStr) return '';
+  const saudi = new Date(new Date(isoStr).getTime() + 3 * 60 * 60 * 1000);
+  return saudi.toISOString().slice(0, 16);
+}
+
+/** Format a UTC date string for display in Saudi timezone */
+function fmtSaudiDate(isoStr: string | null | undefined, opts: Intl.DateTimeFormatOptions = {}): string {
+  if (!isoStr) return '—';
+  return new Date(isoStr).toLocaleString('ar-SA', { timeZone: SAUDI_TZ, ...opts });
+}
+
+/** Format date only in Saudi timezone */
+function fmtSaudiDateOnly(isoStr: string | null | undefined): string {
+  if (!isoStr) return '—';
+  return new Date(isoStr).toLocaleDateString('ar-SA', { timeZone: SAUDI_TZ, year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+/** Format time only in Saudi timezone */
+function fmtSaudiTimeOnly(isoStr: string | null | undefined): string {
+  if (!isoStr) return '—';
+  return new Date(isoStr).toLocaleTimeString('ar-SA', { timeZone: SAUDI_TZ, hour: '2-digit', minute: '2-digit' });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function AdminDashboard() {
   const [location, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
@@ -135,6 +177,13 @@ export default function AdminDashboard() {
                 keywords: newsItem.keywords || [],
                 isFeatured: newsItem.isFeatured || false,
               });
+              if (newsItem.status === 'scheduled' && newsItem.scheduledAt) {
+                setPublishMode('schedule');
+                setScheduledDateTime(isoToSaudiInput(newsItem.scheduledAt));
+              } else {
+                setPublishMode('now');
+                setScheduledDateTime('');
+              }
             }
           })
           .catch(() => {});
@@ -449,7 +498,7 @@ export default function AdminDashboard() {
       const statusMsg = publishMode === 'schedule' ? 'تم جدولة الخبر بنجاح' : 'تم نشر الخبر بنجاح';
       toast({
         title: statusMsg,
-        description: publishMode === 'schedule' ? `سيتم نشره في: ${new Date(scheduledDateTime).toLocaleString('ar-SA')}` : "تم إضافة الخبر الجديد للمنصة",
+        description: publishMode === 'schedule' ? `سيتم نشره في: ${fmtSaudiDate(saudiInputToISO(scheduledDateTime), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : "تم إضافة الخبر الجديد للمنصة",
       });
       setShowNewsForm(false);
       resetForm();
@@ -797,7 +846,7 @@ export default function AdminDashboard() {
     const newsData = {
       ...formData,
       status: publishMode === 'schedule' ? 'scheduled' : 'published',
-      scheduledAt: publishMode === 'schedule' ? scheduledDateTime : undefined,
+      scheduledAt: publishMode === 'schedule' ? saudiInputToISO(scheduledDateTime) : undefined,
     };
     
     if (editingNewsId) {
@@ -1660,13 +1709,13 @@ export default function AdminDashboard() {
                       type="datetime-local"
                       value={scheduledDateTime}
                       onChange={(e) => setScheduledDateTime(e.target.value)}
-                      min={new Date().toISOString().slice(0, 16)}
+                      min={getSaudiNow()}
                       className="text-right"
                       data-testid="input-schedule-datetime"
                     />
                     {scheduledDateTime && (
                       <p className="text-xs text-primary">
-                        سيتم نشر الخبر: {new Date(scheduledDateTime).toLocaleString('ar-SA')}
+                        سيتم نشر الخبر: {fmtSaudiDate(saudiInputToISO(scheduledDateTime), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     )}
                   </div>
@@ -1715,7 +1764,7 @@ export default function AdminDashboard() {
             <div className="flex items-center gap-4 text-sm text-muted-foreground border-b pb-4">
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                {new Date().toLocaleDateString('ar-SA')}
+                {new Date().toLocaleDateString('ar-SA', { timeZone: SAUDI_TZ, year: 'numeric', month: 'long', day: 'numeric' })}
               </span>
               {formData.source && (
                 <span className="flex items-center gap-1">
@@ -2024,13 +2073,13 @@ export default function AdminDashboard() {
                             {item.status === 'scheduled' && item.scheduledAt && (
                               <div className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1 mb-1">
                                 <Clock className="h-3 w-3" />
-                                <span>تم جدولة الخبر في {new Date(item.scheduledAt).toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Riyadh' })}, الساعة {new Date(item.scheduledAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Riyadh' })}</span>
+                                <span>تم جدولة الخبر في {fmtSaudiDateOnly(item.scheduledAt)}، الساعة {fmtSaudiTimeOnly(item.scheduledAt)}</span>
                               </div>
                             )}
                             <div className="text-xs text-muted-foreground flex items-center gap-2">
-                              <span>{new Date(item.publishedAt || item.createdAt).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}</span>
+                              <span>{fmtSaudiDateOnly(item.publishedAt || item.createdAt)}</span>
                               <span>-</span>
-                              <span>{new Date(item.publishedAt || item.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Riyadh' })}</span>
+                              <span>{fmtSaudiTimeOnly(item.publishedAt || item.createdAt)}</span>
                             </div>
                           </div>
                         </div>
@@ -2985,7 +3034,7 @@ export default function AdminDashboard() {
                           <Badge variant="outline" className="text-xs">{item.source}</Badge>
                           {item.publishedDate && (
                             <span className="text-xs text-muted-foreground">
-                              {new Date(item.publishedDate).toLocaleDateString('ar-SA')}
+                              {fmtSaudiDateOnly(item.publishedDate)}
                             </span>
                           )}
                         </div>
@@ -3206,7 +3255,7 @@ export default function AdminDashboard() {
                       ))}
                       {post.sticky && <Badge className="text-xs bg-amber-500">مميز</Badge>}
                       <span className="text-xs text-muted-foreground">
-                        {new Date(post.date).toLocaleDateString('ar-SA')}
+                        {fmtSaudiDateOnly(post.date)}
                       </span>
                     </div>
                   </div>
@@ -3746,7 +3795,7 @@ export default function AdminDashboard() {
                       <Badge variant="secondary" className="text-xs">{categories.find(c => c.value === item.category)?.label || item.category}</Badge>
                       <span className="text-xs text-muted-foreground hidden sm:flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {new Date(item.publishedAt).toLocaleDateString('ar-SA')}
+                        {fmtSaudiDateOnly(item.publishedAt)}
                       </span>
                     </div>
                   </div>
