@@ -1122,6 +1122,7 @@ export default function AdminDashboard() {
           <SidebarItem icon={Download} label="استيراد الأخبار" active={activeSection === 'import'} onClick={() => navigateTo('import')} />
           <SidebarItem icon={Settings} label="التصنيفات" active={activeSection === 'categories'} count={categoriesList?.length} onClick={() => navigateTo('categories')} />
           <SidebarItem icon={Users} label="المستخدمين" onClick={() => navigateTo('users')} />
+          <SidebarItem icon={Shield} label="الحسابات الإدارية" onClick={() => setLocation('/admin/accounts')} />
           <SidebarItem icon={Radar} label="رادار الأخبار" onClick={() => navigateTo('radar')} />
           <SidebarItem icon={LayoutTemplate} label="توليد إنفوجرافيك" onClick={() => setLocation('/admin/infographic')} />
           <SidebarItem icon={Wand2} label="إعدادات التوليد" onClick={() => setLocation('/admin/generation-settings')} />

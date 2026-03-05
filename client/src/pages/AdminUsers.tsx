@@ -256,6 +256,7 @@ export default function AdminUsers() {
           <SidebarItem icon={Download} label="استيراد WordPress" onClick={() => navigateTo('import')} />
           <SidebarItem icon={Settings} label="التصنيفات" onClick={() => navigateTo('categories')} />
           <SidebarItem icon={Users} label="المستخدمين" active onClick={() => navigateTo('users')} />
+          <SidebarItem icon={Shield} label="الحسابات الإدارية" onClick={() => setLocation('/admin/accounts')} />
           <SidebarItem icon={Radar} label="رادار الأخبار" onClick={() => navigateTo('radar')} />
           <SidebarItem icon={MessageSquare} label="المحادثات" count="89" />
           <SidebarItem icon={Activity} label="التتبع الصحي" />

@@ -41,7 +41,7 @@ import {
   ExternalLink, Trash2, Edit2, Zap, Brain, Send,
   LayoutDashboard, Newspaper, BookOpen, Download, Settings,
   Users, MessageSquare, Activity, Utensils, BarChart3,
-  LogOut, Menu, ChevronLeft
+  LogOut, Menu, ChevronLeft, Shield
 } from "lucide-react";
 import type { RadarSource, RadarItem, RadarKeyword } from "@shared/schema";
 import logoImage from "@assets/LOGO-L_1769253692563.png";
@@ -422,6 +422,7 @@ export default function AdminRadar() {
           <SidebarItem icon={Download} label="استيراد WordPress" onClick={() => navigateTo('import')} />
           <SidebarItem icon={Settings} label="التصنيفات" onClick={() => navigateTo('categories')} />
           <SidebarItem icon={Users} label="المستخدمين" onClick={() => navigateTo('users')} />
+          <SidebarItem icon={Shield} label="الحسابات الإدارية" onClick={() => setLocation('/admin/accounts')} />
           <SidebarItem icon={Radar} label="رادار الأخبار" active onClick={() => navigateTo('radar')} />
           <SidebarItem icon={MessageSquare} label="المحادثات" count="89" />
           <SidebarItem icon={Activity} label="التتبع الصحي" />
