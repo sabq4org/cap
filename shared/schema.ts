@@ -235,6 +235,7 @@ export const news = pgTable("news", {
   seoTitle: varchar("seo_title"),
   seoDescription: text("seo_description"),
   keywords: text("keywords").array(),
+  viewCount: integer("view_count").default(0).notNull(), // Number of page views
   isFeatured: boolean("is_featured").default(false), // Featured news appears in Hero section
   status: varchar("status").notNull().default("published"), // "draft", "published", "scheduled", "deleted"
   scheduledAt: timestamp("scheduled_at"), // When to publish scheduled news

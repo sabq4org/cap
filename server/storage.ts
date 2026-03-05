@@ -106,6 +106,7 @@ export interface IStorage {
   getAdminNewsPaginated(status?: string, page?: number, perPage?: number, search?: string, category?: string, sortBy?: string, sortOrder?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }>;
   createNews(newsItem: InsertNews): Promise<News>;
   updateNews(id: string, newsData: Partial<InsertNews>): Promise<News | undefined>;
+  incrementViewCount(id: string): Promise<void>;
   deleteNews(id: string): Promise<boolean>;
   softDeleteNews(id: string): Promise<boolean>;
   restoreNews(id: string): Promise<boolean>;
