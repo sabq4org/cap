@@ -2173,7 +2173,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="p-3 text-center hidden lg:table-cell">
                         <span className="text-sm font-medium text-muted-foreground" data-testid={`text-views-${index}`}>
-                          {(item.viewCount ?? 0).toLocaleString('ar-SA')}
+                          {(item.viewCount ?? 0).toLocaleString('ar-SA-u-nu-latn')}
                         </span>
                       </td>
                       <td className="p-3 text-center">
