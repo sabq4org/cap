@@ -1,19 +1,11 @@
-import { writeFileSync, copyFileSync, mkdirSync, existsSync } from 'fs';
+import { renameSync, copyFileSync, mkdirSync, existsSync } from 'fs';
 
-const wrapperContent = `#!/usr/bin/env node
-// CommonJS wrapper for ESM module
-(async () => {
-  try {
-    await import('./index.js');
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
-  }
-})();
-`;
-
-writeFileSync('dist/index.cjs', wrapperContent);
-console.log('Created dist/index.cjs wrapper');
+// Rename dist/index.js → dist/index.mjs so Node.js treats it unambiguously as ESM
+// regardless of any package.json "type" field in the dist/ directory
+if (existsSync('dist/index.js')) {
+  renameSync('dist/index.js', 'dist/index.mjs');
+  console.log('Renamed dist/index.js → dist/index.mjs (explicit ESM)');
+}
 
 if (!existsSync('dist/data')) {
   mkdirSync('dist/data', { recursive: true });
