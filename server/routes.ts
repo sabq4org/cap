@@ -145,44 +145,55 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
       return null;
     }
     
-    // Resize and optimize with progressive quality/dimension reduction to ensure <300KB
-    const maxSize = 300 * 1024; // 300KB
-    const dimensions = [
-      { width: 1200, height: 630 },
-      { width: 1000, height: 525 },
-      { width: 800, height: 420 },
-      { width: 600, height: 315 }
-    ];
+    // Resize image to 1200x630 then add branding overlay
+    const targetWidth = 1200;
+    const targetHeight = 630;
     
-    let optimizedBuffer: Buffer | null = null;
+    // Resize the image first
+    const resizedBuffer = await sharp(imageBuffer)
+      .resize(targetWidth, targetHeight, { fit: 'cover', position: 'center' })
+      .jpeg({ quality: 85, progressive: true })
+      .toBuffer();
     
-    // Try each dimension with decreasing quality until we get under 300KB
-    for (const dim of dimensions) {
-      for (let quality = 85; quality >= 40; quality -= 10) {
-        optimizedBuffer = await sharp(imageBuffer)
-          .resize(dim.width, dim.height, {
-            fit: 'cover',
-            position: 'center'
-          })
-          .jpeg({
-            quality,
-            progressive: true
-          })
-          .toBuffer();
-        
-        if (optimizedBuffer.length <= maxSize) {
-          return optimizedBuffer;
-        }
-      }
+    // Build SVG overlay: dark gradient at bottom + site branding
+    const svgOverlay = `<svg width="${targetWidth}" height="${targetHeight}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="black" stop-opacity="0"/>
+      <stop offset="55%" stop-color="black" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="black" stop-opacity="0.82"/>
+    </linearGradient>
+  </defs>
+  <rect width="${targetWidth}" height="${targetHeight}" fill="url(#grad)"/>
+  <!-- Site name in Arabic (right side) -->
+  <text x="${targetWidth - 40}" y="${targetHeight - 30}" 
+        font-family="Arial, sans-serif" font-size="38" font-weight="bold"
+        fill="white" text-anchor="end" opacity="0.95">كبسولة</text>
+  <!-- Domain (left side) -->
+  <text x="40" y="${targetHeight - 30}"
+        font-family="Arial, sans-serif" font-size="26"
+        fill="white" text-anchor="start" opacity="0.85">capsulah.com</text>
+  <!-- Decorative green line above branding -->
+  <rect x="0" y="${targetHeight - 80}" width="${targetWidth}" height="4" fill="#16a34a" opacity="0.9"/>
+</svg>`;
+
+    const svgBuffer = Buffer.from(svgOverlay);
+    
+    // Composite the overlay on the image
+    let brandedBuffer = await sharp(resizedBuffer)
+      .composite([{ input: svgBuffer, top: 0, left: 0 }])
+      .jpeg({ quality: 82, progressive: true })
+      .toBuffer();
+    
+    // If still too large, reduce quality
+    if (brandedBuffer.length > 300 * 1024) {
+      brandedBuffer = await sharp(resizedBuffer)
+        .composite([{ input: svgBuffer, top: 0, left: 0 }])
+        .jpeg({ quality: 65, progressive: true })
+        .toBuffer();
     }
     
-    // If all attempts fail and still >300KB, return null to trigger fallback
-    if (optimizedBuffer && optimizedBuffer.length > maxSize) {
-      console.warn(`Image optimization failed to achieve <300KB, final size: ${(optimizedBuffer.length / 1024).toFixed(1)}KB`);
-      return null; // Will use fallback image
-    }
-    
-    return optimizedBuffer;
+    return brandedBuffer;
   } catch (error) {
     console.error('Error optimizing image for OG:', error);
     return null;
@@ -452,7 +463,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Social media crawler detection and short URL redirect for news URLs with UUID
   app.get('/news/:id', async (req, res, next) => {
     const userAgent = req.get('User-Agent') || '';
-    const isCrawler = /WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|bot|crawler|spider/i.test(userAgent);
+    const isCrawler = /WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
+    if (isCrawler) {
+      console.log(`[Crawler] /news/${req.params.id} | UA: ${userAgent.substring(0, 80)}`);
+    }
     
     // For non-crawlers, redirect to short URL if available
     if (!isCrawler) {
@@ -535,7 +549,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Social media crawler detection for short news URLs
   app.get('/n/:shortCode', async (req, res, next) => {
     const userAgent = req.get('User-Agent') || '';
-    const isCrawler = /WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|bot|crawler|spider/i.test(userAgent);
+    const isCrawler = /WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
+    
+    if (isCrawler) {
+      console.log(`[Crawler] /n/${req.params.shortCode} | UA: ${userAgent.substring(0, 80)}`);
+    }
     
     if (!isCrawler) {
       return next();
