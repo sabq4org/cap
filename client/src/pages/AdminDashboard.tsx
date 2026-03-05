@@ -2146,10 +2146,14 @@ export default function AdminDashboard() {
                                 <span>تم جدولة الخبر في {fmtSaudiDateOnly(item.scheduledAt)}، الساعة {fmtSaudiTimeOnly(item.scheduledAt)}</span>
                               </div>
                             )}
-                            <div className="text-xs text-muted-foreground flex items-center gap-2">
+                            <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                               <span>{fmtSaudiDateOnly(item.publishedAt || item.createdAt)}</span>
                               <span>-</span>
                               <span>{fmtSaudiTimeOnly(item.publishedAt || item.createdAt)}</span>
+                              <span className="lg:hidden flex items-center gap-1">
+                                <Eye className="h-3 w-3" />
+                                {(item.viewCount ?? 0).toLocaleString('ar-SA-u-nu-latn')}
+                              </span>
                             </div>
                           </div>
                         </div>
