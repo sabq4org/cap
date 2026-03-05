@@ -20,7 +20,6 @@ const newsImages = [newsImage1, newsImage2, newsImage3, newsImage4, newsImage5, 
 
 const categories = [
   { value: "", label: "جميع الأخبار" },
-  { value: "health", label: "صحة عامة" },
   { value: "health-news", label: "أخبار صحية" },
   { value: "saudi-health", label: "صحة السعودية" },
   { value: "health-community", label: "المجتمع الصحي" },
