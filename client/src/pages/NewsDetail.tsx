@@ -192,7 +192,7 @@ export default function NewsDetail() {
       day: 'numeric',
       calendar: 'gregory'
     });
-    const timeStr = d.toLocaleTimeString('ar-SA', {
+    const timeStr = d.toLocaleTimeString('ar-SA-u-nu-latn', {
       timeZone: 'Asia/Riyadh',
       hour: '2-digit',
       minute: '2-digit',
