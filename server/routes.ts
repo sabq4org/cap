@@ -413,7 +413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const title = escapeHtml(rawTitle);
       const description = escapeHtml(rawDescription);
       const imageId = newsItem.shortCode || newsItem.id;
-      const imageUrl = newsItem.imageUrl ? `${baseUrl}/api/og-image/${imageId}` : `${baseUrl}/og-image.png`;
+      const imageUrl = `${baseUrl}/api/og-image/${imageId}`;
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -498,7 +498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? `${baseUrl}/n/${newsItem.shortCode}`
         : `${baseUrl}/news/${newsItem.id}`;
       const imageId = newsItem.shortCode || newsItem.id;
-      const imageUrl = newsItem.imageUrl ? `${baseUrl}/api/og-image/${imageId}` : `${baseUrl}/og-image.png`;
+      const imageUrl = `${baseUrl}/api/og-image/${imageId}`;
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -570,7 +570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const baseUrl = `${proto}://${reqHost}`;
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
       const imageId = newsItem.shortCode || newsItem.id;
-      const imageUrl = newsItem.imageUrl ? `${baseUrl}/api/og-image/${imageId}` : `${baseUrl}/og-image.png`;
+      const imageUrl = `${baseUrl}/api/og-image/${imageId}`;
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
