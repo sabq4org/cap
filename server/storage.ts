@@ -61,7 +61,7 @@ import {
   type InsertInfographicJob,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, gte, lte, sql, isNull, asc, like, or } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike } from "drizzle-orm";
 
 export interface IStorage {
   // User operations - mandatory for Replit Auth
@@ -96,6 +96,7 @@ export interface IStorage {
   getNewsPaginated(category?: string, page?: number, perPage?: number): Promise<{ news: News[]; total: number; page: number; totalPages: number }>;
   getNewsById(id: string): Promise<News | undefined>;
   getNewsByShortCode(shortCode: string): Promise<News | undefined>;
+  getNewsByLegacyUrl(urlPath: string): Promise<News | undefined>;
   getNewsByKeyword(keyword: string): Promise<News[]>;
   getNewsByStatus(status: string): Promise<News[]>;
   getAllNewsForAdmin(): Promise<News[]>;
@@ -578,6 +579,44 @@ export class DatabaseStorage implements IStorage {
       .from(news)
       .where(eq(news.shortCode, shortCode));
     return newsItem;
+  }
+
+  async getNewsByLegacyUrl(urlPath: string): Promise<News | undefined> {
+    // Extract the slug (last non-empty segment of the path, decoded)
+    const segments = urlPath.split('/').filter(Boolean);
+    if (!segments.length) return undefined;
+    const slug = decodeURIComponent(segments[segments.length - 1]);
+    const cleanPath = urlPath.replace(/\/$/, '');
+    const encodedPath = encodeURI(cleanPath);
+
+    // Try exact path match (decoded and encoded variants)
+    const [byPath] = await db
+      .select()
+      .from(news)
+      .where(
+        or(
+          ilike(news.sourceUrl, '%' + cleanPath),
+          ilike(news.sourceUrl, '%' + encodedPath)
+        )
+      )
+      .limit(1);
+    if (byPath) return byPath;
+
+    // Fallback: match by slug segment (handles both decoded Arabic and encoded slugs)
+    const encodedSlug = encodeURIComponent(slug);
+    const [bySlug] = await db
+      .select()
+      .from(news)
+      .where(
+        or(
+          ilike(news.sourceUrl, '%/' + slug + '/'),
+          ilike(news.sourceUrl, '%/' + slug),
+          ilike(news.sourceUrl, '%/' + encodedSlug + '/'),
+          ilike(news.sourceUrl, '%/' + encodedSlug)
+        )
+      )
+      .limit(1);
+    return bySlug;
   }
 
   async getNewsByKeyword(keyword: string): Promise<News[]> {

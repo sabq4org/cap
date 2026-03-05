@@ -3374,6 +3374,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── Legacy WordPress URL redirect ────────────────────────────────────────
+  // Catches old capsulah.com WordPress permalinks (e.g. /2025/03/article-slug/)
+  // and performs a 301 permanent redirect to the correct new URL.
+  // Only activates for paths that start with a 4-digit year OR contain
+  // a slug that matches a known article's sourceUrl.
+  const EXCLUDED_PREFIXES = [
+    '/api/', '/n/', '/news', '/admin', '/articles', '/chat',
+    '/profile', '/login', '/register', '/objects/', '/assets/',
+  ];
+
+  app.get(/^\/\d{4}(\/.*)?$/, async (req, res, next) => {
+    try {
+      const urlPath = req.path;
+      const newsItem = await storage.getNewsByLegacyUrl(urlPath);
+      if (newsItem) {
+        const newUrl = newsItem.shortCode ? `/n/${newsItem.shortCode}` : `/news/${newsItem.id}`;
+        console.log(`[Redirect] ${urlPath} → ${newUrl}`);
+        return res.redirect(301, newUrl);
+      }
+      next();
+    } catch (err) {
+      next();
+    }
+  });
+
+  // Also catch /:slug patterns (non-year) that match known WordPress slugs
+  app.get('/:slug', async (req, res, next) => {
+    const { slug } = req.params;
+    // Skip excluded routes and static assets
+    const fullPath = '/' + slug;
+    if (EXCLUDED_PREFIXES.some(p => fullPath.startsWith(p))) return next();
+    // Only try slug redirect if it looks like an Arabic/URL slug (contains - or Arabic chars)
+    if (!/[-\u0600-\u06FF]/.test(slug)) return next();
+    try {
+      const newsItem = await storage.getNewsByLegacyUrl(fullPath);
+      if (newsItem) {
+        const newUrl = newsItem.shortCode ? `/n/${newsItem.shortCode}` : `/news/${newsItem.id}`;
+        console.log(`[Redirect] ${fullPath} → ${newUrl}`);
+        return res.redirect(301, newUrl);
+      }
+      next();
+    } catch (err) {
+      next();
+    }
+  });
+  // ──────────────────────────────────────────────────────────────────────────
+
   const httpServer = createServer(app);
 
   return httpServer;
