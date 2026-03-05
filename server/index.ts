@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { seedProductionIfEmpty } from "./seedProduction";
+import { storage } from "./storage";
 
 const app = express();
 
@@ -81,4 +82,20 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
   });
+
+  // Background scheduler: promote overdue scheduled news every 60 seconds
+  const runScheduler = async () => {
+    try {
+      const promoted = await storage.promoteOverdueScheduledNews();
+      if (promoted > 0) {
+        log(`[Scheduler] نُشر ${promoted} خبر مجدول تلقائياً`);
+      }
+    } catch (err) {
+      console.error("[Scheduler] خطأ في نشر الأخبار المجدولة:", err);
+    }
+  };
+
+  // Run immediately on startup, then every 60 seconds
+  runScheduler();
+  setInterval(runScheduler, 60 * 1000);
 })();

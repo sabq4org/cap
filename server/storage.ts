@@ -459,6 +459,27 @@ export class DatabaseStorage implements IStorage {
     return allNews;
   }
 
+  async promoteOverdueScheduledNews(): Promise<number> {
+    const now = new Date();
+    const overdueItems = await db
+      .select()
+      .from(news)
+      .where(
+        sql`${news.status} = 'scheduled' AND ${news.scheduledAt} IS NOT NULL AND ${news.scheduledAt} <= ${now}`
+      );
+
+    if (overdueItems.length === 0) return 0;
+
+    for (const item of overdueItems) {
+      await db
+        .update(news)
+        .set({ status: 'published', publishedAt: item.scheduledAt ?? now })
+        .where(eq(news.id, item.id));
+    }
+
+    return overdueItems.length;
+  }
+
   async getAdminNewsPaginated(
     status?: string, 
     page: number = 1, 
