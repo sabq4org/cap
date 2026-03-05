@@ -1752,7 +1752,8 @@ export default function AdminDashboard() {
                           <Select
                             value={(() => {
                               const m = parseInt(scheduledDateTime.slice(14, 16) || '0');
-                              const snapped = [0, 15, 30, 45].reduce((prev, cur) => Math.abs(cur - m) < Math.abs(prev - m) ? cur : prev, 0);
+                              const steps = Array.from({length: 12}, (_, i) => i * 5);
+                              const snapped = steps.reduce((prev, cur) => Math.abs(cur - m) < Math.abs(prev - m) ? cur : prev, 0);
                               return snapped.toString().padStart(2, '0');
                             })()}
                             onValueChange={(min) => {
@@ -1765,7 +1766,7 @@ export default function AdminDashboard() {
                               <SelectValue placeholder="دقيقة" />
                             </SelectTrigger>
                             <SelectContent>
-                              {['00', '15', '30', '45'].map(m => (
+                              {Array.from({length: 12}, (_, i) => (i * 5).toString().padStart(2, '0')).map(m => (
                                 <SelectItem key={m} value={m}>{m}</SelectItem>
                               ))}
                             </SelectContent>
