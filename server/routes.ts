@@ -389,7 +389,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.redirect(`/news/${req.params.id}`);
       }
       
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const proto = req.get('x-forwarded-proto') || req.protocol;
+      const baseUrl = `${proto}://${req.get('host')}`;
       // Prefer short URL if available
       const pageUrl = newsItem.shortCode 
         ? `${baseUrl}/n/${newsItem.shortCode}`
@@ -399,10 +400,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
       const title = escapeHtml(rawTitle);
       const description = escapeHtml(rawDescription);
-      // Use optimized OG image endpoint for better WhatsApp/social media compatibility
-      // Use shortCode if available for shorter URLs in meta tags
       const imageId = newsItem.shortCode || newsItem.id;
       const imageUrl = newsItem.imageUrl ? `${baseUrl}/api/og-image/${imageId}` : `${baseUrl}/og-image.png`;
+      const host = req.get('host') || 'capsule.sa';
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -418,14 +418,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta property="og:image" content="${imageUrl}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">
   <meta property="og:url" content="${pageUrl}">
   <meta property="og:locale" content="ar_SA">
   ${newsItem.publishedAt ? `<meta property="article:published_time" content="${new Date(newsItem.publishedAt).toISOString()}">` : ''}
   
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@capsule_sa">
+  <meta name="twitter:domain" content="${host}">
   <meta name="twitter:title" content="${title}">
   <meta name="twitter:description" content="${description}">
   <meta name="twitter:image" content="${imageUrl}">
+  <meta name="twitter:image:alt" content="${title}">
   
   <meta http-equiv="refresh" content="0;url=${pageUrl}">
   <link rel="canonical" href="${pageUrl}">
@@ -473,15 +477,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
       const title = escapeHtml(rawTitle);
       const description = escapeHtml(rawDescription);
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      // Use x-forwarded-proto for correct https in production (behind Replit proxy)
+      const proto = req.get('x-forwarded-proto') || req.protocol;
+      const baseUrl = `${proto}://${req.get('host')}`;
       // Prefer short URL if available
       const pageUrl = newsItem.shortCode 
         ? `${baseUrl}/n/${newsItem.shortCode}`
         : `${baseUrl}/news/${newsItem.id}`;
       // Use optimized OG image endpoint for better WhatsApp/social media compatibility
-      // Use shortCode if available for shorter URLs in meta tags
       const imageId = newsItem.shortCode || newsItem.id;
       const imageUrl = newsItem.imageUrl ? `${baseUrl}/api/og-image/${imageId}` : `${baseUrl}/og-image.png`;
+      const host = req.get('host') || 'capsule.sa';
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -497,14 +503,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta property="og:image" content="${imageUrl}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">
   <meta property="og:url" content="${pageUrl}">
   <meta property="og:locale" content="ar_SA">
   ${newsItem.publishedAt ? `<meta property="article:published_time" content="${new Date(newsItem.publishedAt).toISOString()}">` : ''}
   
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@capsule_sa">
+  <meta name="twitter:domain" content="${host}">
   <meta name="twitter:title" content="${title}">
   <meta name="twitter:description" content="${description}">
   <meta name="twitter:image" content="${imageUrl}">
+  <meta name="twitter:image:alt" content="${title}">
   
   <link rel="canonical" href="${pageUrl}">
 </head>
@@ -541,12 +551,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
       const title = escapeHtml(rawTitle);
       const description = escapeHtml(rawDescription);
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      // Use x-forwarded-proto for correct https in production (behind Replit proxy)
+      const proto = req.get('x-forwarded-proto') || req.protocol;
+      const baseUrl = `${proto}://${req.get('host')}`;
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
-      // Use optimized OG image endpoint for better WhatsApp/social media compatibility
-      // Use shortCode if available for shorter URLs in meta tags
       const imageId = newsItem.shortCode || newsItem.id;
       const imageUrl = newsItem.imageUrl ? `${baseUrl}/api/og-image/${imageId}` : `${baseUrl}/og-image.png`;
+      const host = req.get('host') || 'capsule.sa';
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -562,14 +573,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta property="og:image" content="${imageUrl}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">
   <meta property="og:url" content="${pageUrl}">
   <meta property="og:locale" content="ar_SA">
   ${newsItem.publishedAt ? `<meta property="article:published_time" content="${new Date(newsItem.publishedAt).toISOString()}">` : ''}
   
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@capsule_sa">
+  <meta name="twitter:domain" content="${host}">
   <meta name="twitter:title" content="${title}">
   <meta name="twitter:description" content="${description}">
   <meta name="twitter:image" content="${imageUrl}">
+  <meta name="twitter:image:alt" content="${title}">
   
   <link rel="canonical" href="${pageUrl}">
 </head>

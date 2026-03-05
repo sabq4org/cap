@@ -8,6 +8,9 @@ import { seedDefaultSources, seedDefaultKeywords } from "./radarService";
 
 const app = express();
 
+// Trust proxy headers (Replit's deployment proxy) so req.protocol returns https in production
+app.set('trust proxy', 1);
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
