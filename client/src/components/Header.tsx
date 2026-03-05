@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Heart, User, Home, BookOpen, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown, LayoutDashboard, ShieldCheck } from "lucide-react";
+import { Menu, X, Heart, User, Home, BookOpen, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown, LayoutDashboard, ShieldCheck, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -27,9 +27,35 @@ const categories = [
 ];
 
 export default function Header() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const { isAuthenticated, user } = useAuth();
+
+  useEffect(() => {
+    if (searchOpen) {
+      searchInputRef.current?.focus();
+    }
+  }, [searchOpen]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchTerm.trim();
+    if (q) {
+      setLocation(`/news?q=${encodeURIComponent(q)}`);
+      setSearchOpen(false);
+      setSearchTerm("");
+    }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setSearchOpen(false);
+      setSearchTerm("");
+    }
+  };
 
   const navItems = isAuthenticated ? [
     { label: "الرئيسية", path: "/", icon: Home, activePaths: ["/"] },
@@ -112,6 +138,30 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {searchOpen ? (
+            <form onSubmit={handleSearchSubmit} className="flex items-center gap-1">
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder="ابحث في الأخبار..."
+                className="h-9 w-48 md:w-64 rounded-md border border-input bg-background px-3 text-sm outline-none ring-primary focus:ring-2 transition-all"
+                data-testid="input-header-search"
+              />
+              <Button type="submit" size="icon" variant="ghost" className="shrink-0" data-testid="button-header-search-submit">
+                <Search className="h-4 w-4" />
+              </Button>
+              <Button type="button" size="icon" variant="ghost" className="shrink-0" onClick={() => { setSearchOpen(false); setSearchTerm(""); }} data-testid="button-header-search-close">
+                <X className="h-4 w-4" />
+              </Button>
+            </form>
+          ) : (
+            <Button variant="ghost" size="icon" onClick={() => setSearchOpen(true)} data-testid="button-header-search">
+              <Search className="h-5 w-5" />
+            </Button>
+          )}
           <ThemeToggle />
           {isAuthenticated ? (
             <>

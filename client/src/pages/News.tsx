@@ -53,20 +53,22 @@ interface PaginatedResponse {
 
 export default function News() {
   const [location, setLocation] = useLocation();
-  const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const urlParams = new URLSearchParams(window.location.search);
   const categoryFromUrl = urlParams.get("category") || "";
-  const pageFromUrl = parseInt(urlParams.get("page") || "1", 10);
+  const searchFromUrl = urlParams.get("q") || "";
   const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl);
+  const [searchQuery, setSearchQuery] = useState(searchFromUrl);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const category = params.get("category") || "";
     const page = parseInt(params.get("page") || "1", 10);
+    const q = params.get("q") || "";
     setSelectedCategory(category);
     setCurrentPage(page);
+    setSearchQuery(q);
   }, [location]);
 
   const buildQueryKey = () => {
