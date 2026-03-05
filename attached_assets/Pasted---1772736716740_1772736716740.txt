@@ -1,0 +1,48 @@
+هذي قائمة شاملة موثوقة:
+
+───
+
+📰 صحف ومجلات طبية وصحية
+
+| المصدر                                    | الوصف                     | RSS                                                             |
+| ----------------------------------------- | ------------------------- | --------------------------------------------------------------- |
+| The Lancet                                | أعرق مجلة طبية في العالم  | https://www.thelancet.com/rssfeed/lancet_online.xml             |
+| NEJM (New England Journal of Medicine)    | أبرز مرجع طبي عالمي       | https://www.nejm.org/action/showFeed?type=etoc&feed=rss&jc=nejm |
+| BMJ (British Medical Journal)             | مجلة طبية بريطانية محكّمة | https://www.bmj.com/rss/current.xml                             |
+| JAMA (Journal of American Medical Assoc.) | أمريكية محكّمة            | https://jamanetwork.com/rss/site_3/67.xml                       |
+| Nature Medicine                           | أبحاث طبية وعلمية متقدمة  | https://www.nature.com/nm.rss                                   |───
+
+🏥 مواقع صحية للعموم (مناسبة لكبسولة)
+
+| المصدر             | الوصف                  | RSS                                                          |
+| ------------------ | ---------------------- | ------------------------------------------------------------ |
+| WebMD              | أكبر موقع صحي للمستهلك | https://rssfeeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC |
+| Healthline         | صحة يومية + بحوث       | https://www.healthline.com/rss/health-news                   |
+| Medical News Today | أخبار طبية يومية       | https://www.medicalnewstoday.com/rss                         |
+| Everyday Health    | صحة عملية يومية        | https://www.everydayhealth.com/rss/                          |
+| Verywell Health    | معلومات طبية موثوقة    | https://www.verywellhealth.com/feed                          |───
+
+🔬 مراكز بحوث وجهات رسمية
+
+| المصدر                          | الوصف                    | RSS                                                          |
+| ------------------------------- | ------------------------ | ------------------------------------------------------------ |
+| WHO (منظمة الصحة العالمية)      | بيانات وإعلانات رسمية    | https://www.who.int/rss-feeds/news-english.xml               |
+| CDC (مراكز السيطرة على الأمراض) | أمريكية — أبحاث ووبائيات | https://tools.cdc.gov/podcasts/rss/brder.xml                 |
+| NIH (المعاهد الوطنية للصحة)     | أبحاث طبية أمريكية       | https://www.nih.gov/news-events/news-releases/feed.xml       |
+| Mayo Clinic                     | أبرز مركز طبي عالمي      | https://www.mayoclinic.org/rss/all-health-information-topics |
+| Harvard Health                  | مدونة هارفارد الطبية     | https://www.health.harvard.edu/blog/feed                     |
+| Cleveland Clinic                | بحوث وأخبار صحية         | https://health.clevelandclinic.org/feed/                     |───
+
+🌍 عربي وخليجي
+
+| المصدر                       | الوصف                      | RSS                                   |
+| ---------------------------- | -------------------------- | ------------------------------------- |
+| وكالة الأنباء السعودية — صحة | أخبار صحية رسمية سعودية    | https://www.spa.gov.sa/rss/health.xml |
+| الصحة السعودية (MOH)         | وزارة الصحة — بيانات رسمية | https://www.moh.gov.sa/en/feed        |
+| صحيفة صحتك (مصر)             | تخصصية صحية عربية          | https://www.sahtakonline.com/feed     |───
+
+للكبسولة؟ أنصح تبدأ بـ:
+
+• WHO + CDC (رسمي موثوق)
+• Medical News Today + Healthline (أخبار يومية وفيرة)
+• Harvard Health + Mayo Clinic (محتوى نوعي)
