@@ -1630,33 +1630,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin login endpoint
   app.post('/api/admin/login', async (req, res) => {
     const { username, password } = req.body;
-    
-    // Simple admin authentication
+    const bcrypt = await import("bcryptjs");
+    const { pool } = await import("./db");
+
+    // Check hardcoded super admin
     if (username === "admin" && password === "capsule2025") {
       (req.session as any).adminAuthenticated = true;
-      // Ensure admin user record exists in DB for FK references
+      (req.session as any).adminRole = "super_admin";
+      (req.session as any).adminPermissions = ["*"];
+      (req.session as any).adminDisplayName = "مدير النظام";
       try {
         const existing = await storage.getUser("admin");
         if (!existing) {
           await storage.upsertUser({
-            id: "admin",
-            email: "admin@capsulah.com",
-            firstName: "مدير",
-            lastName: "النظام",
-            role: "super_admin",
-            authProvider: "local",
+            id: "admin", email: "admin@capsulah.com",
+            firstName: "مدير", lastName: "النظام",
+            role: "super_admin", authProvider: "local",
           });
         }
-      } catch (e) {
-        console.error("Admin user seed error:", e);
-      }
+      } catch (e) { console.error("Admin user seed error:", e); }
       req.session.save((err) => {
         if (err) console.error("Session save error:", err);
-        return res.json({ success: true, message: "تم تسجيل الدخول بنجاح" });
+        return res.json({ success: true, message: "تم تسجيل الدخول بنجاح", role: "super_admin" });
       });
       return;
     }
-    
+
+    // Check admin_accounts table
+    try {
+      const result = await pool.query(
+        "SELECT * FROM admin_accounts WHERE username = $1 AND is_active = true",
+        [username]
+      );
+      const account = result.rows[0];
+      if (account && await bcrypt.compare(password, account.password_hash)) {
+        (req.session as any).adminAuthenticated = true;
+        (req.session as any).adminRole = account.role;
+        (req.session as any).adminPermissions = account.permissions || [];
+        (req.session as any).adminDisplayName = account.display_name;
+        (req.session as any).adminAccountId = account.id;
+        req.session.save((err) => {
+          if (err) console.error("Session save error:", err);
+          return res.json({ success: true, message: "تم تسجيل الدخول بنجاح", role: account.role });
+        });
+        return;
+      }
+    } catch (e) { console.error("Admin accounts lookup error:", e); }
+
     return res.status(401).json({ success: false, message: "اسم المستخدم أو كلمة المرور غير صحيحة" });
   });
 
@@ -1674,10 +1694,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Check admin session endpoint
   app.get('/api/admin/check-session', (req, res) => {
     if ((req.session as any)?.adminAuthenticated) {
-      return res.json({ authenticated: true });
+      return res.json({
+        authenticated: true,
+        role: (req.session as any).adminRole || "super_admin",
+        permissions: (req.session as any).adminPermissions || ["*"],
+        displayName: (req.session as any).adminDisplayName || "مدير النظام",
+      });
     }
     return res.json({ authenticated: false });
   });
+
+  // ── Admin Accounts CRUD (super_admin only) ────────────────────────────────
+  const isSuperAdmin = (req: any, res: any, next: any) => {
+    if (!req.session?.adminAuthenticated) return res.status(401).json({ message: "غير مصرح" });
+    const role = (req.session as any).adminRole;
+    const perms: string[] = (req.session as any).adminPermissions || [];
+    if (role === "super_admin" || perms.includes("*")) return next();
+    return res.status(403).json({ message: "هذه الصفحة للمدير العام فقط" });
+  };
+
+  app.get('/api/admin/accounts', isSuperAdmin, async (req, res) => {
+    const { pool } = await import("./db");
+    const result = await pool.query(
+      "SELECT id, username, display_name, role, permissions, is_active, created_at FROM admin_accounts ORDER BY created_at DESC"
+    );
+    res.json(result.rows);
+  });
+
+  app.post('/api/admin/accounts', isSuperAdmin, async (req, res) => {
+    const { username, password, displayName, role, permissions } = req.body;
+    if (!username || !password || !displayName) {
+      return res.status(400).json({ message: "اسم المستخدم وكلمة المرور والاسم مطلوبة" });
+    }
+    const bcrypt = await import("bcryptjs");
+    const { pool } = await import("./db");
+    try {
+      const hash = await bcrypt.hash(password, 12);
+      const result = await pool.query(
+        `INSERT INTO admin_accounts (username, password_hash, display_name, role, permissions)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, username, display_name, role, permissions, is_active, created_at`,
+        [username, hash, displayName, role || "editor", permissions || []]
+      );
+      res.json(result.rows[0]);
+    } catch (e: any) {
+      if (e.code === "23505") return res.status(409).json({ message: "اسم المستخدم مستخدم مسبقاً" });
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.patch('/api/admin/accounts/:id', isSuperAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { displayName, role, permissions, isActive, password } = req.body;
+    const { pool } = await import("./db");
+    const bcrypt = await import("bcryptjs");
+    const updates: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+    if (displayName !== undefined) { updates.push(`display_name = $${idx++}`); values.push(displayName); }
+    if (role !== undefined) { updates.push(`role = $${idx++}`); values.push(role); }
+    if (permissions !== undefined) { updates.push(`permissions = $${idx++}`); values.push(permissions); }
+    if (isActive !== undefined) { updates.push(`is_active = $${idx++}`); values.push(isActive); }
+    if (password) {
+      const hash = await bcrypt.hash(password, 12);
+      updates.push(`password_hash = $${idx++}`); values.push(hash);
+    }
+    updates.push(`updated_at = NOW()`);
+    if (values.length === 0) return res.status(400).json({ message: "لا يوجد تحديثات" });
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE admin_accounts SET ${updates.join(", ")} WHERE id = $${idx}
+       RETURNING id, username, display_name, role, permissions, is_active, created_at`,
+      values
+    );
+    res.json(result.rows[0]);
+  });
+
+  app.delete('/api/admin/accounts/:id', isSuperAdmin, async (req, res) => {
+    const { pool } = await import("./db");
+    await pool.query("DELETE FROM admin_accounts WHERE id = $1", [req.params.id]);
+    res.json({ success: true });
+  });
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Get all users (admin only)
   app.get('/api/admin/users', isAdminAuthenticated, async (req, res) => {

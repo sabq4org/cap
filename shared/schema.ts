@@ -740,3 +740,35 @@ export const insertInfographicJobSchema = createInsertSchema(infographicJobs).om
 });
 export type InsertInfographicJob = z.infer<typeof insertInfographicJobSchema>;
 export type InfographicJob = typeof infographicJobs.$inferSelect;
+
+// ── Admin Accounts (Admin panel staff) ───────────────────────────────────────
+export const adminAccounts = pgTable("admin_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: varchar("username").notNull().unique(),
+  passwordHash: varchar("password_hash").notNull(),
+  displayName: varchar("display_name").notNull(),
+  role: varchar("role").notNull().default("editor"),
+  permissions: text("permissions").array().notNull().default(sql`ARRAY[]::text[]`),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAdminAccountSchema = createInsertSchema(adminAccounts).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type InsertAdminAccount = z.infer<typeof insertAdminAccountSchema>;
+export type AdminAccount = typeof adminAccounts.$inferSelect;
+
+export const adminPermissions = [
+  { key: "publish_news",       label: "نشر المحتوى" },
+  { key: "edit_news",          label: "تعديل المحتوى" },
+  { key: "delete_news",        label: "حذف المحتوى" },
+  { key: "ai_content",         label: "توليد محتوى بالذكاء الاصطناعي" },
+  { key: "ai_images",          label: "توليد الصور بالذكاء الاصطناعي" },
+  { key: "manage_radar",       label: "إدارة رادار الأخبار" },
+  { key: "import_wordpress",   label: "استيراد WordPress" },
+  { key: "manage_categories",  label: "إدارة التصنيفات" },
+  { key: "view_analytics",     label: "عرض الإحصائيات" },
+  { key: "manage_users",       label: "إدارة المستخدمين" },
+] as const;

@@ -21,6 +21,7 @@ import Privacy from "@/pages/Privacy";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsers from "@/pages/AdminUsers";
+import AdminAccounts from "@/pages/AdminAccounts";
 import AdminRadar from "@/pages/AdminRadar";
 import AdminInfographic from "@/pages/AdminInfographic";
 import AdminGenerationSettings from "@/pages/AdminGenerationSettings";
@@ -74,6 +75,7 @@ function AdminRouter() {
       <Route path="/admin/import" component={AdminDashboard} />
       <Route path="/admin/categories" component={AdminDashboard} />
       <Route path="/admin/users" component={AdminUsers} />
+      <Route path="/admin/accounts" component={AdminAccounts} />
       <Route path="/admin/radar" component={AdminRadar} />
       <Route path="/admin/infographic" component={AdminInfographic} />
       <Route path="/admin/generation-settings" component={AdminGenerationSettings} />
