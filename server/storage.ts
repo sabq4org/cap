@@ -384,13 +384,13 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(news)
         .where(eq(news.category, category))
-        .orderBy(desc(news.publishedAt))
+        .orderBy(desc(news.publishedAt), desc(news.createdAt))
         .limit(limit);
     } else {
       results = await db
         .select()
         .from(news)
-        .orderBy(desc(news.publishedAt))
+        .orderBy(desc(news.publishedAt), desc(news.createdAt))
         .limit(limit);
     }
     
@@ -430,7 +430,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(news)
       .where(whereClause)
-      .orderBy(desc(news.publishedAt))
+      .orderBy(desc(news.publishedAt), desc(news.createdAt))
       .limit(perPage)
       .offset(offset);
 

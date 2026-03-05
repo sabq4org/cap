@@ -46,3 +46,6 @@ integrations = ["javascript_log_in_with_replit:2.0.0", "javascript_openai_ai_int
 
 [userenv.production]
 NODE_ENV = "production"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-162bae9a-36ab-455b-b53c-d6e4364d52a4"
