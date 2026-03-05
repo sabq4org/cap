@@ -400,8 +400,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.redirect(`/news/${req.params.id}`);
       }
       
-      const proto = req.get('x-forwarded-proto') || req.protocol;
-      const baseUrl = `${proto}://${req.get('host')}`;
+      const reqHost = req.get('host') || 'capsulah.com';
+      const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
+      const baseUrl = `${proto}://${reqHost}`;
       // Prefer short URL if available
       const pageUrl = newsItem.shortCode 
         ? `${baseUrl}/n/${newsItem.shortCode}`
@@ -413,7 +414,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const description = escapeHtml(rawDescription);
       const imageId = newsItem.shortCode || newsItem.id;
       const imageUrl = newsItem.imageUrl ? `${baseUrl}/api/og-image/${imageId}` : `${baseUrl}/og-image.png`;
-      const host = req.get('host') || 'capsule.sa';
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -435,8 +435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   ${newsItem.publishedAt ? `<meta property="article:published_time" content="${new Date(newsItem.publishedAt).toISOString()}">` : ''}
   
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:site" content="@capsule_sa">
-  <meta name="twitter:domain" content="${host}">
+  <meta name="twitter:site" content="@capsulah_sa">
   <meta name="twitter:title" content="${title}">
   <meta name="twitter:description" content="${description}">
   <meta name="twitter:image" content="${imageUrl}">
@@ -491,17 +490,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
       const title = escapeHtml(rawTitle);
       const description = escapeHtml(rawDescription);
-      // Use x-forwarded-proto for correct https in production (behind Replit proxy)
-      const proto = req.get('x-forwarded-proto') || req.protocol;
-      const baseUrl = `${proto}://${req.get('host')}`;
+      const reqHost = req.get('host') || 'capsulah.com';
+      const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
+      const baseUrl = `${proto}://${reqHost}`;
       // Prefer short URL if available
       const pageUrl = newsItem.shortCode 
         ? `${baseUrl}/n/${newsItem.shortCode}`
         : `${baseUrl}/news/${newsItem.id}`;
-      // Use optimized OG image endpoint for better WhatsApp/social media compatibility
       const imageId = newsItem.shortCode || newsItem.id;
       const imageUrl = newsItem.imageUrl ? `${baseUrl}/api/og-image/${imageId}` : `${baseUrl}/og-image.png`;
-      const host = req.get('host') || 'capsule.sa';
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -523,8 +520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   ${newsItem.publishedAt ? `<meta property="article:published_time" content="${new Date(newsItem.publishedAt).toISOString()}">` : ''}
   
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:site" content="@capsule_sa">
-  <meta name="twitter:domain" content="${host}">
+  <meta name="twitter:site" content="@capsulah_sa">
   <meta name="twitter:title" content="${title}">
   <meta name="twitter:description" content="${description}">
   <meta name="twitter:image" content="${imageUrl}">
@@ -569,13 +565,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
       const title = escapeHtml(rawTitle);
       const description = escapeHtml(rawDescription);
-      // Use x-forwarded-proto for correct https in production (behind Replit proxy)
-      const proto = req.get('x-forwarded-proto') || req.protocol;
-      const baseUrl = `${proto}://${req.get('host')}`;
+      const reqHost = req.get('host') || 'capsulah.com';
+      const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
+      const baseUrl = `${proto}://${reqHost}`;
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
       const imageId = newsItem.shortCode || newsItem.id;
       const imageUrl = newsItem.imageUrl ? `${baseUrl}/api/og-image/${imageId}` : `${baseUrl}/og-image.png`;
-      const host = req.get('host') || 'capsule.sa';
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -597,8 +592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   ${newsItem.publishedAt ? `<meta property="article:published_time" content="${new Date(newsItem.publishedAt).toISOString()}">` : ''}
   
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:site" content="@capsule_sa">
-  <meta name="twitter:domain" content="${host}">
+  <meta name="twitter:site" content="@capsulah_sa">
   <meta name="twitter:title" content="${title}">
   <meta name="twitter:description" content="${description}">
   <meta name="twitter:image" content="${imageUrl}">
@@ -3373,6 +3367,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: errorMsg, error: error.message });
     }
   });
+
+  // ─── Admin image upload endpoint ──────────────────────────────────────────
+  app.post('/api/admin/upload-image', isAdminAuthenticated, async (req, res) => {
+    try {
+      const { base64, mimeType } = req.body;
+      if (!base64 || !mimeType) {
+        return res.status(400).json({ message: 'base64 and mimeType مطلوبان' });
+      }
+      const extension = mimeType.split('/')[1]?.replace('jpeg', 'jpg').replace('svg+xml', 'svg') || 'jpg';
+      const objectId = randomUUID();
+      const fileName = `${objectId}.${extension}`;
+      const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
+      if (!privateObjectDir) return res.status(500).json({ message: 'Object storage غير مهيأ' });
+
+      const buffer = Buffer.from(base64, 'base64');
+      const fullPath = `${privateObjectDir}/uploads/${fileName}`;
+      const pathParts = fullPath.startsWith('/') ? fullPath.slice(1).split('/') : fullPath.split('/');
+      const bucketName = pathParts[0];
+      const objectName = pathParts.slice(1).join('/');
+
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      await file.save(buffer, { contentType: mimeType, metadata: { cacheControl: 'public, max-age=31536000' } });
+
+      res.json({ imageUrl: `/objects/uploads/${fileName}` });
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      res.status(500).json({ message: 'فشل في رفع الصورة' });
+    }
+  });
+  // ──────────────────────────────────────────────────────────────────────────
 
   // ─── Legacy WordPress URL redirect ────────────────────────────────────────
   // Catches old capsulah.com WordPress permalinks (e.g. /2025/03/article-slug/)

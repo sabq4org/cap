@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, Link } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { 
   ChevronRight, Save, Sparkles, Image, FileText, Tag, 
-  Search, Loader2, ArrowLeft, Eye, X, Star
+  Search, Loader2, ArrowLeft, Eye, X, Star, ImagePlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -51,6 +51,9 @@ export default function AdminNewsCreate() {
   
   const [newKeyword, setNewKeyword] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+  const inlineImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("adminAuthenticated");
@@ -131,6 +134,70 @@ export default function AdminNewsCreate() {
       });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleInlineImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate type and size (max 10MB)
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "خطأ", description: "يرجى اختيار ملف صورة", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "الصورة كبيرة جداً", description: "الحد الأقصى 10 ميجابايت", variant: "destructive" });
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      // Read as base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]); // strip "data:image/...;base64,"
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch('/api/admin/upload-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64, mimeType: file.type }),
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'فشل الرفع');
+
+      // Insert <img> tag at cursor position in textarea
+      const textarea = contentRef.current;
+      const imgTag = `\n<img src="${data.imageUrl}" alt="${file.name.replace(/\.[^.]+$/, '')}" style="max-width:100%;border-radius:0.5rem;margin:1rem 0;" />\n`;
+
+      if (textarea) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const newContent = formData.content.slice(0, start) + imgTag + formData.content.slice(end);
+        setFormData(prev => ({ ...prev, content: newContent }));
+        // Restore cursor after inserted tag
+        requestAnimationFrame(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + imgTag.length;
+          textarea.focus();
+        });
+      } else {
+        setFormData(prev => ({ ...prev, content: prev.content + imgTag }));
+      }
+
+      toast({ title: "تم إدراج الصورة بنجاح" });
+    } catch (err: any) {
+      toast({ title: "خطأ في رفع الصورة", description: err.message, variant: "destructive" });
+    } finally {
+      setIsUploadingImage(false);
+      // Reset input so same file can be selected again
+      if (inlineImageInputRef.current) inlineImageInputRef.current.value = '';
     }
   };
 
@@ -359,18 +426,45 @@ export default function AdminNewsCreate() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="content">تفاصيل الخبر *</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="content">تفاصيل الخبر *</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs h-8"
+                      onClick={() => inlineImageInputRef.current?.click()}
+                      disabled={isUploadingImage}
+                      data-testid="button-insert-image"
+                    >
+                      {isUploadingImage ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ImagePlus className="h-3.5 w-3.5" />
+                      )}
+                      {isUploadingImage ? "جاري الرفع..." : "إدراج صورة"}
+                    </Button>
+                  </div>
+                  <input
+                    ref={inlineImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleInlineImageUpload}
+                    data-testid="input-inline-image"
+                  />
                   <Textarea
                     id="content"
+                    ref={contentRef}
                     placeholder="أدخل المحتوى الكامل للخبر هنا..."
                     value={formData.content}
                     onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
                     rows={12}
-                    className="min-h-[300px]"
+                    className="min-h-[300px] font-mono text-sm"
                     data-testid="input-news-content"
                   />
                   <p className="text-xs text-muted-foreground">
-                    {formData.content.length} حرف | يمكنك استخدام التوليد الذكي بعد إدخال المحتوى
+                    {formData.content.length} حرف | ضع المؤشر بين الفقرات واضغط "إدراج صورة" لإضافتها في ذلك الموضع
                   </p>
                 </div>
               </CardContent>
