@@ -2108,6 +2108,7 @@ export default function AdminDashboard() {
                     <th className="p-3 text-right font-medium hidden md:table-cell">النوع</th>
                     <th className="p-3 text-right font-medium hidden lg:table-cell">المصدر</th>
                     <th className="p-3 text-right font-medium hidden md:table-cell">التصنيف</th>
+                    <th className="p-3 text-center font-medium hidden lg:table-cell">المشاهدات</th>
                     <th className="p-3 text-center font-medium w-16">مميز</th>
                     <th className="p-3 text-center font-medium">الإجراءات</th>
                   </tr>
@@ -2169,6 +2170,11 @@ export default function AdminDashboard() {
                         <Badge variant="secondary" className="text-xs">
                           {categories.find((c) => c.value === item.category)?.label || item.category}
                         </Badge>
+                      </td>
+                      <td className="p-3 text-center hidden lg:table-cell">
+                        <span className="text-sm font-medium text-muted-foreground" data-testid={`text-views-${index}`}>
+                          {(item.viewCount ?? 0).toLocaleString('ar-SA')}
+                        </span>
                       </td>
                       <td className="p-3 text-center">
                         <button

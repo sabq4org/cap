@@ -1291,6 +1291,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Increment view count (fire-and-forget from client)
+  app.post('/api/news/:id/view', async (req, res) => {
+    try {
+      await storage.incrementViewCount(req.params.id);
+      res.json({ ok: true });
+    } catch {
+      res.json({ ok: false });
+    }
+  });
+
   // Get news by short code (for short URLs)
   app.get('/api/n/:shortCode', async (req, res) => {
     try {

@@ -652,6 +652,13 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async incrementViewCount(id: string): Promise<void> {
+    await db
+      .update(news)
+      .set({ viewCount: sql`${news.viewCount} + 1` })
+      .where(eq(news.id, id));
+  }
+
   async deleteNews(id: string): Promise<boolean> {
     const result = await db
       .delete(news)

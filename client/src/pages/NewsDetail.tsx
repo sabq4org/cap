@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import DOMPurify from "dompurify";
@@ -176,14 +176,29 @@ export default function NewsDetail() {
     queryKey: ["/api/news"],
   });
 
+  // Fire-and-forget view count increment
+  useEffect(() => {
+    if (news?.id) {
+      fetch(`/api/news/${news.id}/view`, { method: "POST" }).catch(() => {});
+    }
+  }, [news?.id]);
+
   const formatDate = (date: Date | string) => {
     const d = new Date(date);
-    return d.toLocaleDateString('ar-EG-u-nu-latn', { timeZone: 'Asia/Riyadh', 
-      year: 'numeric', 
-      month: 'long', 
+    const dateStr = d.toLocaleDateString('ar-EG-u-nu-latn', {
+      timeZone: 'Asia/Riyadh',
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
       calendar: 'gregory'
     });
+    const timeStr = d.toLocaleTimeString('ar-SA', {
+      timeZone: 'Asia/Riyadh',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    return `${dateStr} - ${timeStr}`;
   };
 
   const getReadTime = (content: string) => {
