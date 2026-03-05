@@ -1088,6 +1088,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(job);
   });
 
+  // Admin: Category stats (news + article count per category slug)
+  app.get('/api/admin/category-stats', isAdminAuthenticated, async (req, res) => {
+    try {
+      const allNews = await storage.getAllNewsForAdmin();
+      const allArticles = await storage.getArticles(undefined, 5000, true);
+      const statsMap: Record<string, { news: number; articles: number; total: number }> = {};
+      allNews.forEach(n => {
+        const slug = n.category || 'misc';
+        if (!statsMap[slug]) statsMap[slug] = { news: 0, articles: 0, total: 0 };
+        statsMap[slug].news++;
+        statsMap[slug].total++;
+      });
+      allArticles.forEach(a => {
+        const slug = a.category || 'misc';
+        if (!statsMap[slug]) statsMap[slug] = { news: 0, articles: 0, total: 0 };
+        statsMap[slug].articles++;
+        statsMap[slug].total++;
+      });
+      res.json(statsMap);
+    } catch (error) {
+      console.error("Error fetching category stats:", error);
+      res.status(500).json({ message: "Failed to fetch category stats" });
+    }
+  });
+
   // Admin: Dashboard statistics
   app.get('/api/admin/stats', async (req, res) => {
     try {
