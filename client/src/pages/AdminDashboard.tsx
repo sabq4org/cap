@@ -1706,8 +1706,9 @@ export default function AdminDashboard() {
                   <div className="space-y-3 pt-2">
                     <Label>تاريخ ووقت النشر *</Label>
                     <div className="grid grid-cols-2 gap-3">
+                      {/* Date picker */}
                       <div className="space-y-1">
-                        <Label htmlFor="schedule-date" className="text-xs text-muted-foreground">التاريخ</Label>
+                        <Label className="text-xs text-muted-foreground">التاريخ</Label>
                         <Input
                           id="schedule-date"
                           type="date"
@@ -1722,20 +1723,54 @@ export default function AdminDashboard() {
                           data-testid="input-schedule-date"
                         />
                       </div>
+                      {/* Time picker — two selects (hour + minute) */}
                       <div className="space-y-1">
-                        <Label htmlFor="schedule-time" className="text-xs text-muted-foreground">الوقت (توقيت الرياض)</Label>
-                        <Input
-                          id="schedule-time"
-                          type="time"
-                          value={scheduledDateTime.slice(11, 16)}
-                          onChange={(e) => {
-                            const timePart = e.target.value;
-                            const datePart = scheduledDateTime.slice(0, 10) || getSaudiNow().slice(0, 10);
-                            setScheduledDateTime(timePart ? `${datePart}T${timePart}` : '');
-                          }}
-                          className="text-center"
-                          data-testid="input-schedule-time"
-                        />
+                        <Label className="text-xs text-muted-foreground">الوقت (توقيت الرياض)</Label>
+                        <div className="flex items-center gap-1">
+                          {/* Hour select */}
+                          <Select
+                            value={scheduledDateTime.slice(11, 13) || ''}
+                            onValueChange={(h) => {
+                              const datePart = scheduledDateTime.slice(0, 10) || getSaudiNow().slice(0, 10);
+                              const minPart = scheduledDateTime.slice(14, 16) || '00';
+                              setScheduledDateTime(`${datePart}T${h}:${minPart}`);
+                            }}
+                          >
+                            <SelectTrigger className="flex-1 text-center" data-testid="select-schedule-hour">
+                              <SelectValue placeholder="ساعة" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 24 }, (_, h) => {
+                                const hh = h.toString().padStart(2, '0');
+                                const label = h === 0 ? '12 ص' : h < 12 ? `${h} ص` : h === 12 ? '12 م' : `${h - 12} م`;
+                                return <SelectItem key={hh} value={hh}>{label} ({hh})</SelectItem>;
+                              })}
+                            </SelectContent>
+                          </Select>
+                          <span className="text-muted-foreground font-bold">:</span>
+                          {/* Minute select */}
+                          <Select
+                            value={(() => {
+                              const m = parseInt(scheduledDateTime.slice(14, 16) || '0');
+                              const snapped = [0, 15, 30, 45].reduce((prev, cur) => Math.abs(cur - m) < Math.abs(prev - m) ? cur : prev, 0);
+                              return snapped.toString().padStart(2, '0');
+                            })()}
+                            onValueChange={(min) => {
+                              const datePart = scheduledDateTime.slice(0, 10) || getSaudiNow().slice(0, 10);
+                              const hourPart = scheduledDateTime.slice(11, 13) || '09';
+                              setScheduledDateTime(`${datePart}T${hourPart}:${min}`);
+                            }}
+                          >
+                            <SelectTrigger className="w-20 text-center" data-testid="select-schedule-minute">
+                              <SelectValue placeholder="دقيقة" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {['00', '15', '30', '45'].map(m => (
+                                <SelectItem key={m} value={m}>{m}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
                     {scheduledDateTime && scheduledDateTime.length >= 16 && (
