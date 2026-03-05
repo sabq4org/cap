@@ -1,5 +1,6 @@
-import { Heart, Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
 import { Link } from "wouter";
+import { FaWhatsapp } from "react-icons/fa";
 import logoImage from "@assets/LOGO-L_1769253692563.png";
 
 export default function Footer() {
@@ -67,12 +68,20 @@ export default function Footer() {
                 <span className="break-all">info@capsulah.com</span>
               </li>
               <li className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Phone className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" />
-                <span>+966 50 123 4567</span>
-              </li>
-              <li className="flex items-center gap-2 text-muted-foreground text-sm">
                 <MapPin className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" />
                 <span>الرياض، السعودية</span>
+              </li>
+              <li>
+                <a
+                  href="https://wa.me/96656622356"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-[#25D366] transition-colors"
+                  data-testid="link-whatsapp-footer"
+                >
+                  <FaWhatsapp className="h-4 w-4 md:h-5 md:w-5 shrink-0 text-[#25D366]" />
+                  <span dir="ltr">+966 566 22356</span>
+                </a>
               </li>
             </ul>
           </div>
