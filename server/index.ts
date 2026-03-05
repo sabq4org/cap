@@ -82,67 +82,68 @@ async function fixCategoriesArabic() {
 }
 
 (async () => {
-  const server = await registerRoutes(app);
-  
-  // await seedProductionIfEmpty();
-
-  // Fix category Arabic names and colors on every startup (both dev and prod)
-  await fixCategoriesArabic();
-
-  // Seed default radar sources (including Saudi/Arabic sources) — only adds missing ones
   try {
-    const sourcesAdded = await seedDefaultSources();
-    const keywordsAdded = await seedDefaultKeywords();
-    if (sourcesAdded > 0 || keywordsAdded > 0) {
-      log(`[Init] ✅ أُضيف ${sourcesAdded} مصدر و${keywordsAdded} كلمة مفتاحية جديدة إلى رادار الأخبار`);
-    }
-  } catch (err) {
-    console.error('[Init] خطأ في إضافة مصادر الرادار:', err);
-  }
+    const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
-
-  // Background scheduler: promote overdue scheduled news every 60 seconds
-  const runScheduler = async () => {
+    // Fix category Arabic names and colors on every startup (both dev and prod)
     try {
-      const promoted = await storage.promoteOverdueScheduledNews();
-      if (promoted > 0) {
-        log(`[Scheduler] نُشر ${promoted} خبر مجدول تلقائياً`);
+      await fixCategoriesArabic();
+    } catch (err) {
+      console.error('[Init] خطأ في تحديث التصنيفات (غير حرج):', err);
+    }
+
+    // Seed default radar sources — only adds missing ones
+    try {
+      const sourcesAdded = await seedDefaultSources();
+      const keywordsAdded = await seedDefaultKeywords();
+      if (sourcesAdded > 0 || keywordsAdded > 0) {
+        log(`[Init] ✅ أُضيف ${sourcesAdded} مصدر و${keywordsAdded} كلمة مفتاحية جديدة إلى رادار الأخبار`);
       }
     } catch (err) {
-      console.error("[Scheduler] خطأ في نشر الأخبار المجدولة:", err);
+      console.error('[Init] خطأ في إضافة مصادر الرادار (غير حرج):', err);
     }
-  };
 
-  // Run immediately on startup, then every 60 seconds
-  runScheduler();
-  setInterval(runScheduler, 60 * 1000);
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      res.status(status).json({ message });
+      throw err;
+    });
+
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
+
+    const port = parseInt(process.env.PORT || '5000', 10);
+    server.listen({
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    }, () => {
+      log(`serving on port ${port}`);
+    });
+
+    // Background scheduler: promote overdue scheduled news every 60 seconds
+    const runScheduler = async () => {
+      try {
+        const promoted = await storage.promoteOverdueScheduledNews();
+        if (promoted > 0) {
+          log(`[Scheduler] نُشر ${promoted} خبر مجدول تلقائياً`);
+        }
+      } catch (err) {
+        console.error("[Scheduler] خطأ في نشر الأخبار المجدولة:", err);
+      }
+    };
+
+    runScheduler();
+    setInterval(runScheduler, 60 * 1000);
+  } catch (err) {
+    console.error('[Startup] فشل حرج في بدء تشغيل الخادم:', err);
+    process.exit(1);
+  }
 })();
