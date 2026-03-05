@@ -2499,22 +2499,8 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleAutoCategorize = async () => {
-    setIsAutoCategorizing(true);
-    setAutoCategorizeResult(null);
-    try {
-      const res = await apiRequest("POST", "/api/admin/auto-categorize");
-      const data = await res.json();
-      setAutoCategorizeResult({ categorized: data.categorized, errors: data.errors, total: data.total });
-      toast({ title: "تم التصنيف", description: data.message });
-      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/news"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
-    } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "فشل في التصنيف التلقائي", variant: "destructive" });
-    } finally {
-      setIsAutoCategorizing(false);
-    }
+  const handleAutoCategorize = () => {
+    autoClassifyMiscMutation.mutate();
   };
 
   const handleBulkImportWordPress = async () => {
@@ -2614,12 +2600,12 @@ export default function AdminDashboard() {
         <div className="flex flex-wrap items-center gap-2">
           <Button 
             onClick={handleAutoCategorize}
-            disabled={isAutoCategorizing}
+            disabled={autoClassifyMiscMutation.isPending || classifyProgress?.status === 'running'}
             variant="outline"
             className="gap-2"
             data-testid="button-auto-categorize"
           >
-            {isAutoCategorizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {(autoClassifyMiscMutation.isPending || classifyProgress?.status === 'running') ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             تصنيف تلقائي بالذكاء الاصطناعي
           </Button>
           <Button 
@@ -2637,16 +2623,42 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {autoCategorizeResult && (
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex items-center gap-3 text-sm">
-              <Badge variant="default">{autoCategorizeResult.categorized} تم تصنيفها</Badge>
-              {autoCategorizeResult.errors > 0 && (
-                <Badge variant="destructive">{autoCategorizeResult.errors} أخطاء</Badge>
-              )}
-              <span className="text-muted-foreground">من أصل {autoCategorizeResult.total} خبر غير مصنف</span>
+      {classifyProgress && (
+        <Card className={`border-2 ${classifyProgress.status === 'done' ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : classifyProgress.status === 'error' ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : 'border-primary/40 bg-primary/5'}`}>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {classifyProgress.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                {classifyProgress.status === 'done' && <Check className="h-4 w-4 text-green-600" />}
+                {classifyProgress.status === 'error' && <AlertCircle className="h-4 w-4 text-red-600" />}
+                <span className="font-semibold text-sm">
+                  {classifyProgress.status === 'running' ? 'جاري التصنيف التلقائي...' : classifyProgress.status === 'done' ? 'اكتمل التصنيف ✅' : 'خطأ في التصنيف'}
+                </span>
+              </div>
+              <span className="text-sm font-mono text-muted-foreground">
+                {classifyProgress.processed} / {classifyProgress.total} ({classifyProgress.total > 0 ? Math.round((classifyProgress.processed / classifyProgress.total) * 100) : 0}%)
+              </span>
             </div>
+            <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+              <div
+                className={`h-2.5 rounded-full transition-all duration-500 ${classifyProgress.status === 'done' ? 'bg-green-500' : classifyProgress.status === 'error' ? 'bg-red-500' : 'bg-primary'}`}
+                style={{ width: `${classifyProgress.total > 0 ? (classifyProgress.processed / classifyProgress.total) * 100 : 0}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{classifyProgress.currentLabel}</span>
+              <span className="flex gap-3">
+                <span className="text-emerald-600">مقالات: {classifyProgress.articlesClassified}</span>
+                <span className="text-blue-600">أخبار: {classifyProgress.newsClassified}</span>
+                {classifyProgress.errors > 0 && <span className="text-red-500">أخطاء: {classifyProgress.errors}</span>}
+              </span>
+            </div>
+            {classifyProgress.status === 'done' && (
+              <div className="flex items-center justify-between">
+                {classifyProgress.message && <p className="text-sm text-green-700 dark:text-green-400 font-medium">{classifyProgress.message}</p>}
+                <button onClick={() => { setClassifyProgress(null); setClassifyJobId(null); queryClient.invalidateQueries({ queryKey: ['/api/admin/category-stats'] }); }} className="text-xs text-muted-foreground hover:text-foreground underline">إغلاق</button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
