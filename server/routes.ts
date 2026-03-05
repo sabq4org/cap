@@ -985,6 +985,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     errors: number;
     currentLabel: string;
     message?: string;
+    remaining?: number;
   }>();
 
   // Admin: Start auto-classify job for 'misc' category
@@ -999,13 +1000,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .filter(c => c.slug !== 'misc')
         .map(c => ({ slug: c.slug, nameAr: c.nameAr, description: c.description }));
 
-      const miscArticles = await storage.getArticles('misc', 2000, true);
-      const allNews = await storage.getAllNewsForAdmin();
-      const miscNews = allNews.filter(n => n.category === 'misc' || n.category === 'منوعات');
+      // Configurable limits per run to avoid server timeouts
+      const newsLimitPerRun = parseInt(req.body?.newsLimit as string) || 500;
+      const articlesLimitPerRun = parseInt(req.body?.articlesLimit as string) || 300;
 
-      const total = miscArticles.length + miscNews.length;
+      const miscArticles = await storage.getArticles('misc', articlesLimitPerRun, true);
+
+      // Fetch misc news directly using a targeted query (faster than getAllNewsForAdmin)
+      const miscNewsRaw = await storage.getMiscNews(newsLimitPerRun);
+
+      const total = miscArticles.length + miscNewsRaw.length;
       if (total === 0) {
-        return res.json({ jobId: null, total: 0, message: "لا يوجد محتوى في تصنيف منوعات" });
+        return res.json({ jobId: null, total: 0, message: "لا يوجد محتوى في تصنيف منوعات ✅" });
       }
 
       const jobId = `classify_${Date.now()}`;
@@ -1016,57 +1022,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         articlesClassified: 0,
         newsClassified: 0,
         errors: 0,
-        currentLabel: 'تحليل المقالات...',
+        currentLabel: 'جاري التحليل...',
       });
 
       // Run in background
       (async () => {
         const job = classifyJobs.get(jobId)!;
-        const batchSize = 5;
+        const batchSize = 10; // Increased from 5 to 10 for speed
 
         // Articles
-        for (let i = 0; i < miscArticles.length; i += batchSize) {
-          const batch = miscArticles.slice(i, i + batchSize);
-          job.currentLabel = `مقالات: ${job.articlesClassified + 1}–${Math.min(i + batchSize, miscArticles.length)} من ${miscArticles.length}`;
-          const results = await Promise.allSettled(
-            batch.map(async (article) => {
-              const newCat = await categorizeNewsArticle(
-                article.title,
-                article.content || article.excerpt || '',
-                categoryInfo
-              );
-              await storage.updateArticle(article.id, { category: newCat });
-            })
-          );
-          results.forEach(r => {
-            if (r.status === 'fulfilled') { job.articlesClassified++; job.processed++; }
-            else { job.errors++; job.processed++; }
-          });
+        if (miscArticles.length > 0) {
+          for (let i = 0; i < miscArticles.length; i += batchSize) {
+            const batch = miscArticles.slice(i, i + batchSize);
+            job.currentLabel = `مقالات: ${job.articlesClassified}/${miscArticles.length}`;
+            const results = await Promise.allSettled(
+              batch.map(async (article) => {
+                const newCat = await categorizeNewsArticle(
+                  article.title,
+                  article.content || article.excerpt || '',
+                  categoryInfo
+                );
+                await storage.updateArticle(article.id, { category: newCat });
+              })
+            );
+            results.forEach(r => {
+              if (r.status === 'fulfilled') { job.articlesClassified++; job.processed++; }
+              else { job.errors++; job.processed++; }
+            });
+          }
         }
 
         // News
-        for (let i = 0; i < miscNews.length; i += batchSize) {
-          const batch = miscNews.slice(i, i + batchSize);
-          job.currentLabel = `أخبار: ${job.newsClassified + 1}–${Math.min(i + batchSize, miscNews.length)} من ${miscNews.length}`;
-          const results = await Promise.allSettled(
-            batch.map(async (newsItem) => {
-              const newCat = await categorizeNewsArticle(
-                newsItem.title,
-                newsItem.content || newsItem.summary || '',
-                categoryInfo
-              );
-              await storage.updateNews(newsItem.id, { category: newCat });
-            })
-          );
-          results.forEach(r => {
-            if (r.status === 'fulfilled') { job.newsClassified++; job.processed++; }
-            else { job.errors++; job.processed++; }
-          });
+        if (miscNewsRaw.length > 0) {
+          for (let i = 0; i < miscNewsRaw.length; i += batchSize) {
+            const batch = miscNewsRaw.slice(i, i + batchSize);
+            job.currentLabel = `أخبار: ${job.newsClassified}/${miscNewsRaw.length}`;
+            const results = await Promise.allSettled(
+              batch.map(async (newsItem) => {
+                const newCat = await categorizeNewsArticle(
+                  newsItem.title,
+                  newsItem.content || newsItem.summary || '',
+                  categoryInfo
+                );
+                await storage.updateNews(newsItem.id, { category: newCat });
+              })
+            );
+            results.forEach(r => {
+              if (r.status === 'fulfilled') { job.newsClassified++; job.processed++; }
+              else { job.errors++; job.processed++; }
+            });
+          }
         }
+
+        // Check how many misc items remain (for "continue" message)
+        const remainingNews = await storage.getMiscNewsCount();
+        const remainingArticles = await storage.getMiscArticlesCount();
+        const remaining = remainingNews + remainingArticles;
 
         job.status = 'done';
         job.currentLabel = 'اكتمل التصنيف';
-        job.message = `تم تصنيف ${job.articlesClassified} مقالة و${job.newsClassified} خبر بنجاح`;
+        job.message = `تم تصنيف ${job.articlesClassified} مقالة و${job.newsClassified} خبر${remaining > 0 ? ` — تبقى ${remaining.toLocaleString('ar-SA')} عنصر، اضغط مرة أخرى للمتابعة` : ' — اكتمل التصنيف الكامل ✅'}`;
+        job.remaining = remaining;
         setTimeout(() => classifyJobs.delete(jobId), 10 * 60 * 1000);
       })().catch(err => {
         const job = classifyJobs.get(jobId);
@@ -1074,7 +1090,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("auto-classify-misc error:", err);
       });
 
-      res.json({ jobId, total });
+      res.json({ jobId, total, newsLimit: newsLimitPerRun, articlesLimit: articlesLimitPerRun });
     } catch (error) {
       console.error("Error starting auto-classify-misc:", error);
       res.status(500).json({ message: "فشل في بدء التصنيف التلقائي" });

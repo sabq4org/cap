@@ -310,6 +310,7 @@ export default function AdminDashboard() {
     errors: number;
     currentLabel: string;
     message?: string;
+    remaining?: number;
   } | null>(null);
 
   // Admin News Pagination & Sorting State
@@ -1907,7 +1908,15 @@ export default function AdminDashboard() {
               <p className="text-sm text-green-700 dark:text-green-400 font-medium">{classifyProgress.message}</p>
             )}
             {classifyProgress.status !== 'running' && (
-              <button onClick={() => setClassifyProgress(null)} className="text-xs text-muted-foreground hover:text-foreground underline">إغلاق</button>
+              <div className="flex items-center gap-3">
+                {classifyProgress.status === 'done' && (classifyProgress.remaining ?? 0) > 0 && (
+                  <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => { setClassifyProgress(null); setClassifyJobId(null); setTimeout(() => handleAutoCategorize(), 100); }}>
+                    <Sparkles className="h-3 w-3" />
+                    متابعة التصنيف ({(classifyProgress.remaining ?? 0).toLocaleString('ar-SA')} متبقي)
+                  </Button>
+                )}
+                <button onClick={() => { setClassifyProgress(null); setClassifyJobId(null); queryClient.invalidateQueries({ queryKey: ['/api/admin/category-stats'] }); }} className="text-xs text-muted-foreground hover:text-foreground underline">إغلاق</button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -2376,9 +2385,15 @@ export default function AdminDashboard() {
               <p className="text-sm text-green-700 dark:text-green-400 font-medium">{classifyProgress.message}</p>
             )}
             {classifyProgress.status !== 'running' && (
-              <button onClick={() => setClassifyProgress(null)} className="text-xs text-muted-foreground hover:text-foreground underline">
-                إغلاق
-              </button>
+              <div className="flex items-center gap-3">
+                {classifyProgress.status === 'done' && (classifyProgress.remaining ?? 0) > 0 && (
+                  <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => { setClassifyProgress(null); setClassifyJobId(null); setTimeout(() => handleAutoCategorize(), 100); }}>
+                    <Sparkles className="h-3 w-3" />
+                    متابعة ({(classifyProgress.remaining ?? 0).toLocaleString('ar-SA')} متبقي)
+                  </Button>
+                )}
+                <button onClick={() => { setClassifyProgress(null); setClassifyJobId(null); queryClient.invalidateQueries({ queryKey: ['/api/admin/category-stats'] }); }} className="text-xs text-muted-foreground hover:text-foreground underline">إغلاق</button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -2727,9 +2742,17 @@ export default function AdminDashboard() {
               </span>
             </div>
             {classifyProgress.status === 'done' && (
-              <div className="flex items-center justify-between">
-                {classifyProgress.message && <p className="text-sm text-green-700 dark:text-green-400 font-medium">{classifyProgress.message}</p>}
-                <button onClick={() => { setClassifyProgress(null); setClassifyJobId(null); queryClient.invalidateQueries({ queryKey: ['/api/admin/category-stats'] }); }} className="text-xs text-muted-foreground hover:text-foreground underline">إغلاق</button>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                {classifyProgress.message && <p className="text-sm text-green-700 dark:text-green-400 font-medium flex-1">{classifyProgress.message}</p>}
+                <div className="flex items-center gap-2">
+                  {(classifyProgress.remaining ?? 0) > 0 && (
+                    <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => { setClassifyProgress(null); setClassifyJobId(null); setTimeout(() => handleAutoCategorize(), 100); }}>
+                      <Sparkles className="h-3 w-3" />
+                      متابعة ({(classifyProgress.remaining ?? 0).toLocaleString('ar-SA')})
+                    </Button>
+                  )}
+                  <button onClick={() => { setClassifyProgress(null); setClassifyJobId(null); queryClient.invalidateQueries({ queryKey: ['/api/admin/category-stats'] }); }} className="text-xs text-muted-foreground hover:text-foreground underline">إغلاق</button>
+                </div>
               </div>
             )}
           </CardContent>

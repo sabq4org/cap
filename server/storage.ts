@@ -99,6 +99,9 @@ export interface IStorage {
   getNewsByKeyword(keyword: string): Promise<News[]>;
   getNewsByStatus(status: string): Promise<News[]>;
   getAllNewsForAdmin(): Promise<News[]>;
+  getMiscNews(limit?: number): Promise<News[]>;
+  getMiscNewsCount(): Promise<number>;
+  getMiscArticlesCount(): Promise<number>;
   getAdminNewsPaginated(status?: string, page?: number, perPage?: number, search?: string, category?: string, sortBy?: string, sortOrder?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }>;
   createNews(newsItem: InsertNews): Promise<News>;
   updateNews(id: string, newsData: Partial<InsertNews>): Promise<News | undefined>;
@@ -457,6 +460,35 @@ export class DatabaseStorage implements IStorage {
     await this.autoPromoteScheduledItems(allNews);
     
     return allNews;
+  }
+
+  async getMiscNews(limit: number = 500): Promise<News[]> {
+    return await db
+      .select()
+      .from(news)
+      .where(
+        sql`(${news.category} = 'misc' OR ${news.category} = 'منوعات') AND ${news.status} != 'deleted'`
+      )
+      .orderBy(desc(news.createdAt))
+      .limit(limit);
+  }
+
+  async getMiscNewsCount(): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(news)
+      .where(
+        sql`(${news.category} = 'misc' OR ${news.category} = 'منوعات') AND ${news.status} != 'deleted'`
+      );
+    return result[0]?.count ?? 0;
+  }
+
+  async getMiscArticlesCount(): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(articles)
+      .where(eq(articles.category, 'misc'));
+    return result[0]?.count ?? 0;
   }
 
   async promoteOverdueScheduledNews(): Promise<number> {
