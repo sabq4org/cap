@@ -76,7 +76,7 @@ export default function AdminInfographic() {
     queryKey: ["/api/admin/infographic/jobs"],
   });
 
-  const { data: usage } = useQuery({
+  const { data: usage } = useQuery<{ remaining: number; quota: number }>({
     queryKey: ["/api/admin/generation/usage"],
   });
 

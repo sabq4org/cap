@@ -562,7 +562,7 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
         prompt: fullPrompt,
         size: "1536x1024",
       });
-      const base64 = (response.data[0] as any)?.b64_json;
+      const base64 = (response.data?.[0] as any)?.b64_json;
       if (base64) {
         let imageBuffer = Buffer.from(base64, 'base64');
         imageBuffer = await cropTo16x9(imageBuffer);
@@ -987,7 +987,7 @@ pill, stethoscope, apple, dna, eye, lungs, bone, microscope, syringe
       tool_choice: { type: "function", function: { name: "create_infographic" } },
     });
 
-    const toolCall = response.choices[0]?.message?.tool_calls?.[0];
+    const toolCall = response.choices[0]?.message?.tool_calls?.[0] as any;
     if (toolCall?.function?.arguments) {
       const parsed = JSON.parse(toolCall.function.arguments);
       return parsed as InfographicData;
