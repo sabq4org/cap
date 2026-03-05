@@ -975,6 +975,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Auto-classify articles and news in 'misc' category
+  app.post('/api/admin/auto-classify-misc', isAdminAuthenticated, async (req, res) => {
+    try {
+      const allCategories = await storage.getCategories(true);
+      if (allCategories.length === 0) {
+        return res.status(400).json({ message: "لا توجد تصنيفات متاحة" });
+      }
+
+      const categoryInfo = allCategories
+        .filter(c => c.slug !== 'misc')
+        .map(c => ({ slug: c.slug, nameAr: c.nameAr, description: c.description }));
+
+      // Process articles in misc
+      const miscArticles = await storage.getArticles('misc', 2000, true);
+      let articlesClassified = 0;
+      let articlesErrors = 0;
+      const batchSize = 5;
+
+      for (let i = 0; i < miscArticles.length; i += batchSize) {
+        const batch = miscArticles.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+          batch.map(async (article) => {
+            const newCat = await categorizeNewsArticle(
+              article.title,
+              article.content || article.excerpt || '',
+              categoryInfo
+            );
+            await storage.updateArticle(article.id, { category: newCat });
+            return newCat;
+          })
+        );
+        results.forEach(r => {
+          if (r.status === 'fulfilled') articlesClassified++;
+          else articlesErrors++;
+        });
+      }
+
+      // Process news in misc
+      const allNews = await storage.getAllNewsForAdmin();
+      const miscNews = allNews.filter(n => n.category === 'misc' || n.category === 'منوعات');
+      let newsClassified = 0;
+      let newsErrors = 0;
+
+      for (let i = 0; i < miscNews.length; i += batchSize) {
+        const batch = miscNews.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+          batch.map(async (newsItem) => {
+            const newCat = await categorizeNewsArticle(
+              newsItem.title,
+              newsItem.content || newsItem.summary || '',
+              categoryInfo
+            );
+            await storage.updateNews(newsItem.id, { category: newCat });
+            return newCat;
+          })
+        );
+        results.forEach(r => {
+          if (r.status === 'fulfilled') newsClassified++;
+          else newsErrors++;
+        });
+      }
+
+      const total = articlesClassified + newsClassified;
+      const errors = articlesErrors + newsErrors;
+      res.json({
+        message: `تم تصنيف ${total} عنصر بنجاح`,
+        articlesClassified,
+        newsClassified,
+        errors,
+        total,
+      });
+    } catch (error) {
+      console.error("Error in auto-classify-misc:", error);
+      res.status(500).json({ message: "فشل في التصنيف التلقائي" });
+    }
+  });
+
   // Admin: Dashboard statistics
   app.get('/api/admin/stats', async (req, res) => {
     try {

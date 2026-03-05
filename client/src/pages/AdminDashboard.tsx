@@ -661,6 +661,28 @@ export default function AdminDashboard() {
     },
   });
 
+  const autoClassifyMiscMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/auto-classify-misc");
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
+      toast({
+        title: "✅ اكتمل التصنيف التلقائي",
+        description: data.message || `تم تصنيف ${data.total} عنصر بنجاح`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "خطأ في التصنيف",
+        description: "حدث خطأ أثناء التصنيف التلقائي",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleEditNews = (newsItem: any) => {
     setFormData({
       title: newsItem.title || "",
@@ -2115,14 +2137,35 @@ export default function AdminDashboard() {
           </h1>
           <p className="text-sm text-muted-foreground">عرض وتعديل وحذف المقالات الطبية</p>
         </div>
-        <Button 
-          onClick={() => { resetArticleForm(); setLocation('/admin/articles/new'); }}
-          className="gap-2 w-full sm:w-auto"
-          data-testid="button-add-article"
-        >
-          <Plus className="h-4 w-4" />
-          إضافة مقال جديد
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button 
+            variant="outline"
+            onClick={() => autoClassifyMiscMutation.mutate()}
+            disabled={autoClassifyMiscMutation.isPending}
+            className="gap-2 w-full sm:w-auto"
+            data-testid="button-auto-classify"
+          >
+            {autoClassifyMiscMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                جاري التصنيف...
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-4 w-4" />
+                تصنيف منوعات تلقائياً
+              </>
+            )}
+          </Button>
+          <Button 
+            onClick={() => { resetArticleForm(); setLocation('/admin/articles/new'); }}
+            className="gap-2 w-full sm:w-auto"
+            data-testid="button-add-article"
+          >
+            <Plus className="h-4 w-4" />
+            إضافة مقال جديد
+          </Button>
+        </div>
       </div>
 
       {/* Articles List */}
