@@ -182,7 +182,7 @@ export default function News() {
           <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <Card key={i} className="overflow-hidden">
-                <Skeleton className="h-32 w-full" />
+                <Skeleton className="aspect-video w-full" />
                 <CardContent className="p-3">
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-3 w-1/2 mt-2" />
@@ -203,7 +203,7 @@ export default function News() {
                       <img 
                         src={item.imageUrl || newsImages[index % newsImages.length]} 
                         alt={item.title}
-                        className="w-full h-32 md:h-36 object-cover"
+                        className="w-full aspect-video object-cover"
                       />
                       <AIImageBadge imageUrl={item.imageUrl} size="sm" />
                     </div>
