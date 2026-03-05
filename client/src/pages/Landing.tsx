@@ -104,7 +104,7 @@ export default function Landing() {
   const prevSlide = () => setCurrentSlide(prev => (prev - 1 + featuredNewsList.length) % featuredNewsList.length);
   
   // Show all news in latest section (featured + non-featured)
-  const latestNews = allNewsList.slice(0, 20);
+  const latestNews = allNewsList.slice(0, 28);
   const latestArticles = articles?.slice(0, 3) || [];
 
   return (

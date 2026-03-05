@@ -42,7 +42,7 @@ const categoryColors: Record<string, string> = {
   "misc": "bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-200"
 };
 
-const PER_PAGE = 20;
+const PER_PAGE = 28;
 
 interface PaginatedResponse {
   news: NewsType[];
