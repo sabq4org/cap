@@ -975,7 +975,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin: Auto-classify articles and news in 'misc' category
+  // In-memory job store for classify progress
+  const classifyJobs = new Map<string, {
+    status: 'running' | 'done' | 'error';
+    processed: number;
+    total: number;
+    articlesClassified: number;
+    newsClassified: number;
+    errors: number;
+    currentLabel: string;
+    message?: string;
+  }>();
+
+  // Admin: Start auto-classify job for 'misc' category
   app.post('/api/admin/auto-classify-misc', isAdminAuthenticated, async (req, res) => {
     try {
       const allCategories = await storage.getCategories(true);
@@ -987,69 +999,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .filter(c => c.slug !== 'misc')
         .map(c => ({ slug: c.slug, nameAr: c.nameAr, description: c.description }));
 
-      // Process articles in misc
       const miscArticles = await storage.getArticles('misc', 2000, true);
-      let articlesClassified = 0;
-      let articlesErrors = 0;
-      const batchSize = 5;
-
-      for (let i = 0; i < miscArticles.length; i += batchSize) {
-        const batch = miscArticles.slice(i, i + batchSize);
-        const results = await Promise.allSettled(
-          batch.map(async (article) => {
-            const newCat = await categorizeNewsArticle(
-              article.title,
-              article.content || article.excerpt || '',
-              categoryInfo
-            );
-            await storage.updateArticle(article.id, { category: newCat });
-            return newCat;
-          })
-        );
-        results.forEach(r => {
-          if (r.status === 'fulfilled') articlesClassified++;
-          else articlesErrors++;
-        });
-      }
-
-      // Process news in misc
       const allNews = await storage.getAllNewsForAdmin();
       const miscNews = allNews.filter(n => n.category === 'misc' || n.category === 'منوعات');
-      let newsClassified = 0;
-      let newsErrors = 0;
 
-      for (let i = 0; i < miscNews.length; i += batchSize) {
-        const batch = miscNews.slice(i, i + batchSize);
-        const results = await Promise.allSettled(
-          batch.map(async (newsItem) => {
-            const newCat = await categorizeNewsArticle(
-              newsItem.title,
-              newsItem.content || newsItem.summary || '',
-              categoryInfo
-            );
-            await storage.updateNews(newsItem.id, { category: newCat });
-            return newCat;
-          })
-        );
-        results.forEach(r => {
-          if (r.status === 'fulfilled') newsClassified++;
-          else newsErrors++;
-        });
+      const total = miscArticles.length + miscNews.length;
+      if (total === 0) {
+        return res.json({ jobId: null, total: 0, message: "لا يوجد محتوى في تصنيف منوعات" });
       }
 
-      const total = articlesClassified + newsClassified;
-      const errors = articlesErrors + newsErrors;
-      res.json({
-        message: `تم تصنيف ${total} عنصر بنجاح`,
-        articlesClassified,
-        newsClassified,
-        errors,
+      const jobId = `classify_${Date.now()}`;
+      classifyJobs.set(jobId, {
+        status: 'running',
+        processed: 0,
         total,
+        articlesClassified: 0,
+        newsClassified: 0,
+        errors: 0,
+        currentLabel: 'تحليل المقالات...',
       });
+
+      // Run in background
+      (async () => {
+        const job = classifyJobs.get(jobId)!;
+        const batchSize = 5;
+
+        // Articles
+        for (let i = 0; i < miscArticles.length; i += batchSize) {
+          const batch = miscArticles.slice(i, i + batchSize);
+          job.currentLabel = `مقالات: ${job.articlesClassified + 1}–${Math.min(i + batchSize, miscArticles.length)} من ${miscArticles.length}`;
+          const results = await Promise.allSettled(
+            batch.map(async (article) => {
+              const newCat = await categorizeNewsArticle(
+                article.title,
+                article.content || article.excerpt || '',
+                categoryInfo
+              );
+              await storage.updateArticle(article.id, { category: newCat });
+            })
+          );
+          results.forEach(r => {
+            if (r.status === 'fulfilled') { job.articlesClassified++; job.processed++; }
+            else { job.errors++; job.processed++; }
+          });
+        }
+
+        // News
+        for (let i = 0; i < miscNews.length; i += batchSize) {
+          const batch = miscNews.slice(i, i + batchSize);
+          job.currentLabel = `أخبار: ${job.newsClassified + 1}–${Math.min(i + batchSize, miscNews.length)} من ${miscNews.length}`;
+          const results = await Promise.allSettled(
+            batch.map(async (newsItem) => {
+              const newCat = await categorizeNewsArticle(
+                newsItem.title,
+                newsItem.content || newsItem.summary || '',
+                categoryInfo
+              );
+              await storage.updateNews(newsItem.id, { category: newCat });
+            })
+          );
+          results.forEach(r => {
+            if (r.status === 'fulfilled') { job.newsClassified++; job.processed++; }
+            else { job.errors++; job.processed++; }
+          });
+        }
+
+        job.status = 'done';
+        job.currentLabel = 'اكتمل التصنيف';
+        job.message = `تم تصنيف ${job.articlesClassified} مقالة و${job.newsClassified} خبر بنجاح`;
+        setTimeout(() => classifyJobs.delete(jobId), 10 * 60 * 1000);
+      })().catch(err => {
+        const job = classifyJobs.get(jobId);
+        if (job) { job.status = 'error'; job.message = 'حدث خطأ أثناء التصنيف'; }
+        console.error("auto-classify-misc error:", err);
+      });
+
+      res.json({ jobId, total });
     } catch (error) {
-      console.error("Error in auto-classify-misc:", error);
-      res.status(500).json({ message: "فشل في التصنيف التلقائي" });
+      console.error("Error starting auto-classify-misc:", error);
+      res.status(500).json({ message: "فشل في بدء التصنيف التلقائي" });
     }
+  });
+
+  // Admin: Get classify job progress
+  app.get('/api/admin/auto-classify-misc/progress/:jobId', isAdminAuthenticated, (req, res) => {
+    const job = classifyJobs.get(req.params.jobId);
+    if (!job) return res.status(404).json({ message: "لم يُعثر على المهمة" });
+    res.json(job);
   });
 
   // Admin: Dashboard statistics

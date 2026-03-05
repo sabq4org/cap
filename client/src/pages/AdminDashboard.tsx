@@ -251,6 +251,17 @@ export default function AdminDashboard() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isAutoCategorizing, setIsAutoCategorizing] = useState(false);
   const [autoCategorizeResult, setAutoCategorizeResult] = useState<{ categorized: number; errors: number; total: number } | null>(null);
+  const [classifyJobId, setClassifyJobId] = useState<string | null>(null);
+  const [classifyProgress, setClassifyProgress] = useState<{
+    status: 'running' | 'done' | 'error';
+    processed: number;
+    total: number;
+    articlesClassified: number;
+    newsClassified: number;
+    errors: number;
+    currentLabel: string;
+    message?: string;
+  } | null>(null);
 
   // Admin News Pagination & Sorting State
   const [newsSearchQuery, setNewsSearchQuery] = useState("");
@@ -275,6 +286,28 @@ export default function AdminDashboard() {
       setLocation("/admin");
     }
   }, [setLocation]);
+
+  // Polling for classify job progress
+  useEffect(() => {
+    if (!classifyJobId) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/admin/auto-classify-misc/progress/${classifyJobId}`);
+        if (!res.ok) { clearInterval(interval); return; }
+        const data = await res.json();
+        setClassifyProgress(data);
+        if (data.status === 'done' || data.status === 'error') {
+          clearInterval(interval);
+          setClassifyJobId(null);
+          if (data.status === 'done') {
+            queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/news"] });
+          }
+        }
+      } catch { clearInterval(interval); }
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [classifyJobId]);
 
   // Public news for dashboard
   const { data: news } = useQuery<any[]>({ queryKey: ["/api/news"] });
@@ -667,17 +700,22 @@ export default function AdminDashboard() {
       return res.json();
     },
     onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/articles"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
-      toast({
-        title: "✅ اكتمل التصنيف التلقائي",
-        description: data.message || `تم تصنيف ${data.total} عنصر بنجاح`,
+      if (!data.jobId) {
+        toast({ title: "لا يوجد محتوى", description: data.message || "لا يوجد محتوى في تصنيف منوعات" });
+        return;
+      }
+      setClassifyProgress({
+        status: 'running', processed: 0, total: data.total,
+        articlesClassified: 0, newsClassified: 0, errors: 0,
+        currentLabel: 'جاري التحليل...',
       });
+      setClassifyJobId(data.jobId);
+      toast({ title: "🚀 بدأ التصنيف التلقائي", description: `${data.total} عنصر قيد المعالجة` });
     },
     onError: () => {
       toast({
         title: "خطأ في التصنيف",
-        description: "حدث خطأ أثناء التصنيف التلقائي",
+        description: "حدث خطأ أثناء بدء التصنيف التلقائي",
         variant: "destructive",
       });
     },
@@ -2141,11 +2179,11 @@ export default function AdminDashboard() {
           <Button 
             variant="outline"
             onClick={() => autoClassifyMiscMutation.mutate()}
-            disabled={autoClassifyMiscMutation.isPending}
+            disabled={autoClassifyMiscMutation.isPending || !!classifyJobId}
             className="gap-2 w-full sm:w-auto"
             data-testid="button-auto-classify"
           >
-            {autoClassifyMiscMutation.isPending ? (
+            {autoClassifyMiscMutation.isPending || classifyJobId ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
                 جاري التصنيف...
@@ -2167,6 +2205,50 @@ export default function AdminDashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Classify Progress Card */}
+      {classifyProgress && (
+        <Card className={`border-2 ${classifyProgress.status === 'done' ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : classifyProgress.status === 'error' ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : 'border-primary/40 bg-primary/5'}`}>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {classifyProgress.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                {classifyProgress.status === 'done' && <Check className="h-4 w-4 text-green-600" />}
+                {classifyProgress.status === 'error' && <AlertCircle className="h-4 w-4 text-red-600" />}
+                <span className="font-semibold text-sm">
+                  {classifyProgress.status === 'running' ? 'جاري التصنيف التلقائي...' : classifyProgress.status === 'done' ? 'اكتمل التصنيف ✅' : 'خطأ في التصنيف'}
+                </span>
+              </div>
+              <span className="text-sm font-mono text-muted-foreground">
+                {classifyProgress.processed} / {classifyProgress.total}
+                {' '}({classifyProgress.total > 0 ? Math.round((classifyProgress.processed / classifyProgress.total) * 100) : 0}%)
+              </span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+              <div
+                className={`h-2.5 rounded-full transition-all duration-500 ${classifyProgress.status === 'done' ? 'bg-green-500' : classifyProgress.status === 'error' ? 'bg-red-500' : 'bg-primary'}`}
+                style={{ width: `${classifyProgress.total > 0 ? (classifyProgress.processed / classifyProgress.total) * 100 : 0}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{classifyProgress.currentLabel}</span>
+              <span className="flex gap-3">
+                <span className="text-emerald-600">مقالات: {classifyProgress.articlesClassified}</span>
+                <span className="text-blue-600">أخبار: {classifyProgress.newsClassified}</span>
+                {classifyProgress.errors > 0 && <span className="text-red-500">أخطاء: {classifyProgress.errors}</span>}
+              </span>
+            </div>
+            {classifyProgress.status === 'done' && classifyProgress.message && (
+              <p className="text-sm text-green-700 dark:text-green-400 font-medium">{classifyProgress.message}</p>
+            )}
+            {classifyProgress.status !== 'running' && (
+              <button onClick={() => setClassifyProgress(null)} className="text-xs text-muted-foreground hover:text-foreground underline">
+                إغلاق
+              </button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Articles List */}
       <div className="grid gap-4">
