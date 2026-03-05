@@ -4,6 +4,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { seedProductionIfEmpty } from "./seedProduction";
 import { storage } from "./storage";
 import { pool } from "./db";
+import { seedDefaultSources, seedDefaultKeywords } from "./radarService";
 
 const app = express();
 
@@ -83,6 +84,17 @@ async function fixCategoriesArabic() {
 
   // Fix category Arabic names and colors on every startup (both dev and prod)
   await fixCategoriesArabic();
+
+  // Seed default radar sources (including Saudi/Arabic sources) — only adds missing ones
+  try {
+    const sourcesAdded = await seedDefaultSources();
+    const keywordsAdded = await seedDefaultKeywords();
+    if (sourcesAdded > 0 || keywordsAdded > 0) {
+      log(`[Init] ✅ أُضيف ${sourcesAdded} مصدر و${keywordsAdded} كلمة مفتاحية جديدة إلى رادار الأخبار`);
+    }
+  } catch (err) {
+    console.error('[Init] خطأ في إضافة مصادر الرادار:', err);
+  }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
