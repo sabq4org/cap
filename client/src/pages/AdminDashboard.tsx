@@ -834,10 +834,10 @@ export default function AdminDashboard() {
       return;
     }
     
-    if (publishMode === 'schedule' && !scheduledDateTime) {
+    if (publishMode === 'schedule' && scheduledDateTime.length < 16) {
       toast({
         title: "تاريخ الجدولة مطلوب",
-        description: "يرجى تحديد تاريخ ووقت النشر",
+        description: "يرجى تحديد التاريخ والوقت معاً قبل الجدولة",
         variant: "destructive",
       });
       return;
@@ -1702,20 +1702,44 @@ export default function AdminDashboard() {
                 </div>
 
                 {publishMode === 'schedule' && (
-                  <div className="space-y-2 pt-2">
-                    <Label htmlFor="schedule-datetime">تاريخ ووقت النشر *</Label>
-                    <Input
-                      id="schedule-datetime"
-                      type="datetime-local"
-                      value={scheduledDateTime}
-                      onChange={(e) => setScheduledDateTime(e.target.value)}
-                      min={getSaudiNow()}
-                      className="text-right"
-                      data-testid="input-schedule-datetime"
-                    />
-                    {scheduledDateTime && (
-                      <p className="text-xs text-primary">
-                        سيتم نشر الخبر: {fmtSaudiDate(saudiInputToISO(scheduledDateTime), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  <div className="space-y-3 pt-2">
+                    <Label>تاريخ ووقت النشر *</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="schedule-date" className="text-xs text-muted-foreground">التاريخ</Label>
+                        <Input
+                          id="schedule-date"
+                          type="date"
+                          value={scheduledDateTime.slice(0, 10)}
+                          onChange={(e) => {
+                            const datePart = e.target.value;
+                            const timePart = scheduledDateTime.slice(11, 16) || '09:00';
+                            setScheduledDateTime(datePart ? `${datePart}T${timePart}` : '');
+                          }}
+                          min={getSaudiNow().slice(0, 10)}
+                          className="text-center"
+                          data-testid="input-schedule-date"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="schedule-time" className="text-xs text-muted-foreground">الوقت (توقيت الرياض)</Label>
+                        <Input
+                          id="schedule-time"
+                          type="time"
+                          value={scheduledDateTime.slice(11, 16)}
+                          onChange={(e) => {
+                            const timePart = e.target.value;
+                            const datePart = scheduledDateTime.slice(0, 10) || getSaudiNow().slice(0, 10);
+                            setScheduledDateTime(timePart ? `${datePart}T${timePart}` : '');
+                          }}
+                          className="text-center"
+                          data-testid="input-schedule-time"
+                        />
+                      </div>
+                    </div>
+                    {scheduledDateTime && scheduledDateTime.length >= 16 && (
+                      <p className="text-xs text-primary font-medium">
+                        📅 سيتم نشر الخبر: {fmtSaudiDate(saudiInputToISO(scheduledDateTime), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     )}
                   </div>
