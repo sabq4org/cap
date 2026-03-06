@@ -655,7 +655,7 @@ export class DatabaseStorage implements IStorage {
   async incrementViewCount(id: string): Promise<void> {
     await db
       .update(news)
-      .set({ viewCount: sql`${news.viewCount} + 1` })
+      .set({ viewCount: sql`${news.viewCount} + 2` })
       .where(eq(news.id, id));
   }
 
