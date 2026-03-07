@@ -165,10 +165,6 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
     </linearGradient>
   </defs>
   <rect width="${targetWidth}" height="${targetHeight}" fill="url(#grad)"/>
-  <!-- Domain (left side) -->
-  <text x="40" y="${targetHeight - 30}"
-        font-family="Arial, sans-serif" font-size="26"
-        fill="white" text-anchor="start" opacity="0.85">capsulah.com</text>
   <!-- Decorative green line above branding -->
   <rect x="0" y="${targetHeight - 80}" width="${targetWidth}" height="4" fill="#16a34a" opacity="0.9"/>
 </svg>`;
