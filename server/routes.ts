@@ -392,6 +392,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // robots.txt
+  app.get('/robots.txt', (_req, res) => {
+    res.type('text/plain').send(
+      `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: https://capsulah.com/sitemap.xml`
+    );
+  });
+
+  // Dynamic sitemap.xml
+  app.get('/sitemap.xml', async (_req, res) => {
+    try {
+      const published = await storage.getNews(undefined, 5000);
+      const baseUrl = 'https://capsulah.com';
+
+      const staticUrls = [
+        { loc: baseUrl, priority: '1.0', changefreq: 'hourly' },
+        { loc: `${baseUrl}/news`, priority: '0.9', changefreq: 'hourly' },
+        { loc: `${baseUrl}/news?category=health-news`, priority: '0.8', changefreq: 'hourly' },
+        { loc: `${baseUrl}/news?category=diseases`, priority: '0.8', changefreq: 'daily' },
+        { loc: `${baseUrl}/news?category=nutrition`, priority: '0.8', changefreq: 'daily' },
+        { loc: `${baseUrl}/news?category=mental-health`, priority: '0.8', changefreq: 'daily' },
+        { loc: `${baseUrl}/news?category=medications`, priority: '0.8', changefreq: 'daily' },
+        { loc: `${baseUrl}/news?category=quality-life`, priority: '0.7', changefreq: 'daily' },
+      ];
+
+      const newsUrls = published.map(item => {
+        const loc = item.shortCode ? `${baseUrl}/n/${item.shortCode}` : `${baseUrl}/news/${item.id}`;
+        const lastmod = item.publishedAt ? new Date(item.publishedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>`;
+      });
+
+      const staticXml = staticUrls.map(u =>
+        `  <url>\n    <loc>${u.loc}</loc>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
+      ).join('\n');
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${staticXml}\n${newsUrls.join('\n')}\n</urlset>`;
+
+      res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+    } catch (error) {
+      console.error('Error generating sitemap:', error);
+      res.status(500).send('Error generating sitemap');
+    }
+  });
+
   // Social media crawler meta tags API endpoint - redirects to short URL
   app.get('/api/share/news/:id', async (req, res) => {
     try {
