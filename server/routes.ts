@@ -165,10 +165,6 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
     </linearGradient>
   </defs>
   <rect width="${targetWidth}" height="${targetHeight}" fill="url(#grad)"/>
-  <!-- Site name in Arabic (right side) -->
-  <text x="${targetWidth - 40}" y="${targetHeight - 30}" 
-        font-family="Arial, sans-serif" font-size="38" font-weight="bold"
-        fill="white" text-anchor="end" opacity="0.95">كبسولة</text>
   <!-- Domain (left side) -->
   <text x="40" y="${targetHeight - 30}"
         font-family="Arial, sans-serif" font-size="26"
