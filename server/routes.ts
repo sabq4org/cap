@@ -350,7 +350,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
-  app.get('/api/og-image/:id', async (req, res) => {
+  // Shared handler for OG image serving (used by both /og/:id and /api/og-image/:id)
+  const serveOGImage = async (req: any, res: any) => {
     const sendSafeImage = async (buffer: Buffer | null, cacheTime: number): Promise<void> => {
       let safeBuffer = buffer;
       if (!safeBuffer || safeBuffer.length > OG_MAX_SIZE) {
@@ -382,12 +383,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error serving OG image:', error);
       await sendSafeImage(null, 3600);
     }
-  });
+  };
+
+  // Primary OG image route — outside /api/ so robots.txt never blocks social crawlers
+  app.get('/og/:id', serveOGImage);
+  // Keep legacy route for backward compatibility
+  app.get('/api/og-image/:id', serveOGImage);
 
   // robots.txt
   app.get('/robots.txt', (_req, res) => {
     res.type('text/plain').send(
-      `User-agent: *\nAllow: /\nAllow: /api/og-image/\nDisallow: /admin\nDisallow: /api/\n\nSitemap: https://capsulah.com/sitemap.xml`
+      `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: https://capsulah.com/sitemap.xml`
     );
   });
 
@@ -449,7 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const description = escapeHtml(rawDescription);
       const imageId = newsItem.shortCode || newsItem.id;
       const imageVer = newsItem.updatedAt ? Math.floor(new Date(newsItem.updatedAt).getTime() / 1000) : 1;
-      const imageUrl = `${baseUrl}/api/og-image/${imageId}?v=${imageVer}`;
+      const imageUrl = `${baseUrl}/og/${imageId}?v=${imageVer}`;
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -535,7 +541,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : `${baseUrl}/news/${newsItem.id}`;
       const imageId = newsItem.shortCode || newsItem.id;
       const imageVer = newsItem.updatedAt ? Math.floor(new Date(newsItem.updatedAt).getTime() / 1000) : 1;
-      const imageUrl = `${baseUrl}/api/og-image/${imageId}?v=${imageVer}`;
+      const imageUrl = `${baseUrl}/og/${imageId}?v=${imageVer}`;
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -608,7 +614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
       const imageId = newsItem.shortCode || newsItem.id;
       const imageVer = newsItem.updatedAt ? Math.floor(new Date(newsItem.updatedAt).getTime() / 1000) : 1;
-      const imageUrl = `${baseUrl}/api/og-image/${imageId}?v=${imageVer}`;
+      const imageUrl = `${baseUrl}/og/${imageId}?v=${imageVer}`;
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
