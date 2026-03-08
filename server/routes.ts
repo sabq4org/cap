@@ -387,7 +387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // robots.txt
   app.get('/robots.txt', (_req, res) => {
     res.type('text/plain').send(
-      `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: https://capsulah.com/sitemap.xml`
+      `User-agent: *\nAllow: /\nAllow: /api/og-image/\nDisallow: /admin\nDisallow: /api/\n\nSitemap: https://capsulah.com/sitemap.xml`
     );
   });
 
@@ -534,7 +534,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? `${baseUrl}/n/${newsItem.shortCode}`
         : `${baseUrl}/news/${newsItem.id}`;
       const imageId = newsItem.shortCode || newsItem.id;
-      const imageUrl = `${baseUrl}/api/og-image/${imageId}`;
+      const imageVer = newsItem.updatedAt ? Math.floor(new Date(newsItem.updatedAt).getTime() / 1000) : 1;
+      const imageUrl = `${baseUrl}/api/og-image/${imageId}?v=${imageVer}`;
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -606,7 +607,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const baseUrl = `${proto}://${reqHost}`;
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
       const imageId = newsItem.shortCode || newsItem.id;
-      const imageUrl = `${baseUrl}/api/og-image/${imageId}`;
+      const imageVer = newsItem.updatedAt ? Math.floor(new Date(newsItem.updatedAt).getTime() / 1000) : 1;
+      const imageUrl = `${baseUrl}/api/og-image/${imageId}?v=${imageVer}`;
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
