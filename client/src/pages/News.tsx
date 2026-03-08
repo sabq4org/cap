@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -52,24 +52,19 @@ interface PaginatedResponse {
 }
 
 export default function News() {
-  const [location, setLocation] = useLocation();
-  const [currentPage, setCurrentPage] = useState(1);
+  const [, setLocation] = useLocation();
+  const search = useSearch();
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const categoryFromUrl = urlParams.get("category") || "";
-  const searchFromUrl = urlParams.get("q") || "";
-  const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl);
-  const [searchQuery, setSearchQuery] = useState(searchFromUrl);
+  const urlParams = new URLSearchParams(search);
+  const currentPage = parseInt(urlParams.get("page") || "1", 10);
+  const selectedCategory = urlParams.get("category") || "";
+  const searchQuery = urlParams.get("q") || "";
+
+  const [localSearch, setLocalSearch] = useState(searchQuery);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const category = params.get("category") || "";
-    const page = parseInt(params.get("page") || "1", 10);
-    const q = params.get("q") || "";
-    setSelectedCategory(category);
-    setCurrentPage(page);
-    setSearchQuery(q);
-  }, [location]);
+    setLocalSearch(new URLSearchParams(search).get("q") || "");
+  }, [search]);
 
   const buildQueryKey = () => {
     const params = new URLSearchParams();
@@ -102,7 +97,6 @@ export default function News() {
   };
 
   const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category);
     const params = new URLSearchParams();
     if (category) params.set("category", category);
     params.set("page", "1");
