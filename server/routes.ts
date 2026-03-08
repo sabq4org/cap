@@ -165,8 +165,6 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
     </linearGradient>
   </defs>
   <rect width="${targetWidth}" height="${targetHeight}" fill="url(#grad)"/>
-  <!-- Decorative green line above branding -->
-  <rect x="0" y="${targetHeight - 80}" width="${targetWidth}" height="4" fill="#16a34a" opacity="0.9"/>
 </svg>`;
 
     const svgBuffer = Buffer.from(svgOverlay);
