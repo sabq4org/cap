@@ -78,10 +78,10 @@ export default function News() {
     queryKey: [buildQueryKey()],
   });
 
-  const filteredNews = searchQuery
+  const filteredNews = localSearch
     ? data?.news?.filter((item) =>
-        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.summary?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
+        item.title.toLowerCase().includes(localSearch.toLowerCase()) ||
+        (item.summary?.toLowerCase().includes(localSearch.toLowerCase()) ?? false)
       )
     : data?.news;
 
@@ -152,8 +152,8 @@ export default function News() {
             <Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="ابحث في الأخبار..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
               className="pr-10"
               data-testid="input-search-news"
             />
