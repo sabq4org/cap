@@ -792,9 +792,13 @@ export class DatabaseStorage implements IStorage {
 
     // View stats
     const totalViews = allNews.reduce((sum, n) => sum + (n.viewCount || 0), 0);
-    const todayViews = allNews
-      .filter(n => n.todayViewsDate === todaySA)
-      .reduce((sum, n) => sum + (n.todayViews || 0), 0);
+    // Today's views: use todayViews where tracked (todayViewsDate = today),
+    // plus full viewCount for articles published today that haven't been tracked yet
+    const todayViews = allNews.reduce((sum, n) => {
+      if (n.todayViewsDate === todaySA) return sum + (n.todayViews || 0);
+      if (n.publishedAt && new Date(n.publishedAt) >= todayStartUTC) return sum + (n.viewCount || 0);
+      return sum;
+    }, 0);
 
     const allArticles = await db.select().from(articles);
     const publishedArticles = allArticles.filter(a => a.status === 'published').length;

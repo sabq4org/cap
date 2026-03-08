@@ -54,6 +54,29 @@ app.use((req, res, next) => {
   next();
 });
 
+async function fixTranslatedNews() {
+  const client = await pool.connect();
+  try {
+    // Mark news as translated where they match radar items that had titleAr (translated from English)
+    const result = await client.query(`
+      UPDATE news n
+      SET is_translated = true
+      FROM radar_items r
+      WHERE n.source_url = r.original_url
+        AND r.title_ar IS NOT NULL
+        AND (r.language IS NULL OR r.language != 'ar')
+        AND n.is_translated = false
+    `);
+    if (result.rowCount && result.rowCount > 0) {
+      log(`[Init] ✅ تم تمييز ${result.rowCount} خبر كمترجم`);
+    }
+  } catch (err) {
+    console.error('[Init] خطأ في تحديث الأخبار المترجمة (غير حرج):', err);
+  } finally {
+    client.release();
+  }
+}
+
 async function fixCategoriesArabic() {
   const CATEGORY_DATA = [
     { slug: 'health-news',      nameAr: 'أخبار الصحة',        nameEn: 'Health News',      color: 'green-200' },
@@ -90,6 +113,13 @@ async function fixCategoriesArabic() {
       await fixCategoriesArabic();
     } catch (err) {
       console.error('[Init] خطأ في تحديث التصنيفات (غير حرج):', err);
+    }
+
+    // Retroactively mark translated news (runs on every startup, idempotent)
+    try {
+      await fixTranslatedNews();
+    } catch (err) {
+      console.error('[Init] خطأ في تحديث الأخبار المترجمة (غير حرج):', err);
     }
 
     // Seed default radar sources — only adds missing ones
