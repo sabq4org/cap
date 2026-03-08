@@ -448,7 +448,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const title = escapeHtml(rawTitle);
       const description = escapeHtml(rawDescription);
       const imageId = newsItem.shortCode || newsItem.id;
-      const imageUrl = `${baseUrl}/api/og-image/${imageId}`;
+      const imageVer = newsItem.updatedAt ? Math.floor(new Date(newsItem.updatedAt).getTime() / 1000) : 1;
+      const imageUrl = `${baseUrl}/api/og-image/${imageId}?v=${imageVer}`;
       
       const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
