@@ -235,7 +235,10 @@ export const news = pgTable("news", {
   seoTitle: varchar("seo_title"),
   seoDescription: text("seo_description"),
   keywords: text("keywords").array(),
-  viewCount: integer("view_count").default(0).notNull(), // Number of page views
+  viewCount: integer("view_count").default(0).notNull(), // Number of page views (cumulative)
+  todayViews: integer("today_views").default(0).notNull(), // Views today
+  todayViewsDate: varchar("today_views_date", { length: 10 }), // YYYY-MM-DD (Saudi timezone)
+  isTranslated: boolean("is_translated").default(false), // Was translated from another language (e.g. English → Arabic)
   isFeatured: boolean("is_featured").default(false), // Featured news appears in Hero section
   status: varchar("status").notNull().default("published"), // "draft", "published", "scheduled", "deleted"
   scheduledAt: timestamp("scheduled_at"), // When to publish scheduled news

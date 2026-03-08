@@ -374,6 +374,10 @@ export default function AdminDashboard() {
     featuredNews: number;
     todayNews: number;
     miscNews: number;
+    totalTranslated: number;
+    todayTranslated: number;
+    totalViews: number;
+    todayViews: number;
     totalArticles: number;
     publishedArticles: number;
     draftArticles: number;
@@ -1186,6 +1190,12 @@ export default function AdminDashboard() {
     setLocation("/admin");
   };
 
+  const formatViews = (n: number) => {
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return String(n);
+  };
+
   const stats: StatCard[] = [
     { 
       title: "إجمالي المحتوى", 
@@ -1202,6 +1212,22 @@ export default function AdminDashboard() {
       changeType: "up",
       icon: Clock,
       color: "from-emerald-50 to-emerald-100 dark:from-emerald-950/20 dark:to-emerald-900/20"
+    },
+    { 
+      title: "الأخبار المترجمة", 
+      value: String(dashboardStats?.totalTranslated || 0), 
+      change: `${dashboardStats?.todayTranslated || 0} اليوم`,
+      changeType: "up",
+      icon: Globe,
+      color: "from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20"
+    },
+    { 
+      title: "المشاهدات الإجمالية", 
+      value: formatViews(dashboardStats?.totalViews || 0), 
+      change: `${formatViews(dashboardStats?.todayViews || 0)} اليوم`,
+      changeType: "up",
+      icon: Eye,
+      color: "from-purple-50 to-purple-100 dark:from-purple-950/20 dark:to-purple-900/20"
     },
     { 
       title: "غير مصنّف", 
@@ -3835,7 +3861,7 @@ export default function AdminDashboard() {
           <div className="w-1 h-6 bg-primary rounded-full" />
           الإحصائيات
         </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             return (

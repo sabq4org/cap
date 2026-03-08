@@ -653,10 +653,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async incrementViewCount(id: string): Promise<void> {
-    await db
-      .update(news)
-      .set({ viewCount: sql`${news.viewCount} + 2` })
-      .where(eq(news.id, id));
+    const todaySA = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' }); // YYYY-MM-DD
+    const [item] = await db.select({ todayViewsDate: news.todayViewsDate }).from(news).where(eq(news.id, id));
+    if (!item) return;
+    if (item.todayViewsDate === todaySA) {
+      await db.update(news).set({ viewCount: sql`${news.viewCount} + 2`, todayViews: sql`${news.todayViews} + 2` }).where(eq(news.id, id));
+    } else {
+      await db.update(news).set({ viewCount: sql`${news.viewCount} + 2`, todayViews: 2, todayViewsDate: todaySA }).where(eq(news.id, id));
+    }
   }
 
   async deleteNews(id: string): Promise<boolean> {
@@ -776,9 +780,21 @@ export class DatabaseStorage implements IStorage {
     const deletedNews = allNews.filter(n => n.status === 'deleted').length;
     const featuredNews = allNews.filter(n => n.isFeatured).length;
 
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const todayNews = allNews.filter(n => n.createdAt && new Date(n.createdAt) >= yesterday).length;
+    // Saudi timezone today start
+    const todaySA = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' }); // YYYY-MM-DD
+    const todayStartUTC = new Date(`${todaySA}T00:00:00+03:00`);
+    const todayNews = allNews.filter(n => n.createdAt && new Date(n.createdAt) >= todayStartUTC).length;
     const miscNews = allNews.filter(n => n.category === 'misc' || n.category === 'منوعات').length;
+
+    // Translation stats
+    const totalTranslated = allNews.filter(n => n.isTranslated).length;
+    const todayTranslated = allNews.filter(n => n.isTranslated && n.createdAt && new Date(n.createdAt) >= todayStartUTC).length;
+
+    // View stats
+    const totalViews = allNews.reduce((sum, n) => sum + (n.viewCount || 0), 0);
+    const todayViews = allNews
+      .filter(n => n.todayViewsDate === todaySA)
+      .reduce((sum, n) => sum + (n.todayViews || 0), 0);
 
     const allArticles = await db.select().from(articles);
     const publishedArticles = allArticles.filter(a => a.status === 'published').length;
@@ -801,6 +817,10 @@ export class DatabaseStorage implements IStorage {
       featuredNews,
       todayNews,
       miscNews,
+      totalTranslated,
+      todayTranslated,
+      totalViews,
+      todayViews,
       totalArticles: allArticles.length,
       publishedArticles,
       draftArticles,

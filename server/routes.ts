@@ -2414,6 +2414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sourceUrl: item.originalUrl,
         sourceName: undefined,
         tags: item.keywords || [],
+        isTranslated: !!(item.titleAr && item.language !== 'ar'),
       };
 
       const news = await storage.createNews(newsData);
@@ -2607,6 +2608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         seoDescription: translatedContent.seoDescription,
         shortCode: generateShortCode(),
         status: 'draft' as const,
+        isTranslated: item.language !== 'ar',
       };
 
       const news = await storage.createNews(newsData);
