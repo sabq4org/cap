@@ -65,7 +65,7 @@ async function initTodayViews() {
       SET today_views = view_count,
           today_views_date = $1
       WHERE DATE(published_at AT TIME ZONE 'Asia/Riyadh') = $1::date
-        AND today_views_date IS NULL
+        AND today_views != view_count
         AND status != 'deleted'
     `, [todaySA]);
     if (result.rowCount && result.rowCount > 0) {
