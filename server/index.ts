@@ -54,6 +54,30 @@ app.use((req, res, next) => {
   next();
 });
 
+async function initTodayViews() {
+  const client = await pool.connect();
+  try {
+    // For articles published today that haven't been initialized for today's tracking,
+    // seed their todayViews with their current viewCount (all views are from today)
+    const todaySA = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+    const result = await client.query(`
+      UPDATE news
+      SET today_views = view_count,
+          today_views_date = $1
+      WHERE DATE(published_at AT TIME ZONE 'Asia/Riyadh') = $1::date
+        AND today_views_date IS NULL
+        AND status != 'deleted'
+    `, [todaySA]);
+    if (result.rowCount && result.rowCount > 0) {
+      log(`[Init] ✅ تم تهيئة مشاهدات اليوم لـ ${result.rowCount} خبر منشور اليوم`);
+    }
+  } catch (err) {
+    console.error('[Init] خطأ في تهيئة مشاهدات اليوم (غير حرج):', err);
+  } finally {
+    client.release();
+  }
+}
+
 async function fixTranslatedNews() {
   const client = await pool.connect();
   try {
@@ -120,6 +144,13 @@ async function fixCategoriesArabic() {
       await fixTranslatedNews();
     } catch (err) {
       console.error('[Init] خطأ في تحديث الأخبار المترجمة (غير حرج):', err);
+    }
+
+    // Initialize today's view counters for articles published today (idempotent)
+    try {
+      await initTodayViews();
+    } catch (err) {
+      console.error('[Init] خطأ في تهيئة مشاهدات اليوم (غير حرج):', err);
     }
 
     // Seed default radar sources — only adds missing ones
