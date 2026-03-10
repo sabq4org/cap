@@ -53,6 +53,35 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+// كلمات مفتاحية صحية للتصفية - تُستخدم للمصادر العامة (غير المتخصصة بالصحة)
+const HEALTH_FILTER_KEYWORDS = [
+  // عربية
+  'صحة','صحي','صحية','طب','طبي','طبية','مرض','أمراض','علاج','علاجي','دواء','أدوية',
+  'مستشفى','مستشفيات','مستشفيات','طبيب','أطباء','جراح','جراحة','عملية','تشخيص',
+  'لقاح','تطعيم','وباء','وبائي','جائحة','فيروس','بكتيريا','ميكروب',
+  'سرطان','سكري','ضغط الدم','قلب','أوعية دموية','كلى','كبد','رئة',
+  'تغذية','غذاء','غذائي','غذائية','سعرات','بروتين','فيتامين','معدن','نظام غذائي',
+  'وزن','سمنة','نحافة','رياضة صحة','لياقة','بدنية',
+  'نفسي','نفسية','اكتئاب','قلق','صحة نفسية','نوم','توتر',
+  'وزارة الصحة','صحة السعودية','صحة الإمارات','الرعاية الصحية',
+  'منظمة الصحة','دراسة طبية','بحث طبي','دواء جديد','عقار',
+  'أسنان','جلد','عيون','آذان','عظام','عمود فقري','مفاصل',
+  'حمل','ولادة','أطفال','رضيع','مواليد','نساء صحة',
+  'إسعاف','طوارئ','حوادث طبية','إصابة','كسر',
+  // إنجليزية
+  'health','medical','medicine','disease','treatment','hospital','doctor',
+  'drug','vaccine','pandemic','virus','bacteria','cancer','diabetes',
+  'surgery','patient','pharmacy','clinical','therapy','nutrition','diet',
+  'mental health','obesity','fitness','wellness','healthcare',
+];
+
+const HEALTH_SPECIALIZED_CATEGORIES = ['health-news', 'saudi-health'];
+
+function isHealthRelated(title: string, summary: string): boolean {
+  const text = (title + ' ' + summary).toLowerCase();
+  return HEALTH_FILTER_KEYWORDS.some(kw => text.includes(kw.toLowerCase()));
+}
+
 export async function fetchRSSSource(source: RadarSource): Promise<FetchResult> {
   const result: FetchResult = {
     success: false,
@@ -84,6 +113,15 @@ export async function fetchRSSSource(source: RadarSource): Promise<FetchResult> 
       const summary = item.contentSnippet || item.summary || '';
       const content = item.contentEncoded || item.content || '';
       const imageUrl = extractImageUrl(item);
+
+      // تصفية الأخبار غير الصحية للمصادر العامة (غير المتخصصة بالصحة)
+      const isSpecializedSource = HEALTH_SPECIALIZED_CATEGORIES.includes(source.category || '');
+      if (!isSpecializedSource) {
+        const cleanSummary = stripHtml(summary);
+        if (!isHealthRelated(item.title || '', cleanSummary)) {
+          continue; // تجاهل الخبر لأنه غير صحي
+        }
+      }
 
       const newItem: InsertRadarItem = {
         sourceId: source.id,
