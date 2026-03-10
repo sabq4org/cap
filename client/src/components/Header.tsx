@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Heart, User, Home, BookOpen, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown, LayoutDashboard, ShieldCheck, Search } from "lucide-react";
+import { Menu, X, Heart, User, Home, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown, LayoutDashboard, ShieldCheck, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -64,10 +64,8 @@ export default function Header() {
     { label: "المساعد الصحي", path: "/assistant", icon: Heart, activePaths: ["/assistant"] },
     { label: "التغذية", path: "/nutrition", icon: Apple, activePaths: ["/nutrition"] },
     { label: "ملفي الصحي", path: "/profile", icon: Activity, activePaths: ["/profile"] },
-    { label: "المقالات", path: "/articles", icon: BookOpen, activePaths: ["/articles"] },
   ] : [
     { label: "الرئيسية", path: "/", icon: Home, activePaths: ["/"] },
-    { label: "المقالات", path: "/articles", icon: BookOpen, activePaths: ["/articles"] },
     { label: "الأخبار", path: "/news", icon: Newspaper, activePaths: ["/news"] },
   ];
 
