@@ -1209,6 +1209,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/admin/charts', isAdminAuthenticated, async (req, res) => {
+    try {
+      const days = Math.min(90, Math.max(1, parseInt(String(req.query.days || '7')) || 7));
+      const data = await storage.getChartData(days);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching chart data:", error);
+      res.status(500).json({ message: "Failed to fetch chart data" });
+    }
+  });
+
   // Admin: Get all news for dashboard (includes drafts, scheduled, deleted)
   app.get('/api/admin/news', isAdminAuthenticated, async (req, res) => {
     try {

@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
+import {
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from "recharts";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   LayoutDashboard, Users, Newspaper, BookOpen, MessageSquare, 
@@ -32,6 +36,8 @@ interface StatCard {
   icon: any;
   color: string;
 }
+
+const PIE_COLORS = ["#16a34a","#3b82f6","#8b5cf6","#f59e0b","#14b8a6","#f43f5e","#64748b","#a855f7"];
 
 const categories = [
   { value: "health-news", label: "أخبار صحية", color: "bg-green-500" },
@@ -106,6 +112,7 @@ export default function AdminDashboard() {
   const [location, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chartPeriod, setChartPeriod] = useState<7 | 30>(7);
   const [showNewsForm, setShowNewsForm] = useState(false);
   const [showArticleForm, setShowArticleForm] = useState(false);
   const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
@@ -391,6 +398,21 @@ export default function AdminDashboard() {
     totalRadarSources: number;
     activeRadarSources: number;
   }>({ queryKey: ["/api/admin/stats"] });
+
+  const { data: chartData } = useQuery<{
+    timeseries: { date: string; newsCount: number; views: number }[];
+    categories: { name: string; count: number }[];
+    radarSourcesActivity: { name: string; count: number }[];
+  }>({
+    queryKey: ["/api/admin/charts", chartPeriod],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/charts?days=${chartPeriod}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch chart data");
+      return res.json();
+    },
+    staleTime: 60000,
+  });
+
   // Admin news with server-side pagination
   const { data: adminNewsData, isLoading: isLoadingAdminNews } = useQuery<{ news: any[]; total: number; page: number; totalPages: number }>({ 
     queryKey: ["/api/admin/news", newsStatusTab, adminNewsPage, newsSearchQuery, newsCategoryFilter, adminNewsSortBy, adminNewsSortOrder],
@@ -3884,6 +3906,125 @@ export default function AdminDashboard() {
           })}
         </div>
       </div>
+
+      {/* ====== Charts Section ====== */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <div className="w-1 h-6 bg-primary rounded-full" />
+            الرسوم البيانية
+          </h2>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setChartPeriod(7)}
+              className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${chartPeriod === 7 ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+              data-testid="button-chart-7days"
+            >آخر 7 أيام</button>
+            <button
+              onClick={() => setChartPeriod(30)}
+              className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${chartPeriod === 30 ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+              data-testid="button-chart-30days"
+            >آخر 30 يوم</button>
+          </div>
+        </div>
+
+        {/* Area Chart — Views & Published News */}
+        <Card className="mb-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              المشاهدات والأخبار المنشورة
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={chartData?.timeseries || []} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="viewsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#16a34a" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#16a34a" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="newsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip
+                  formatter={(val: any, name: string) => [val.toLocaleString('ar-SA'), name === 'views' ? 'المشاهدات' : 'أخبار منشورة']}
+                  labelFormatter={(l: string) => `تاريخ: ${l}`}
+                  contentStyle={{ fontSize: 12, direction: 'rtl' }}
+                />
+                <Legend formatter={(v: string) => v === 'views' ? 'المشاهدات' : 'أخبار منشورة'} wrapperStyle={{ fontSize: 12 }} />
+                <Area type="monotone" dataKey="views" stroke="#16a34a" fill="url(#viewsGrad)" strokeWidth={2} dot={false} />
+                <Area type="monotone" dataKey="newsCount" stroke="#3b82f6" fill="url(#newsGrad)" strokeWidth={2} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Donut + Bar row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Donut — Category Distribution */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                توزيع الأخبار حسب التصنيف
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <ResponsiveContainer width="100%" height={230}>
+                <PieChart>
+                  <Pie
+                    data={(chartData?.categories || []).map(c => ({
+                      name: categories.find(cat => cat.value === c.name)?.label || c.name,
+                      count: c.count,
+                    }))}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={55}
+                    outerRadius={82}
+                    paddingAngle={2}
+                    dataKey="count"
+                    nameKey="name"
+                  >
+                    {(chartData?.categories || []).map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(val: any, name: string) => [val, name]} contentStyle={{ fontSize: 12, direction: 'rtl' }} />
+                  <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize: '11px' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Bar — Radar Sources Activity */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Rss className="h-4 w-4 text-primary" />
+                أكثر مصادر الرادار نشاطاً
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <ResponsiveContainer width="100%" height={230}>
+                <BarChart data={chartData?.radarSourcesActivity || []} layout="vertical" margin={{ top: 0, right: 16, left: 4, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={85} />
+                  <Tooltip contentStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="count" name="المقالات" fill="#16a34a" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+      {/* ====== End Charts Section ====== */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Recent News */}

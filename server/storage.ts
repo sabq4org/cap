@@ -838,6 +838,69 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  async getChartData(days: number = 7): Promise<{
+    timeseries: { date: string; newsCount: number; views: number }[];
+    categories: { name: string; count: number }[];
+    radarSourcesActivity: { name: string; count: number }[];
+  }> {
+    const tz = 'Asia/Riyadh';
+    // Build list of last N days in Saudi timezone
+    const dateList: string[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dateList.push(d.toLocaleDateString('en-CA', { timeZone: tz }));
+    }
+
+    // Fetch published news within range
+    const cutoffISO = new Date(dateList[0] + 'T00:00:00+03:00');
+    const allPublished = await db.select({
+      publishedAt: news.publishedAt,
+      createdAt: news.createdAt,
+      viewCount: news.viewCount,
+      category: news.category,
+    }).from(news).where(eq(news.status, 'published'));
+
+    // Timeseries: group by publishedAt date in SA timezone
+    const byDay: Record<string, { newsCount: number; views: number }> = {};
+    dateList.forEach(d => { byDay[d] = { newsCount: 0, views: 0 }; });
+    for (const item of allPublished) {
+      const dt = item.publishedAt || item.createdAt;
+      if (!dt) continue;
+      const dayStr = new Date(dt).toLocaleDateString('en-CA', { timeZone: tz });
+      if (byDay[dayStr]) {
+        byDay[dayStr].newsCount++;
+        byDay[dayStr].views += item.viewCount || 0;
+      }
+    }
+    const timeseries = dateList.map(d => ({ date: d, ...byDay[d] }));
+
+    // Category distribution: all published news
+    const catCount: Record<string, number> = {};
+    for (const item of allPublished) {
+      const cat = item.category || 'misc';
+      catCount[cat] = (catCount[cat] || 0) + 1;
+    }
+    const categories = Object.entries(catCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([name, count]) => ({ name, count }));
+
+    // Radar sources activity: items per source (using itemsCount field)
+    const allSources = await db.select({
+      name: radarSources.nameAr,
+      nameEn: radarSources.name,
+      itemsCount: radarSources.itemsCount,
+    }).from(radarSources).where(eq(radarSources.isActive, true));
+
+    const radarSourcesActivity = allSources
+      .sort((a, b) => (b.itemsCount || 0) - (a.itemsCount || 0))
+      .slice(0, 8)
+      .map(s => ({ name: (s.name || s.nameEn || '').slice(0, 18), count: s.itemsCount || 0 }));
+
+    return { timeseries, categories, radarSourcesActivity };
+  }
+
   // User management operations
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users).orderBy(desc(users.createdAt));
