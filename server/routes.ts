@@ -1913,7 +1913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (req.session as any).adminAuthenticated = true;
         (req.session as any).adminRole = account.role;
         (req.session as any).adminPermissions = account.permissions || [];
-        (req.session as any).adminDisplayName = account.display_name;
+        (req.session as any).adminDisplayName = account.display_name || account.username;
         (req.session as any).adminAccountId = account.id;
         req.session.save((err) => {
           if (err) console.error("Session save error:", err);
