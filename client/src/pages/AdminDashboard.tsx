@@ -3739,8 +3739,12 @@ export default function AdminDashboard() {
             {/* Welcome Text */}
             <div className="text-white">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
-                  <span className="text-2xl md:text-3xl font-bold">م</span>
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-full overflow-hidden border-2 border-white flex items-center justify-center shrink-0">
+                  <img 
+                    src="/admin-profile.png" 
+                    alt="محمد الحيدر" 
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div>
                   <p className="text-white/80 text-sm">{getGreeting()}</p>
