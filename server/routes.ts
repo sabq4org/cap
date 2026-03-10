@@ -1878,7 +1878,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { pool } = await import("./db");
 
     // Check hardcoded super admin
-    if (username === "admin" && password === "capsule2025") {
+    if (username === "admin" && password === "Lamar@2013") {
       (req.session as any).adminAuthenticated = true;
       (req.session as any).adminRole = "super_admin";
       (req.session as any).adminPermissions = ["*"];
@@ -1940,9 +1940,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if ((req.session as any)?.adminAuthenticated) {
       return res.json({
         authenticated: true,
-        role: (req.session as any).adminRole || "super_admin",
-        permissions: (req.session as any).adminPermissions || ["*"],
-        displayName: (req.session as any).adminDisplayName || "مدير النظام",
+        role: (req.session as any).adminRole || "editor",
+        permissions: (req.session as any).adminPermissions || [],
+        displayName: (req.session as any).adminDisplayName || "",
       });
     }
     return res.json({ authenticated: false });
