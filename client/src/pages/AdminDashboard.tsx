@@ -2205,7 +2205,7 @@ export default function AdminDashboard() {
                           )}
                           <div className="min-w-0">
                             <div className="font-medium line-clamp-2 mb-1">{item.title}</div>
-                            {item.createdBy && item.createdBy !== "نظام" && (
+                            {item.createdBy && (
                               <div className="text-xs text-muted-foreground mb-1">أضيف بواسطة: {item.createdBy}</div>
                             )}
                             {item.status === 'scheduled' && item.scheduledAt && (
