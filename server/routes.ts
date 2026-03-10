@@ -1884,7 +1884,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       (req.session as any).adminAuthenticated = true;
       (req.session as any).adminRole = "super_admin";
       (req.session as any).adminPermissions = ["*"];
-      (req.session as any).adminDisplayName = "مدير النظام";
+      (req.session as any).adminDisplayName = "محمد الحيدر";
       try {
         const existing = await storage.getUser("admin");
         if (!existing) {

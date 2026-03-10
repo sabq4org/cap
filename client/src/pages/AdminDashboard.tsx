@@ -3741,7 +3741,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-white/80 text-sm">{getGreeting()}</p>
-                  <h1 className="text-2xl md:text-3xl font-bold">{adminUser?.displayName || "مدير النظام"}</h1>
+                  <h1 className="text-2xl md:text-3xl font-bold">{adminUser?.displayName || "محمد الحيدر"}</h1>
                   <p className="text-white/70 text-xs md:text-sm flex items-center gap-1">
                     <Shield className="h-3 w-3" />
                     {adminUser?.role === "super_admin" ? "مسؤول النظام" : adminUser?.role === "editor" ? "مدير محتوى" : adminUser?.role || "محرر"}
