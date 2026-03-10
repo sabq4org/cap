@@ -54,6 +54,15 @@ app.use((req, res, next) => {
   next();
 });
 
+async function setupMatawsPermissions() {
+  const { pool } = await import("./db");
+  try {
+    const perms = JSON.stringify(["publish_news","edit_news","delete_news","ai_images","manage_radar"]);
+    await pool.query(`UPDATE admin_accounts SET permissions = $1 WHERE username = 'matawa'`, [perms]);
+    console.log("[Init] ✅ تم تحديث صلاحيات matawa");
+  } catch (e) { console.error("[Init] خطأ في تحديث matawa:", e); }
+}
+
 async function initTodayViews() {
   const client = await pool.connect();
   try {

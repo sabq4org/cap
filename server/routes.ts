@@ -2020,22 +2020,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
-  // Special endpoint to reset matawa password (temporary)
-  app.post('/api/admin/reset-matawa', async (req, res) => {
-    const { pool } = await import("./db");
-    const bcrypt = await import("bcryptjs");
-    try {
-      const hash = await bcrypt.hash("matawa@777", 12);
-      const result = await pool.query(
-        "UPDATE admin_accounts SET password_hash = $1 WHERE username = 'matawa' RETURNING id, username, display_name, role",
-        [hash]
-      );
-      if (result.rows.length === 0) return res.status(404).json({ message: "Matawa not found" });
-      res.json({ success: true, message: "Password reset successfully" });
-    } catch (e) {
-      res.status(500).json({ message: String(e) });
-    }
-  });
   // ─────────────────────────────────────────────────────────────────────────
 
   // Get all users (admin only)
