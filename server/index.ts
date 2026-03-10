@@ -71,6 +71,14 @@ async function fillMissingCreatedBy() {
   } catch (e) { console.error("[Init] خطأ في ملء بيانات الناشر:", e); }
 }
 
+async function setupDisplayNames() {
+  const { pool } = await import("./db");
+  try {
+    await pool.query(`UPDATE admin_accounts SET display_name = 'محمد مطاوع' WHERE username = 'matawa' AND (display_name IS NULL OR display_name = '')`);
+    console.log("[Init] ✅ تم تحديث أسماء الموظفين");
+  } catch (e) { console.error("[Init] خطأ في تحديث الأسماء:", e); }
+}
+
 async function initTodayViews() {
   const client = await pool.connect();
   try {
@@ -161,6 +169,7 @@ async function fixCategoriesArabic() {
       await fixTranslatedNews();
       await setupMatawsPermissions();
       await fillMissingCreatedBy();
+      await setupDisplayNames();
     } catch (err) {
       console.error('[Init] خطأ في تحديث الأخبار المترجمة (غير حرج):', err);
     }
