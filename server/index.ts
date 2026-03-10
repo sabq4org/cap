@@ -63,6 +63,14 @@ async function setupMatawsPermissions() {
   } catch (e) { console.error("[Init] خطأ في تحديث matawa:", e); }
 }
 
+async function fillMissingCreatedBy() {
+  const { pool } = await import("./db");
+  try {
+    await pool.query(`UPDATE news SET created_by = 'نظام' WHERE created_by IS NULL OR created_by = ''`);
+    console.log("[Init] ✅ تم ملء بيانات الناشر للأخبار القديمة");
+  } catch (e) { console.error("[Init] خطأ في ملء بيانات الناشر:", e); }
+}
+
 async function initTodayViews() {
   const client = await pool.connect();
   try {
@@ -140,7 +148,7 @@ async function fixCategoriesArabic() {
 (async () => {
   try {
     const server = await registerRoutes(app);
-
+      await fillMissingCreatedBy();
     // Fix category Arabic names and colors on every startup (both dev and prod)
     try {
       await fixCategoriesArabic();
@@ -151,6 +159,8 @@ async function fixCategoriesArabic() {
     // Retroactively mark translated news (runs on every startup, idempotent)
     try {
       await fixTranslatedNews();
+      await setupMatawsPermissions();
+      await fillMissingCreatedBy();
     } catch (err) {
       console.error('[Init] خطأ في تحديث الأخبار المترجمة (غير حرج):', err);
     }
