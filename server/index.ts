@@ -65,7 +65,7 @@ async function setupMatawsPermissions() {
 async function fillMissingCreatedBy() {
   const { pool } = await import("./db");
   try {
-    await pool.query(`UPDATE news SET created_by = 'نظام' WHERE created_by IS NULL OR created_by = ''`);
+    await pool.query(`UPDATE news SET created_by = 'مستورد' WHERE created_by IS NULL OR created_by = ''`);
     console.log("[Init] ✅ تم ملء بيانات الناشر للأخبار القديمة");
   } catch (e) { console.error("[Init] خطأ في ملء بيانات الناشر:", e); }
 }
@@ -74,10 +74,7 @@ async function setupDisplayNames() {
   const { pool } = await import("./db");
   try {
     await pool.query(`UPDATE admin_accounts SET display_name = 'محمد مطاوع' WHERE username = 'matawa' AND (display_name IS NULL OR display_name = '')`);
-    // أيضاً حدّث أي أخبار حديثة من matawa كانت مضافة بـ "نظام"
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    await pool.query(`UPDATE news SET created_by = 'محمد مطاوع' WHERE created_by = 'نظام' AND created_at >= $1`, [twoHoursAgo]);
-    console.log("[Init] ✅ تم تحديث أسماء الموظفين والأخبار الحديثة");
+    console.log("[Init] ✅ تم تحديث أسماء الموظفين");
   } catch (e) { console.error("[Init] خطأ في تحديث الأسماء:", e); }
 }
 
