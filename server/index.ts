@@ -57,8 +57,7 @@ app.use((req, res, next) => {
 async function setupMatawsPermissions() {
   const { pool } = await import("./db");
   try {
-    const perms = JSON.stringify(["publish_news","edit_news","delete_news","ai_images","manage_radar"]);
-    await pool.query(`UPDATE admin_accounts SET permissions = $1 WHERE username = 'matawa'`, [perms]);
+    await pool.query(`UPDATE admin_accounts SET permissions = $1::text[] WHERE username = 'matawa'`, [["publish_news","edit_news","delete_news","ai_images","manage_radar"]]);
     console.log("[Init] ✅ تم تحديث صلاحيات matawa");
   } catch (e) { console.error("[Init] خطأ في تحديث matawa:", e); }
 }
@@ -75,7 +74,10 @@ async function setupDisplayNames() {
   const { pool } = await import("./db");
   try {
     await pool.query(`UPDATE admin_accounts SET display_name = 'محمد مطاوع' WHERE username = 'matawa' AND (display_name IS NULL OR display_name = '')`);
-    console.log("[Init] ✅ تم تحديث أسماء الموظفين");
+    // أيضاً حدّث أي أخبار حديثة من matawa كانت مضافة بـ "نظام"
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    await pool.query(`UPDATE news SET created_by = 'محمد مطاوع' WHERE created_by = 'نظام' AND created_at >= $1`, [twoHoursAgo]);
+    console.log("[Init] ✅ تم تحديث أسماء الموظفين والأخبار الحديثة");
   } catch (e) { console.error("[Init] خطأ في تحديث الأسماء:", e); }
 }
 
