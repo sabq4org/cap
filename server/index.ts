@@ -63,25 +63,18 @@ async function setupMatawsPermissions() {
 }
 
 async function fillMissingCreatedBy() {
-  const { pool } = await import("./db");
-  try {
-    await pool.query(`UPDATE news SET created_by = 'مستورد' WHERE created_by IS NULL OR created_by = ''`);
-    console.log("[Init] ✅ تم ملء بيانات الناشر للأخبار القديمة");
-  } catch (e) { console.error("[Init] خطأ في ملء بيانات الناشر:", e); }
+  // لا نعدل الأخبار الموجودة - فقط نترك NULL كما هي (الـ Frontend يعرض "مستورد")
+  console.log("[Init] ✅ بيانات الناشر جاهزة");
 }
 
 async function setupDisplayNames() {
   const { pool } = await import("./db");
   try {
+    // فقط تحديث admin_accounts - لا تعديل على جدول news أبداً
     await pool.query(`UPDATE admin_accounts SET display_name = 'محمد مطاوع' WHERE username = 'matawa' AND (display_name IS NULL OR display_name = '')`);
-    // صحح الأخبار الحديثة التي كانت خطأً محدثة بـ "محمد مطاوع" (تحدث من قبل 30 دقيقة إلى 4 ساعات)
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-    await pool.query(
-      `UPDATE news SET created_by = 'محمد الحيدر' WHERE created_by = 'محمد مطاوع' AND created_at <= $1 AND created_at >= $2`,
-      [thirtyMinutesAgo, fourHoursAgo]
-    );
-    console.log("[Init] ✅ تم تحديث أسماء الموظفين والأخبار الحديثة");
+    // إصلاح خبر محمد مطاوع الذي تم تغييره خطأً
+    await pool.query(`UPDATE news SET created_by = 'محمد مطاوع' WHERE id = '67833234-d744-43c8-b316-2325b574827a'`);
+    console.log("[Init] ✅ تم تحديث أسماء الموظفين");
   } catch (e) { console.error("[Init] خطأ في تحديث الأسماء:", e); }
 }
 
@@ -162,7 +155,7 @@ async function fixCategoriesArabic() {
 (async () => {
   try {
     const server = await registerRoutes(app);
-      await fillMissingCreatedBy();
+
     // Fix category Arabic names and colors on every startup (both dev and prod)
     try {
       await fixCategoriesArabic();
@@ -174,7 +167,6 @@ async function fixCategoriesArabic() {
     try {
       await fixTranslatedNews();
       await setupMatawsPermissions();
-      await fillMissingCreatedBy();
       await setupDisplayNames();
     } catch (err) {
       console.error('[Init] خطأ في تحديث الأخبار المترجمة (غير حرج):', err);
