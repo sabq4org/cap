@@ -2205,6 +2205,7 @@ export default function AdminDashboard() {
                           )}
                           <div className="min-w-0">
                             <div className="font-medium line-clamp-2 mb-1">{item.title}</div>
+                            <div className="text-xs text-muted-foreground mb-1">أضيف بواسطة: {item.createdBy || "نظام"}</div>
                             {item.status === 'scheduled' && item.scheduledAt && (
                               <div className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1 mb-1">
                                 <Clock className="h-3 w-3" />

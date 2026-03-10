@@ -113,22 +113,6 @@ export default function News() {
     });
   };
 
-  const formatDateEng = (date: Date | string) => {
-    const d = new Date(date);
-    return d.toLocaleDateString('en-GB', { timeZone: 'Asia/Riyadh', 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric'
-    });
-  };
-
-  const formatTime = (date: Date | string) => {
-    const d = new Date(date);
-    return d.toLocaleTimeString('ar-SA', { timeZone: 'Asia/Riyadh', 
-      hour: '2-digit', 
-      minute: '2-digit'
-    });
-  };
 
   const getCategoryLabel = (category: string) => {
     return categories.find(c => c.value === category)?.label || category;
@@ -231,11 +215,9 @@ export default function News() {
                         {item.title}
                       </h3>
                       <div className="flex items-center justify-between gap-1 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <span>{item.createdBy || "نظام"}</span>
-                          <span>•</span>
-                          <span>{formatDateEng(item.publishedAt)}</span>
-                          <span>{formatTime(item.publishedAt)}</span>
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatDate(item.publishedAt)}
                         </div>
                         {item.sourceUrl && (
                           <span
