@@ -74,7 +74,14 @@ async function setupDisplayNames() {
   const { pool } = await import("./db");
   try {
     await pool.query(`UPDATE admin_accounts SET display_name = 'محمد مطاوع' WHERE username = 'matawa' AND (display_name IS NULL OR display_name = '')`);
-    console.log("[Init] ✅ تم تحديث أسماء الموظفين");
+    // صحح الأخبار الحديثة التي كانت خطأً محدثة بـ "محمد مطاوع" (تحدث من قبل 30 دقيقة إلى 4 ساعات)
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+    await pool.query(
+      `UPDATE news SET created_by = 'محمد الحيدر' WHERE created_by = 'محمد مطاوع' AND created_at <= $1 AND created_at >= $2`,
+      [thirtyMinutesAgo, fourHoursAgo]
+    );
+    console.log("[Init] ✅ تم تحديث أسماء الموظفين والأخبار الحديثة");
   } catch (e) { console.error("[Init] خطأ في تحديث الأسماء:", e); }
 }
 
