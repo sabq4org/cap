@@ -106,6 +106,12 @@ function fmtSaudiTimeOnly(isoStr: string | null | undefined): string {
   if (!isoStr) return '—';
   return new Date(isoStr).toLocaleTimeString('ar-SA', { timeZone: SAUDI_TZ, hour: '2-digit', minute: '2-digit' });
 }
+
+/** Format date in English: "10 Mar 2026" */
+function fmtDateEnglish(isoStr: string | null | undefined): string {
+  if (!isoStr) return '—';
+  return new Date(isoStr).toLocaleDateString('en-GB', { timeZone: SAUDI_TZ, year: 'numeric', month: 'short', day: 'numeric' });
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
@@ -4064,10 +4070,12 @@ export default function AdminDashboard() {
                     <p className="font-medium text-sm truncate">{item.title}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="secondary" className="text-xs">{categories.find(c => c.value === item.category)?.label || item.category}</Badge>
-                      <span className="text-xs text-muted-foreground hidden sm:flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {fmtSaudiDateOnly(item.publishedAt)}
-                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+                      <span>{item.createdBy || "نظام"}</span>
+                      <span>•</span>
+                      <span>{fmtDateEnglish(item.publishedAt || item.createdAt)}</span>
+                      <span>{fmtSaudiTimeOnly(item.publishedAt || item.createdAt)}</span>
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">

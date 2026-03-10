@@ -1393,6 +1393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate unique short code
       const shortCode = generateShortCode();
       
+      const createdByName = (req.session as any)?.adminDisplayName || "نظام";
       const newsItem = await storage.createNews({
         title,
         subtitle: subtitle || null,
@@ -1410,6 +1411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scheduledAt: finalScheduledAt,
         publishedAt: finalPublishedAt,
         shortCode,
+        createdBy: createdByName,
       });
       res.status(201).json(newsItem);
     } catch (error) {
