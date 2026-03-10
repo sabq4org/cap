@@ -738,3 +738,29 @@ export async function seedDefaultKeywords(): Promise<number> {
 
   return added;
 }
+
+export async function cleanupNonHealthItems(): Promise<{ deleted: number; checked: number }> {
+  const { pool } = await import('./db');
+
+  // جلب الأخبار من المصادر غير المتخصصة بالصحة فقط
+  const { rows } = await pool.query<{ id: string; title: string; summary: string }>(`
+    SELECT ri.id, ri.title, COALESCE(ri.summary, '') as summary
+    FROM radar_items ri
+    LEFT JOIN radar_sources rs ON ri.source_id = rs.id
+    WHERE rs.category NOT IN ('health-news', 'saudi-health')
+       OR rs.id IS NULL
+  `);
+
+  const toDelete: string[] = [];
+  for (const row of rows) {
+    if (!isHealthRelated(row.title || '', row.summary || '')) {
+      toDelete.push(row.id);
+    }
+  }
+
+  if (toDelete.length > 0) {
+    await pool.query(`DELETE FROM radar_items WHERE id = ANY($1::uuid[])`, [toDelete]);
+  }
+
+  return { deleted: toDelete.length, checked: rows.length };
+}

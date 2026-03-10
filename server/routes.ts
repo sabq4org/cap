@@ -12,7 +12,7 @@ import {
   insertInfographicTemplateSchema, 
   insertInfographicJobSchema 
 } from "@shared/schema";
-import { fetchAllActiveSources, fetchRSSSource, seedDefaultSources, seedDefaultKeywords, classifyPendingItems } from "./radarService";
+import { fetchAllActiveSources, fetchRSSSource, seedDefaultSources, seedDefaultKeywords, classifyPendingItems, cleanupNonHealthItems } from "./radarService";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import {
   insertHealthProfileSchema,
@@ -2413,6 +2413,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error seeding radar data:", error);
       res.status(500).json({ message: "Failed to seed data" });
+    }
+  });
+
+  // حذف الأخبار غير الصحية من الرادار
+  app.post('/api/radar/cleanup-non-health', isAdminAuthenticated, async (req, res) => {
+    try {
+      const result = await cleanupNonHealthItems();
+      res.json(result);
+    } catch (error) {
+      console.error("Error cleaning up non-health items:", error);
+      res.status(500).json({ message: "فشل تنظيف الأخبار غير الصحية" });
     }
   });
 

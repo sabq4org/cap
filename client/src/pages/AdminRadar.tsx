@@ -196,6 +196,24 @@ export default function AdminRadar() {
     },
   });
 
+  const cleanupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/radar/cleanup-non-health");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/items/stats"] });
+      toast({
+        title: "✅ تم تنظيف الرادار",
+        description: `حُذف ${data.deleted} خبر غير صحي من أصل ${data.checked} خبر تم فحصها`,
+      });
+    },
+    onError: () => {
+      toast({ title: "فشل في تنظيف الأخبار", variant: "destructive" });
+    },
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const res = await apiRequest("PATCH", `/api/radar/items/${id}/status`, { status });
@@ -514,6 +532,20 @@ export default function AdminRadar() {
                 <Brain className="h-4 w-4 ml-2" />
                 {classifyMutation.isPending ? "جاري التصنيف..." : "تصنيف ذكي"}
               </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (confirm("سيتم حذف جميع أخبار الرادار التي لا علاقة لها بالصحة. هل أنت متأكد؟")) {
+                  cleanupMutation.mutate();
+                }
+              }}
+              disabled={cleanupMutation.isPending}
+              data-testid="button-cleanup"
+              className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
+            >
+              <Trash2 className={`h-4 w-4 ml-2 ${cleanupMutation.isPending ? "animate-spin" : ""}`} />
+              {cleanupMutation.isPending ? "جاري التنظيف..." : "تنظيف غير الصحي"}
+            </Button>
             <Button 
               onClick={() => fetchAllMutation.mutate()}
               disabled={fetchAllMutation.isPending}
