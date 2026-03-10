@@ -113,6 +113,7 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chartPeriod, setChartPeriod] = useState<7 | 30>(7);
+  const [adminUser, setAdminUser] = useState<{ displayName: string; role: string } | null>(null);
   const [showNewsForm, setShowNewsForm] = useState(false);
   const [showArticleForm, setShowArticleForm] = useState(false);
   const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
@@ -341,6 +342,16 @@ export default function AdminDashboard() {
     const isAdmin = localStorage.getItem("adminAuthenticated");
     if (!isAdmin) {
       setLocation("/admin");
+    } else {
+      // Fetch current admin session
+      fetch("/api/admin/check-session", { credentials: "include" })
+        .then(r => r.json())
+        .then(data => {
+          if (data.authenticated && data.displayName) {
+            setAdminUser({ displayName: data.displayName, role: data.role });
+          }
+        })
+        .catch(e => console.log("Session check:", e));
     }
   }, [setLocation]);
 
@@ -3724,10 +3735,10 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-white/80 text-sm">{getGreeting()}</p>
-                  <h1 className="text-2xl md:text-3xl font-bold">محمد الحيدر</h1>
+                  <h1 className="text-2xl md:text-3xl font-bold">{adminUser?.displayName || "مدير النظام"}</h1>
                   <p className="text-white/70 text-xs md:text-sm flex items-center gap-1">
                     <Shield className="h-3 w-3" />
-                    مسؤول النظام
+                    {adminUser?.role === "super_admin" ? "مسؤول النظام" : adminUser?.role === "editor" ? "مدير محتوى" : adminUser?.role || "محرر"}
                   </p>
                 </div>
               </div>
