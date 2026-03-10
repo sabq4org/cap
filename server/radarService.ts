@@ -759,7 +759,7 @@ export async function cleanupNonHealthItems(): Promise<{ deleted: number; checke
   }
 
   if (toDelete.length > 0) {
-    await pool.query(`DELETE FROM radar_items WHERE id = ANY($1::uuid[])`, [toDelete]);
+    await pool.query(`DELETE FROM radar_items WHERE id = ANY($1::text[])`, [toDelete]);
   }
 
   return { deleted: toDelete.length, checked: rows.length };
