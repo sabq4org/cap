@@ -100,7 +100,62 @@ GET /api/news/:id
 GET /api/news/6f45cd43-d6b9-4071-9faf-a803b0ad5946
 ```
 
-**الرد:** نفس كائن الخبر الموضح أعلاه.
+**الرد الكامل (تفاصيل الخبر):**
+```json
+{
+  "id": "6f45cd43-d6b9-4071-9faf-a803b0ad5946",
+  "shortCode": "AbC1234",
+  "title": "وزارة الصحة تطلق حملة للكشف المبكر عن سرطان الثدي",
+  "subtitle": "الحملة تستهدف النساء فوق سن الأربعين",
+  "summary": "موجز ذكي مُولَّد بالذكاء الاصطناعي يلخّص أبرز نقاط الخبر في 2-3 جمل. هذا الحقل يظهر في بطاقة الخبر المختصرة ويُستخدم في meta description لمحركات البحث.",
+  "content": "المحتوى الكامل للخبر...",
+  "category": "saudi-health",
+  "source": "وكالة الأنباء السعودية",
+  "sourceUrl": "https://www.spa.gov.sa/...",
+  "imageUrl": "https://www.spa.gov.sa/images/news.jpg",
+  "imageAlt": "صورة تعبيرية لحملة الكشف المبكر",
+  "seoTitle": "حملة وزارة الصحة للكشف المبكر عن سرطان الثدي 2026",
+  "seoDescription": "وصف مُحسَّن لمحركات البحث يصف الخبر بشكل موجز",
+  "keywords": ["سرطان", "صحة", "وزارة الصحة", "كشف مبكر"],
+  "viewCount": 1250,
+  "todayViews": 45,
+  "isTranslated": false,
+  "isFeatured": false,
+  "status": "published",
+  "scheduledAt": null,
+  "deletedAt": null,
+  "publishedAt": "2026-03-11T10:00:00.000Z",
+  "createdBy": "محمد الحيدر",
+  "createdAt": "2026-03-11T09:30:00.000Z",
+  "updatedAt": "2026-03-11T09:30:00.000Z"
+}
+```
+
+**تفصيل الحقول المهمة:**
+
+| الحقل | الوصف |
+|-------|-------|
+| `id` | المعرّف الفريد UUID |
+| `shortCode` | رمز قصير (7 أحرف) للروابط المختصرة |
+| `title` | عنوان الخبر الرئيسي |
+| `subtitle` | العنوان الفرعي (اختياري) |
+| `summary` | **الموجز الذكي** — ملخص 2-3 جمل مُولَّد بالذكاء الاصطناعي |
+| `content` | المحتوى الكامل (HTML أو نص) |
+| `category` | slug التصنيف |
+| `source` | اسم المصدر |
+| `sourceUrl` | رابط الخبر الأصلي في المصدر |
+| `imageUrl` | **صورة الخبر** — رابط مباشر للصورة |
+| `imageAlt` | النص البديل للصورة |
+| `seoTitle` | عنوان محسّن لمحركات البحث |
+| `seoDescription` | وصف محسّن لمحركات البحث |
+| `keywords` | مصفوفة الكلمات المفتاحية |
+| `viewCount` | إجمالي المشاهدات الكلية |
+| `todayViews` | عدد مشاهدات اليوم الحالي |
+| `isTranslated` | هل الخبر مترجم من لغة أخرى |
+| `isFeatured` | هل هو خبر مميّز (يظهر في البانر الرئيسي) |
+| `status` | `published` \| `draft` \| `scheduled` \| `deleted` |
+| `publishedAt` | تاريخ ووقت النشر |
+| `createdBy` | اسم المحرر أو المصدر |
 
 ---
 
@@ -146,17 +201,109 @@ GET /api/news/keyword/سرطان
 
 ---
 
-### صورة Open Graph (للمشاركة)
+### صورة الخبر الأصلية
+حقل `imageUrl` في كائن الخبر يحتوي على رابط الصورة المباشرة للعرض داخل التطبيق.
+
 ```
-GET /og/:id
+GET {newsItem.imageUrl}
 ```
 
-**مثال:**
+**ملاحظات:**
+- قد يكون الرابط خارجياً (من موقع المصدر) أو داخلياً على `capsulah.com`
+- يُنصح بعرض صورة بديلة عند فشل تحميل الصورة
+- حقل `imageAlt` يحتوي على النص البديل للصورة (alt text)
+
+---
+
+### صورة Open Graph (للمشاركة الاجتماعية)
+صورة مُولّدة آلياً بالذكاء الاصطناعي تحتوي على عنوان الخبر وشعار كبسولة، مناسبة للمشاركة على واتساب وتويتر وغيرها.
+
+```
+GET /og/:id
+GET /og/:shortCode
+GET /api/og-image/:id
+```
+
+**مثال بالـ ID:**
 ```
 GET https://capsulah.com/og/6f45cd43-d6b9-4071-9faf-a803b0ad5946
 ```
 
-تُعيد صورة PNG جاهزة للمشاركة على وسائل التواصل الاجتماعي (1200×630 بكسل).
+**مثال بالرمز القصير:**
+```
+GET https://capsulah.com/og/AbC1234
+```
+
+**الرد:** صورة JPEG بحجم 1200×630 بكسل.
+
+**كيفية بناء رابط الصورة في التطبيق:**
+```
+https://capsulah.com/og/{shortCode}?v={timestamp}
+```
+- استخدم `shortCode` إن توفّر وإلا استخدم `id`
+- أضف `?v={updatedAt_timestamp}` لتجنب التخزين المؤقت القديم
+- مثال: `https://capsulah.com/og/AbC1234?v=1741694400`
+
+---
+
+### صفحة المشاركة الاجتماعية
+صفحة HTML جاهزة تحتوي على جميع وسوم Open Graph وتُعيد توجيه المستخدم تلقائياً إلى الخبر.
+
+```
+GET /api/share/news/:id
+```
+
+**مثال:**
+```
+GET https://capsulah.com/api/share/news/6f45cd43-d6b9-4071-9faf-a803b0ad5946
+```
+
+**الاستخدام:** عند مشاركة رابط الخبر في واتساب أو تويتر أو تلغرام، استخدم هذا الرابط بدلاً من الرابط المباشر للخبر حتى تظهر الصورة والعنوان بشكل صحيح.
+
+**يحتوي الرد على:**
+- `og:title` — عنوان الخبر
+- `og:description` — ملخص الخبر
+- `og:image` — صورة OG (1200×630)
+- `og:url` — الرابط الكامل للخبر
+- `twitter:card` — بطاقة تويتر كبيرة
+- إعادة توجيه تلقائية للخبر
+
+---
+
+### الصور المُولّدة بالذكاء الاصطناعي للخبر
+يمكن أن يكون للخبر صورة مولّدة بالذكاء الاصطناعي (Nano Banana 2 / Gemini) مرتبطة به.
+
+```
+GET /api/admin/generation/images?newsId=:newsId
+```
+
+**الرد:**
+```json
+[
+  {
+    "id": "uuid",
+    "newsId": "uuid",
+    "prompt": "النص المستخدم لتوليد الصورة",
+    "revisedPrompt": "النص المعدّل من النموذج",
+    "generationType": "realistic",
+    "quality": "hd",
+    "size": "1024x1024",
+    "model": "gemini-3.1-flash-image-preview",
+    "status": "completed",
+    "imageUrl": "https://storage.capsulah.com/...",
+    "objectStoragePath": "public/news-images/...",
+    "generationTimeMs": 8500,
+    "createdAt": "2026-03-11T10:00:00.000Z",
+    "completedAt": "2026-03-11T10:00:08.000Z"
+  }
+]
+```
+
+**حالات status:**
+- `pending` — في الانتظار
+- `generating` — قيد التوليد
+- `completed` — اكتمل (imageUrl متاح)
+- `failed` — فشل (errorMessage يحتوي السبب)
 
 ---
 
