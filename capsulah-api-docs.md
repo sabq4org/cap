@@ -1,0 +1,943 @@
+# توثيق API - صحيفة كبسولة الصحية
+
+## معلومات عامة
+
+| البيان | القيمة |
+|--------|--------|
+| **الموقع الرسمي** | `https://capsulah.com` |
+| **Base URL للـ API** | `https://capsulah.com/api` |
+| **تنسيق البيانات** | JSON |
+| **ترميز النصوص** | UTF-8 |
+| **اللغة الرئيسية** | العربية |
+| **التوقيت** | Asia/Riyadh (UTC+3) |
+
+---
+
+## نظام المصادقة
+
+### أنواع الجلسات
+- **مستخدمو التطبيق**: جلسة عبر Cookie (Session-based)
+- **مسؤولو الإدارة**: جلسة عبر Cookie منفصلة
+- يجب إرسال `credentials: "include"` في كل طلب
+
+---
+
+## ١. الأخبار (News) — متاحة للعموم
+
+### جلب قائمة الأخبار
+```
+GET /api/news
+```
+
+**Query Parameters:**
+
+| Parameter | النوع | الوصف | مثال |
+|-----------|-------|-------|-------|
+| `category` | string | تصفية بالتصنيف | `saudi-health` |
+| `page` | integer | رقم الصفحة (مع pagination) | `1` |
+| `perPage` | integer | عدد النتائج في الصفحة (افتراضي: 20) | `20` |
+| `limit` | integer | حد النتائج بدون pagination (افتراضي: 50) | `50` |
+
+**مثال الطلب:**
+```
+GET /api/news?category=saudi-health&page=1&perPage=20
+```
+
+**مثال الرد (مع pagination):**
+```json
+{
+  "items": [
+    {
+      "id": "uuid-string",
+      "shortCode": "AbC1234",
+      "title": "عنوان الخبر",
+      "subtitle": "العنوان الفرعي",
+      "summary": "ملخص الخبر...",
+      "content": "محتوى الخبر الكامل...",
+      "category": "saudi-health",
+      "source": "اسم المصدر",
+      "sourceUrl": "https://...",
+      "imageUrl": "https://...",
+      "imageAlt": "وصف الصورة",
+      "seoTitle": "عنوان SEO",
+      "seoDescription": "وصف SEO",
+      "keywords": ["كلمة1", "كلمة2"],
+      "viewCount": 1250,
+      "todayViews": 45,
+      "isTranslated": false,
+      "isFeatured": true,
+      "status": "published",
+      "publishedAt": "2026-03-11T10:00:00.000Z",
+      "createdBy": "محمد الحيدر",
+      "createdAt": "2026-03-11T09:30:00.000Z",
+      "updatedAt": "2026-03-11T09:30:00.000Z"
+    }
+  ],
+  "total": 7200,
+  "page": 1,
+  "perPage": 20,
+  "totalPages": 360
+}
+```
+
+**مثال الرد (بدون pagination):**
+```json
+[
+  { ...news object... },
+  { ...news object... }
+]
+```
+
+---
+
+### جلب خبر واحد بالـ ID
+```
+GET /api/news/:id
+```
+
+**مثال:**
+```
+GET /api/news/6f45cd43-d6b9-4071-9faf-a803b0ad5946
+```
+
+**الرد:** نفس كائن الخبر الموضح أعلاه.
+
+---
+
+### جلب خبر بالرمز القصير
+```
+GET /api/n/:shortCode
+```
+
+**مثال:**
+```
+GET /api/n/AbC1234
+```
+
+الرمز القصير مكوّن من 7 أحرف وأرقام. يُستخدم للروابط القصيرة.
+
+---
+
+### تسجيل مشاهدة للخبر
+```
+POST /api/news/:id/view
+```
+
+استدعِ هذا الـ endpoint عند فتح الخبر في التطبيق لتحديث عداد المشاهدات.
+
+**الرد:**
+```json
+{ "ok": true }
+```
+
+---
+
+### البحث بكلمة مفتاحية
+```
+GET /api/news/keyword/:keyword
+```
+
+**مثال:**
+```
+GET /api/news/keyword/سرطان
+```
+
+**الرد:** مصفوفة من كائنات الأخبار.
+
+---
+
+### صورة Open Graph (للمشاركة)
+```
+GET /og/:id
+```
+
+**مثال:**
+```
+GET https://capsulah.com/og/6f45cd43-d6b9-4071-9faf-a803b0ad5946
+```
+
+تُعيد صورة PNG جاهزة للمشاركة على وسائل التواصل الاجتماعي (1200×630 بكسل).
+
+---
+
+## ٢. التصنيفات (Categories) — متاحة للعموم
+
+### جلب قائمة التصنيفات
+```
+GET /api/categories
+```
+
+**Query Parameters:**
+
+| Parameter | النوع | الوصف |
+|-----------|-------|-------|
+| `active` | boolean | `true` لجلب التصنيفات النشطة فقط |
+
+**مثال الرد:**
+```json
+[
+  {
+    "id": "uuid-string",
+    "slug": "saudi-health",
+    "nameAr": "الصحة السعودية",
+    "description": "أخبار الصحة في المملكة العربية السعودية",
+    "color": "#2E7D32",
+    "icon": "hospital",
+    "isActive": true,
+    "sortOrder": 1,
+    "newsCount": 450,
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  }
+]
+```
+
+**قائمة التصنيفات الرئيسية:**
+
+| Slug | الاسم العربي |
+|------|-------------|
+| `saudi-health` | الصحة السعودية |
+| `medical` | طبي |
+| `health` | صحة |
+| `pharmaceutical` | صيدلانيات |
+| `nutrition` | تغذية |
+| `awareness` | توعية |
+| `conference` | مؤتمرات |
+| `arab-news` | أخبار عربية |
+| `health-news` | أخبار صحية |
+
+---
+
+## ٣. مصادقة المستخدمين (User Auth)
+
+### تسجيل حساب جديد
+```
+POST /api/auth/register
+```
+
+**Body:**
+```json
+{
+  "firstName": "اسم المستخدم",
+  "lastName": "اسم العائلة",
+  "email": "user@example.com",
+  "password": "كلمة المرور (6 أحرف على الأقل)"
+}
+```
+
+**رد النجاح (200):**
+```json
+{
+  "id": "uuid",
+  "email": "user@example.com",
+  "firstName": "اسم",
+  "lastName": "عائلة",
+  "role": "subscriber"
+}
+```
+
+**رد الخطأ (400):**
+```json
+{ "message": "رسالة الخطأ" }
+```
+
+---
+
+### تسجيل الدخول
+```
+POST /api/auth/login
+```
+
+**Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "كلمة المرور"
+}
+```
+
+**رد النجاح (200):**
+```json
+{
+  "id": "uuid",
+  "email": "user@example.com",
+  "firstName": "اسم",
+  "lastName": "عائلة",
+  "role": "subscriber",
+  "profileImageUrl": null
+}
+```
+
+---
+
+### جلب المستخدم الحالي
+```
+GET /api/auth/user
+```
+
+يتطلب جلسة مفعّلة.
+
+**رد النجاح (200):**
+```json
+{
+  "id": "uuid",
+  "email": "user@example.com",
+  "firstName": "اسم",
+  "lastName": "عائلة",
+  "role": "subscriber",
+  "profileImageUrl": "https://...",
+  "isActive": true,
+  "createdAt": "2026-01-01T00:00:00.000Z"
+}
+```
+
+**رد إذا لم يكن مسجلاً (401):**
+```json
+{ "message": "Unauthorized" }
+```
+
+---
+
+### تسجيل الخروج
+```
+POST /api/auth/logout
+```
+
+**الرد:**
+```json
+{ "message": "Logged out successfully" }
+```
+
+---
+
+## ٤. الملف الصحي (Health Profile) — يتطلب تسجيل دخول
+
+### جلب الملف الصحي
+```
+GET /api/health-profile
+```
+
+**رد النجاح (200):**
+```json
+{
+  "id": "uuid",
+  "userId": "uuid",
+  "heightCm": 175,
+  "weightKg": 70.5,
+  "bloodType": "A+",
+  "conditions": ["السكري", "ضغط الدم"],
+  "medications": ["ميتفورمين"],
+  "allergies": ["البنسلين"],
+  "goals": ["إنقاص الوزن"],
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-03-01T00:00:00.000Z"
+}
+```
+
+**إذا لم يكن موجوداً (404):**
+```json
+{ "message": "Health profile not found" }
+```
+
+---
+
+### إنشاء/تحديث الملف الصحي
+```
+POST /api/health-profile
+```
+
+**Body:**
+```json
+{
+  "heightCm": 175,
+  "weightKg": 70.5,
+  "bloodType": "A+",
+  "conditions": ["السكري"],
+  "medications": ["ميتفورمين"],
+  "allergies": ["البنسلين"],
+  "goals": ["إنقاص الوزن", "ممارسة الرياضة"]
+}
+```
+
+جميع الحقول اختيارية.
+
+---
+
+## ٥. المؤشرات الصحية (Trackers) — يتطلب تسجيل دخول
+
+### جلب المؤشرات الصحية
+```
+GET /api/trackers
+```
+
+**Query Parameters:**
+
+| Parameter | النوع | الوصف |
+|-----------|-------|-------|
+| `type` | string | نوع المؤشر |
+| `limit` | integer | عدد النتائج |
+
+**مثال الرد:**
+```json
+[
+  {
+    "id": "uuid",
+    "userId": "uuid",
+    "type": "blood_pressure",
+    "value": 120,
+    "value2": 80,
+    "unit": "mmHg",
+    "notes": "قياس صباحي",
+    "recordedAt": "2026-03-11T08:00:00.000Z",
+    "createdAt": "2026-03-11T08:00:00.000Z"
+  }
+]
+```
+
+**أنواع المؤشرات المتاحة (type):**
+
+| النوع | الوصف | الوحدة | قيمة ثانية |
+|-------|-------|--------|------------|
+| `blood_pressure` | ضغط الدم | mmHg | الضغط الانبساطي |
+| `blood_sugar` | سكر الدم | mg/dL | - |
+| `weight` | الوزن | kg | - |
+| `heart_rate` | معدل ضربات القلب | bpm | - |
+| `temperature` | درجة الحرارة | °C | - |
+| `oxygen_saturation` | تشبع الأكسجين | % | - |
+| `steps` | عدد الخطوات | خطوة | - |
+| `sleep` | ساعات النوم | ساعة | - |
+| `water` | كمية الماء | مل | - |
+
+---
+
+### إضافة مؤشر صحي
+```
+POST /api/trackers
+```
+
+**Body:**
+```json
+{
+  "type": "blood_pressure",
+  "value": 120,
+  "value2": 80,
+  "unit": "mmHg",
+  "notes": "قياس صباحي",
+  "recordedAt": "2026-03-11T08:00:00.000Z"
+}
+```
+
+---
+
+## ٦. تتبع التغذية (Nutrition) — يتطلب تسجيل دخول
+
+### جلب سجلات التغذية
+```
+GET /api/nutrition
+```
+
+**مثال الرد:**
+```json
+[
+  {
+    "id": "uuid",
+    "userId": "uuid",
+    "mealType": "breakfast",
+    "foodName": "بيض مسلوق",
+    "calories": 155,
+    "protein": 13,
+    "carbs": 1.1,
+    "fat": 11,
+    "fiber": 0,
+    "sodium": 124,
+    "servingSize": "2 بيضة",
+    "notes": "مع قطعة خبز",
+    "loggedAt": "2026-03-11T07:30:00.000Z",
+    "createdAt": "2026-03-11T07:30:00.000Z"
+  }
+]
+```
+
+**أنواع الوجبات (mealType):**
+- `breakfast` - إفطار
+- `lunch` - غداء
+- `dinner` - عشاء
+- `snack` - وجبة خفيفة
+
+---
+
+### إضافة سجل تغذية
+```
+POST /api/nutrition
+```
+
+**Body:**
+```json
+{
+  "mealType": "breakfast",
+  "foodName": "بيض مسلوق",
+  "calories": 155,
+  "protein": 13,
+  "carbs": 1.1,
+  "fat": 11,
+  "fiber": 0,
+  "sodium": 124,
+  "servingSize": "2 بيضة",
+  "notes": "",
+  "loggedAt": "2026-03-11T07:30:00.000Z"
+}
+```
+
+---
+
+### تحليل الوجبة بالذكاء الاصطناعي
+```
+POST /api/nutrition/analyze
+```
+
+**Body:**
+```json
+{
+  "foodDescription": "وجبة غداء: رز مع دجاج مشوي وسلطة"
+}
+```
+
+**الرد:**
+```json
+{
+  "analysis": "...",
+  "estimatedCalories": 650,
+  "protein": 45,
+  "carbs": 60,
+  "fat": 15,
+  "recommendations": ["..."]
+}
+```
+
+---
+
+## ٧. المساعد الصحي الذكي (Chat) — يتطلب تسجيل دخول
+
+### جلب جلسات المحادثة
+```
+GET /api/chat/sessions
+```
+
+**الرد:**
+```json
+[
+  {
+    "id": "uuid",
+    "userId": "uuid",
+    "title": "استشارة صحية",
+    "summary": "...",
+    "createdAt": "2026-03-11T10:00:00.000Z",
+    "updatedAt": "2026-03-11T10:30:00.000Z"
+  }
+]
+```
+
+---
+
+### إنشاء جلسة محادثة جديدة
+```
+POST /api/chat/sessions
+```
+
+**Body:**
+```json
+{
+  "title": "استشارة حول ضغط الدم"
+}
+```
+
+---
+
+### جلب رسائل جلسة
+```
+GET /api/chat/sessions/:sessionId/messages
+```
+
+**الرد:**
+```json
+[
+  {
+    "id": "uuid",
+    "sessionId": "uuid",
+    "role": "user",
+    "content": "ما هي أسباب ارتفاع ضغط الدم؟",
+    "createdAt": "2026-03-11T10:00:00.000Z"
+  },
+  {
+    "id": "uuid",
+    "sessionId": "uuid",
+    "role": "assistant",
+    "content": "ارتفاع ضغط الدم له أسباب عديدة...",
+    "citations": [{"title": "...", "url": "..."}],
+    "createdAt": "2026-03-11T10:00:05.000Z"
+  }
+]
+```
+
+**قيم role:** `user` | `assistant`
+
+---
+
+### إرسال رسالة
+```
+POST /api/chat/messages
+```
+
+**Body:**
+```json
+{
+  "sessionId": "uuid-of-session",
+  "content": "ما هي أسباب ارتفاع ضغط الدم؟"
+}
+```
+
+**الرد:** كائن الرسالة مع رد المساعد الذكي.
+
+---
+
+### تحليل الأعراض
+```
+POST /api/symptoms/analyze
+```
+
+**Body:**
+```json
+{
+  "symptoms": ["صداع", "حرارة", "إرهاق"],
+  "duration": "3 أيام",
+  "severity": "متوسطة"
+}
+```
+
+---
+
+## ٨. الإحصائيات العامة
+
+### إحصائيات الموقع
+```
+GET /api/admin/stats
+```
+
+**الرد:**
+```json
+{
+  "totalNews": 7200,
+  "todayNews": 15,
+  "totalUsers": 1240,
+  "totalViews": 95000
+}
+```
+
+---
+
+## ٩. Sitemap و Robots
+
+### Sitemap XML
+```
+GET https://capsulah.com/sitemap.xml
+```
+
+### Robots.txt
+```
+GET https://capsulah.com/robots.txt
+```
+
+---
+
+## ١٠. مصادقة المسؤولين (Admin Auth)
+
+> ⚠️ هذه النقاط للاستخدام الداخلي فقط — لوحة تحكم الصحيفة.
+
+### تسجيل دخول المسؤول
+```
+POST /api/admin/login
+```
+
+**Body:**
+```json
+{
+  "username": "admin",
+  "password": "كلمة_المرور"
+}
+```
+
+**رد النجاح:**
+```json
+{
+  "success": true,
+  "message": "تم تسجيل الدخول بنجاح",
+  "role": "super_admin"
+}
+```
+
+---
+
+### التحقق من جلسة المسؤول
+```
+GET /api/admin/check-session
+```
+
+**رد النجاح:**
+```json
+{
+  "authenticated": true,
+  "role": "super_admin",
+  "permissions": ["*"],
+  "displayName": "محمد الحيدر"
+}
+```
+
+**أدوار المسؤولين:**
+
+| الدور | الوصف |
+|-------|-------|
+| `super_admin` | مدير النظام - صلاحيات كاملة |
+| `editor` | محرر - نشر وتحرير الأخبار |
+
+---
+
+### تسجيل خروج المسؤول
+```
+POST /api/admin/logout
+```
+
+---
+
+## ١١. إدارة الأخبار (Admin) — يتطلب مصادقة مسؤول
+
+### جلب الأخبار (لوحة التحكم)
+```
+GET /api/admin/news
+```
+
+**Query Parameters:**
+
+| Parameter | النوع | الوصف |
+|-----------|-------|-------|
+| `page` | integer | رقم الصفحة |
+| `perPage` | integer | عدد في الصفحة |
+| `status` | string | `published` \| `draft` \| `scheduled` \| `deleted` |
+| `category` | string | slug التصنيف |
+| `search` | string | بحث في العنوان |
+| `sortBy` | string | `publishedAt` \| `viewCount` \| `createdAt` |
+| `sortOrder` | string | `asc` \| `desc` |
+
+---
+
+### إضافة خبر
+```
+POST /api/news
+```
+
+**Body:**
+```json
+{
+  "title": "عنوان الخبر",
+  "subtitle": "العنوان الفرعي",
+  "content": "محتوى الخبر الكامل بصيغة HTML أو نص عادي",
+  "summary": "ملخص قصير",
+  "category": "saudi-health",
+  "source": "اسم المصدر",
+  "imageUrl": "https://...",
+  "imageAlt": "وصف الصورة",
+  "seoTitle": "عنوان SEO",
+  "seoDescription": "وصف SEO",
+  "keywords": ["كلمة1", "كلمة2"],
+  "publishedAt": "2026-03-11T10:00:00.000Z",
+  "status": "published",
+  "isFeatured": false
+}
+```
+
+**حقول الـ status:**
+- `published` - منشور فوراً
+- `draft` - مسودة
+- `scheduled` - مجدول (يتطلب `scheduledAt`)
+
+---
+
+### تعديل خبر
+```
+PATCH /api/news/:id
+```
+
+**Body:** نفس حقول إضافة الخبر (جزئي أو كامل).
+
+---
+
+### حذف خبر (نقل للسلة)
+```
+POST /api/admin/news/:id/trash
+```
+
+### استعادة خبر من السلة
+```
+POST /api/admin/news/:id/restore
+```
+
+### حذف نهائي
+```
+DELETE /api/admin/news/:id/permanent
+```
+
+### حذف متعدد
+```
+POST /api/admin/news/bulk-delete
+```
+
+**Body:**
+```json
+{
+  "ids": ["uuid1", "uuid2", "uuid3"],
+  "permanent": false
+}
+```
+
+---
+
+## ١٢. هيكل بيانات الخبر الكامل (News Object)
+
+```json
+{
+  "id": "6f45cd43-d6b9-4071-9faf-a803b0ad5946",
+  "shortCode": "AbC1234",
+  "title": "عنوان الخبر الصحي",
+  "subtitle": "العنوان الفرعي",
+  "summary": "ملخص قصير للخبر لا يتجاوز 500 حرف",
+  "content": "محتوى الخبر الكامل...",
+  "category": "saudi-health",
+  "source": "وكالة الأنباء السعودية",
+  "sourceUrl": "https://www.spa.gov.sa/...",
+  "imageUrl": "https://capsulah.com/images/...",
+  "imageAlt": "وصف تفصيلي للصورة",
+  "seoTitle": "عنوان محسّن لمحركات البحث",
+  "seoDescription": "وصف محسّن لمحركات البحث",
+  "keywords": ["صحة", "سعودية", "طب"],
+  "viewCount": 1250,
+  "todayViews": 45,
+  "isTranslated": false,
+  "isFeatured": true,
+  "status": "published",
+  "scheduledAt": null,
+  "deletedAt": null,
+  "publishedAt": "2026-03-11T10:00:00.000Z",
+  "createdBy": "محمد الحيدر",
+  "createdAt": "2026-03-11T09:30:00.000Z",
+  "updatedAt": "2026-03-11T09:30:00.000Z"
+}
+```
+
+---
+
+## ١٣. رموز الاستجابة (HTTP Status Codes)
+
+| الكود | المعنى |
+|-------|--------|
+| `200` | نجاح |
+| `201` | تم الإنشاء |
+| `304` | لم يتغير (cached) |
+| `400` | خطأ في البيانات المرسلة |
+| `401` | غير مصرح (يتطلب تسجيل دخول) |
+| `403` | ممنوع (صلاحيات غير كافية) |
+| `404` | العنصر غير موجود |
+| `500` | خطأ في الخادم |
+
+---
+
+## ١٤. ملاحظات تقنية للمطوّر
+
+### الصور
+- صور الأخبار: يمكن أن تكون روابط خارجية أو مستضافة على الموقع
+- صورة OG للمشاركة: `GET https://capsulah.com/og/{newsId}` — تُعيد صورة PNG
+- الأيقونات والشعار: `https://capsulah.com/favicon.ico`
+
+### الروابط القصيرة
+- كل خبر له رمز مختصر من 7 أحرف (مثال: `AbC1234`)
+- رابط الخبر القصير: `https://capsulah.com/n/{shortCode}`
+- API: `GET /api/n/{shortCode}`
+
+### الصفحة الكاملة للخبر
+- `https://capsulah.com/{year}/{slug}` — مثال: `https://capsulah.com/2026/health-news-title`
+- أو بالـ ID: `https://capsulah.com/news/{id}`
+
+### التوقيت
+- جميع الـ timestamps بصيغة ISO 8601 بتوقيت UTC
+- لعرضها بالتوقيت السعودي: أضف 3 ساعات (UTC+3)
+
+### Pagination
+عند استخدام `page` و`perPage`، يكون الرد:
+```json
+{
+  "items": [...],
+  "total": 7200,
+  "page": 1,
+  "perPage": 20,
+  "totalPages": 360
+}
+```
+
+### التخزين المؤقت (Caching)
+- قائمة الأخبار: يُنصح بالتحديث كل 5 دقائق
+- تفاصيل الخبر: يُنصح بالتحديث كل 30 دقيقة
+- التصنيفات: يُنصح بالتحديث كل ساعة
+
+### فلترة الأخبار للتطبيق
+للحصول على الأخبار المنشورة فقط، استخدم:
+```
+GET /api/news?page=1&perPage=20
+```
+الأخبار المُعادة تكون منشورة (`status=published`) تلقائياً في الـ API العام.
+
+---
+
+## ١٥. مثال عملي - تدفق قراءة الأخبار في التطبيق
+
+```
+1. عند فتح التطبيق:
+   GET /api/categories?active=true       ← جلب التصنيفات
+   GET /api/news?page=1&perPage=20       ← أخبار الصفحة الرئيسية
+
+2. عند الضغط على تصنيف:
+   GET /api/news?category=saudi-health&page=1&perPage=20
+
+3. عند الضغط على خبر:
+   GET /api/news/{id}                    ← تفاصيل الخبر
+   POST /api/news/{id}/view              ← تسجيل المشاهدة (fire & forget)
+
+4. عند المشاركة:
+   رابط المشاركة: https://capsulah.com/n/{shortCode}
+   صورة المشاركة: https://capsulah.com/og/{id}
+
+5. تحديث الصفحة الرئيسية (Pull to Refresh):
+   GET /api/news?page=1&perPage=20
+```
+
+---
+
+## ١٦. مثال عملي - تدفق المستخدم المسجّل
+
+```
+1. تسجيل الدخول:
+   POST /api/auth/login
+
+2. جلب بيانات المستخدم:
+   GET /api/auth/user
+
+3. عرض الملف الصحي:
+   GET /api/health-profile
+
+4. إضافة مؤشر ضغط دم:
+   POST /api/trackers
+   Body: { "type": "blood_pressure", "value": 120, "value2": 80, "unit": "mmHg" }
+
+5. سؤال المساعد الذكي:
+   POST /api/chat/sessions     ← إنشاء جلسة
+   POST /api/chat/messages     ← إرسال السؤال
+
+6. تسجيل الخروج:
+   POST /api/auth/logout
+```
