@@ -781,17 +781,150 @@ GET /api/admin/stats
 
 ---
 
-## ٩. Sitemap و Robots
+## ٩. SEO — محركات البحث
+
+### حقول SEO في الخبر
+
+كل خبر يحتوي على حقلين مخصصين لمحركات البحث:
+
+| الحقل | الاستخدام | الحد الأقصى |
+|-------|-----------|-------------|
+| `seoTitle` | عنوان `<title>` في صفحة الخبر | 60-70 حرف |
+| `seoDescription` | وصف `<meta name="description">` | 150-160 حرف |
+
+**مثال الاستخدام في التطبيق:**
+- عند مشاركة الخبر يُستخدم `seoTitle` كعنوان البطاقة
+- `seoDescription` يُعرض كوصف مختصر تحت العنوان
+- إذا كان `seoTitle` فارغاً، استخدم `title` بديلاً عنه
+- إذا كان `seoDescription` فارغاً، استخدم `summary` بديلاً عنه
+
+**الأولوية في العرض:**
+```
+عنوان الخبر     → seoTitle  ?? title
+وصف الخبر       → seoDescription ?? summary ?? subtitle
+صورة المشاركة   → imageUrl (OG image)
+رابط الخبر      → https://capsulah.com/n/{shortCode}
+```
+
+---
 
 ### Sitemap XML
+يحتوي على روابط جميع الأخبار المنشورة (آخر 5000 خبر) وصفحات الموقع الثابتة.
+
 ```
 GET https://capsulah.com/sitemap.xml
 ```
+
+**الاستجابة:** XML بصيغة Sitemap Protocol 0.9
+
+**مثال على محتوى الـ Sitemap:**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- صفحات ثابتة -->
+  <url>
+    <loc>https://capsulah.com</loc>
+    <changefreq>hourly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://capsulah.com/news</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://capsulah.com/news?category=health-news</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://capsulah.com/news?category=nutrition</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- أخبار (تتكرر لكل خبر منشور) -->
+  <url>
+    <loc>https://capsulah.com/n/AbC1234</loc>
+    <lastmod>2026-03-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+</urlset>
+```
+
+**ملاحظات:**
+- يُحدَّث فور نشر خبر جديد
+- التخزين المؤقت: ساعة واحدة (`Cache-Control: public, max-age=3600`)
+- يستخدم الرابط القصير `shortCode` إن توفّر
+
+---
 
 ### Robots.txt
 ```
 GET https://capsulah.com/robots.txt
 ```
+
+**المحتوى:**
+```
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://capsulah.com/sitemap.xml
+```
+
+**المعنى:**
+- بوتات الزحف مسموح لها بفهرسة كل الصفحات
+- لوحة التحكم `/admin` ممنوعة من الفهرسة
+- مسارات API `/api/` ممنوعة من الفهرسة
+- رابط Sitemap مُضمَّن للاكتشاف التلقائي
+
+---
+
+### Canonical URL لكل خبر
+
+الرابط الأساسي (Canonical) لكل خبر هو دائماً:
+```
+https://capsulah.com/n/{shortCode}       ← إذا كان shortCode متاحاً
+https://capsulah.com/news/{id}           ← بديل إذا لم يكن shortCode متاحاً
+```
+
+**ملاحظة:** جميع الروابط القديمة وروابط المشاركة تُعيد التوجيه تلقائياً إلى الرابط الـ Canonical.
+
+---
+
+### Open Graph + Twitter Cards (لكل خبر)
+
+عند فتح رابط `https://capsulah.com/api/share/news/{id}` تُولَّد هذه الوسوم تلقائياً:
+
+```html
+<!-- Open Graph -->
+<meta property="og:type"         content="article">
+<meta property="og:site_name"    content="كبسولة">
+<meta property="og:title"        content="{seoTitle ?? title}">
+<meta property="og:description"  content="{summary ?? seoDescription}">
+<meta property="og:image"        content="https://capsulah.com/og/{shortCode ?? id}?v={timestamp}">
+<meta property="og:image:width"  content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type"   content="image/jpeg">
+<meta property="og:url"          content="https://capsulah.com/n/{shortCode}">
+<meta property="og:locale"       content="ar_SA">
+<meta property="article:published_time" content="{publishedAt ISO8601}">
+
+<!-- Twitter Cards -->
+<meta name="twitter:card"        content="summary_large_image">
+<meta name="twitter:site"        content="@capsulah_sa">
+<meta name="twitter:title"       content="{seoTitle ?? title}">
+<meta name="twitter:description" content="{summary ?? seoDescription}">
+<meta name="twitter:image"       content="https://capsulah.com/og/{shortCode ?? id}?v={timestamp}">
+<meta name="twitter:image:alt"   content="{title}">
+```
+
+**الاستخدام في التطبيق:** عند مشاركة خبر على واتساب أو تلغرام، أرسل رابط `share/news/{id}` وليس رابط الخبر مباشرة — سيُعيد التوجيه تلقائياً للخبر بعد أن تُحمَّل الصورة والعنوان بشكل صحيح.
 
 ---
 
