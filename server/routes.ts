@@ -1884,6 +1884,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       (req.session as any).adminAuthenticated = true;
       (req.session as any).adminRole = "super_admin";
       (req.session as any).adminPermissions = ["*"];
+      (req.session as any).adminUsername = "admin";
       (req.session as any).adminDisplayName = "محمد الحيدر";
       try {
         const existing = await storage.getUser("admin");
@@ -1913,6 +1914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (req.session as any).adminAuthenticated = true;
         (req.session as any).adminRole = account.role;
         (req.session as any).adminPermissions = account.permissions || [];
+        (req.session as any).adminUsername = account.username;
         (req.session as any).adminDisplayName = account.display_name || account.username;
         (req.session as any).adminAccountId = account.id;
         req.session.save((err) => {
@@ -1938,14 +1940,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check admin session endpoint
-  app.get('/api/admin/check-session', (req, res) => {
+  app.get('/api/admin/check-session', async (req, res) => {
     if ((req.session as any)?.adminAuthenticated) {
-      return res.json({
-        authenticated: true,
-        role: (req.session as any).adminRole || "editor",
-        permissions: (req.session as any).adminPermissions || [],
-        displayName: (req.session as any).adminDisplayName || "",
-      });
+      // جلب الاسم الحالي من قاعدة البيانات دائماً لتجنب الجلسات القديمة
+      try {
+        const { pool } = await import("./db");
+        const username = (req.session as any).adminUsername;
+        const role = (req.session as any).adminRole;
+        let displayName = (req.session as any).adminDisplayName || "";
+        if (username) {
+          const result = await pool.query(
+            "SELECT display_name FROM admin_accounts WHERE username = $1",
+            [username]
+          );
+          if (result.rows[0]?.display_name) {
+            displayName = result.rows[0].display_name;
+            (req.session as any).adminDisplayName = displayName;
+          }
+        } else if (role === "super_admin") {
+          // جلسة قديمة بدون adminUsername - يُعدّ super_admin هو "admin"
+          displayName = "محمد الحيدر";
+          (req.session as any).adminUsername = "admin";
+          (req.session as any).adminDisplayName = displayName;
+        }
+        return res.json({
+          authenticated: true,
+          role: (req.session as any).adminRole || "editor",
+          permissions: (req.session as any).adminPermissions || [],
+          displayName,
+        });
+      } catch {
+        return res.json({
+          authenticated: true,
+          role: (req.session as any).adminRole || "editor",
+          permissions: (req.session as any).adminPermissions || [],
+          displayName: (req.session as any).adminDisplayName || "",
+        });
+      }
     }
     return res.json({ authenticated: false });
   });
