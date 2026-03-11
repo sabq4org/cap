@@ -61,7 +61,7 @@ import {
   type InsertInfographicJob,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations - mandatory for Replit Auth
@@ -1141,6 +1141,14 @@ export class DatabaseStorage implements IStorage {
   async deleteRadarAlert(id: string): Promise<boolean> {
     await db.delete(radarAlerts).where(eq(radarAlerts.id, id));
     return true;
+  }
+
+  async deleteReviewedRadarItems(): Promise<number> {
+    const reviewedStatuses = ['approved', 'rejected', 'published', 'archived'];
+    const result = await db.delete(radarItems)
+      .where(inArray(radarItems.status, reviewedStatuses))
+      .returning({ id: radarItems.id });
+    return result.length;
   }
 
   // ==========================================

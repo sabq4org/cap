@@ -2458,6 +2458,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/radar/cleanup-reviewed', isAdminAuthenticated, async (req, res) => {
+    try {
+      const deleted = await storage.deleteReviewedRadarItems();
+      res.json({ deleted, message: `تم حذف ${deleted} خبر مراجع` });
+    } catch (error) {
+      console.error("Error cleaning up reviewed radar items:", error);
+      res.status(500).json({ message: "فشل حذف الأخبار المراجعة" });
+    }
+  });
+
   // Convert radar item to news article
   app.post('/api/radar/items/:id/publish', isAdminAuthenticated, async (req, res) => {
     try {

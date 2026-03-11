@@ -214,6 +214,24 @@ export default function AdminRadar() {
     },
   });
 
+  const cleanupReviewedMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/radar/cleanup-reviewed");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/items/stats"] });
+      toast({
+        title: "✅ تم الحذف",
+        description: `حُذف ${data.deleted} خبر مراجع (معتمد / مرفوض / منشور)`,
+      });
+    },
+    onError: () => {
+      toast({ title: "فشل في حذف الأخبار المراجعة", variant: "destructive" });
+    },
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const res = await apiRequest("PATCH", `/api/radar/items/${id}/status`, { status });
@@ -545,6 +563,20 @@ export default function AdminRadar() {
             >
               <Trash2 className={`h-4 w-4 ml-2 ${cleanupMutation.isPending ? "animate-spin" : ""}`} />
               {cleanupMutation.isPending ? "جاري التنظيف..." : "تنظيف غير الصحي"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (confirm("سيتم حذف جميع الأخبار المراجعة (معتمدة / مرفوضة / منشورة) من الرادار. هل أنت متأكد؟")) {
+                  cleanupReviewedMutation.mutate();
+                }
+              }}
+              disabled={cleanupReviewedMutation.isPending}
+              data-testid="button-cleanup-reviewed"
+              className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-950"
+            >
+              <Trash2 className={`h-4 w-4 ml-2 ${cleanupReviewedMutation.isPending ? "animate-spin" : ""}`} />
+              {cleanupReviewedMutation.isPending ? "جاري الحذف..." : "حذف المراجعة"}
             </Button>
             <Button 
               onClick={() => fetchAllMutation.mutate()}
