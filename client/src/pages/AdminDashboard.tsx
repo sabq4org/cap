@@ -27,6 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import logoImage from "@assets/LOGO-L_1769253692563.png";
+import { AdminDashboardOverview } from "@/components/admin/AdminDashboardOverview";
 
 interface StatCard {
   title: string;
@@ -4271,6 +4272,8 @@ export default function AdminDashboard() {
             <ImportSection />
           ) : activeSection === 'categories' ? (
             <CategoriesSection />
+          ) : activeSection === 'dashboard' ? (
+            <AdminDashboardOverview adminUser={adminUser} onNavigate={navigateTo} />
           ) : (
             <DashboardContent />
           )}
