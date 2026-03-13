@@ -1955,25 +1955,95 @@ export default function AdminDashboard() {
 
     const filteredNews = adminNews || [];
 
+    const categoryLabel = (cat: string) => categories.find(c => c.value === cat)?.label || cat;
+    const statusBadge = (status: string) => {
+      const map: Record<string, { label: string; cls: string }> = {
+        published: { label: "منشور", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
+        scheduled: { label: "مجدول", cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
+        draft: { label: "مسودة", cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
+        deleted: { label: "محذوف", cls: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400" },
+      };
+      const s = map[status] || { label: status, cls: "bg-muted text-muted-foreground" };
+      return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.cls}`}>{s.label}</span>;
+    };
+
     return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div>
-          <div className="text-sm text-muted-foreground mb-1">الرئيسية › نظرة عامة</div>
-          <h1 className="text-2xl md:text-3xl font-bold">إدارة الأخبار</h1>
-          <p className="text-muted-foreground">إدارة المحتوى الإخباري</p>
+    <div className="space-y-5">
+
+      {/* ── Hero Header ── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 shadow-xl">
+        <div className="absolute -top-12 -right-12 w-44 h-44 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-12 -left-12 w-56 h-56 bg-green-400/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="relative px-6 py-5 md:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="text-white">
+              <p className="text-white/50 text-xs mb-1 flex items-center gap-1.5">
+                <span>الرئيسية</span>
+                <ChevronRight className="h-3 w-3" />
+                <span>إدارة الأخبار</span>
+              </p>
+              <h1 className="text-xl md:text-2xl font-bold">إدارة الأخبار</h1>
+              <p className="text-white/50 text-sm mt-0.5">
+                {publishedCount.toLocaleString('en-US')} منشور · {scheduledCount} مجدول · {draftCount} مسودة
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => autoClassifyMiscMutation.mutate()}
+                disabled={autoClassifyMiscMutation.isPending || !!classifyJobId}
+                className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white text-xs h-8"
+                data-testid="button-auto-classify"
+              >
+                {(autoClassifyMiscMutation.isPending || !!classifyJobId)
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <Sparkles className="h-3.5 w-3.5" />
+                }
+                تصنيف ذكي
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => { resetForm(); setPublishMode('now'); setScheduledDateTime(""); setLocation('/admin/news/new'); }}
+                className="gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs h-8 shadow-lg"
+                data-testid="button-add-news"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                خبر جديد
+              </Button>
+            </div>
+          </div>
         </div>
-        <Button 
-          onClick={() => { resetForm(); setPublishMode('now'); setScheduledDateTime(""); setLocation('/admin/news/new'); }}
-          className="gap-2"
-          data-testid="button-add-news"
-        >
-          <Plus className="h-4 w-4" />
-          خبر جديد
-        </Button>
       </div>
 
+      {/* ── Status Tab Cards ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {statusCards.map((card) => (
+          <button
+            key={card.id}
+            onClick={() => { setNewsStatusTab(card.id); setAdminNewsPage(1); }}
+            className={`group relative overflow-hidden rounded-xl p-4 text-right transition-all duration-200 border-2 ${
+              newsStatusTab === card.id
+                ? 'border-current shadow-md scale-[1.02]'
+                : 'border-transparent hover:scale-[1.01] hover:shadow-sm'
+            } ${card.color}`}
+            data-testid={`stat-card-${card.id}`}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${card.iconBg} shadow-sm`}>
+                <card.icon className={`h-4 w-4 ${card.iconColor}`} />
+              </div>
+              {newsStatusTab === card.id && (
+                <div className="w-2 h-2 rounded-full bg-current mt-1" />
+              )}
+            </div>
+            <p className={`text-2xl font-bold ${card.textColor}`}>{card.count.toLocaleString('en-US')}</p>
+            <p className={`text-xs font-medium ${card.textColor} opacity-80 mt-0.5`}>{card.label}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* ── Classify Progress Banner ── */}
       {/* Classify Progress Banner in News Section */}
       {classifyProgress && (
         <Card className={`border-2 ${classifyProgress.status === 'done' ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : classifyProgress.status === 'error' ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : 'border-primary/40 bg-primary/5'}`}>
@@ -2024,74 +2094,64 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      {/* Stats Cards */}
-      <div>
-        <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-          <div className="w-1 h-6 bg-primary rounded-full" />
-          إحصائيات الأخبار
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {statusCards.map((card) => (
-            <button
-              key={card.id}
-              onClick={() => { setNewsStatusTab(card.id); setAdminNewsPage(1); }}
-              className={`p-4 rounded-xl transition-all ${card.color} ${
-                newsStatusTab === card.id ? 'ring-2 ring-primary ring-offset-2' : 'hover:scale-[1.02]'
-              }`}
-              data-testid={`stat-card-${card.id}`}
+      {/* ── Search & Filters Bar ── */}
+      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="ابحث عن خبر..."
+            value={newsSearchQuery}
+            onChange={(e) => { setNewsSearchQuery(e.target.value); setAdminNewsPage(1); }}
+            className="pr-9 h-9 text-sm"
+            data-testid="input-news-search"
+          />
+        </div>
+        <Select value={newsCategoryFilter} onValueChange={(v) => { setNewsCategoryFilter(v); setAdminNewsPage(1); }}>
+          <SelectTrigger className="w-full sm:w-44 h-9 text-sm" data-testid="select-news-category-filter">
+            <SelectValue placeholder="كل التصنيفات" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">كل التصنيفات</SelectItem>
+            {categories.map((cat) => (
+              <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex gap-2">
+          <Select value={adminNewsSortBy} onValueChange={(v) => { setAdminNewsSortBy(v); setAdminNewsPage(1); }}>
+            <SelectTrigger className="w-36 h-9 text-sm" data-testid="select-sort-by">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="publishedAt">تاريخ النشر</SelectItem>
+              <SelectItem value="createdAt">تاريخ الإنشاء</SelectItem>
+              <SelectItem value="title">العنوان</SelectItem>
+              <SelectItem value="category">التصنيف</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={() => setAdminNewsSortOrder(adminNewsSortOrder === 'desc' ? 'asc' : 'desc')}
+            data-testid="button-toggle-sort-order"
+            title={adminNewsSortOrder === 'desc' ? 'تنازلي' : 'تصاعدي'}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+          </Button>
+          {(newsSearchQuery || newsCategoryFilter !== 'all') && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+              onClick={() => { setNewsSearchQuery(""); setNewsCategoryFilter("all"); setAdminNewsPage(1); }}
+              title="مسح الفلاتر"
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className={`w-8 h-8 rounded-lg ${card.iconBg} flex items-center justify-center`}>
-                  <card.icon className={`h-4 w-4 ${card.iconColor}`} />
-                </div>
-              </div>
-              <div className={`text-3xl font-bold ${card.textColor}`}>{card.count.toLocaleString('en-US')}</div>
-              <div className={`text-sm ${card.textColor} opacity-80`}>{card.label}</div>
-            </button>
-          ))}
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </div>
-
-      {/* Search and Filters */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <div className="w-1 h-6 bg-primary rounded-full" />
-            البحث والفلاتر
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="flex-1">
-              <Input
-                placeholder="البحث عن خبر..."
-                value={newsSearchQuery}
-                onChange={(e) => { setNewsSearchQuery(e.target.value); setAdminNewsPage(1); }}
-                className="w-full"
-                data-testid="input-news-search"
-              />
-            </div>
-            <Select value={newsCategoryFilter} onValueChange={(v) => { setNewsCategoryFilter(v); setAdminNewsPage(1); }}>
-              <SelectTrigger className="w-full md:w-48" data-testid="select-news-category-filter">
-                <SelectValue placeholder="كل التصنيفات" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل التصنيفات</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button 
-              variant="outline" 
-              onClick={() => { setNewsSearchQuery(""); setNewsCategoryFilter("all"); setAdminNewsPage(1); }}
-              className="gap-2"
-            >
-              مسح
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Bulk Actions */}
       {selectedNewsIds.size > 0 && (
@@ -2116,227 +2176,168 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* News Table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center justify-between gap-2 text-lg">
-            <div className="flex items-center gap-2">
-              <div className="w-1 h-6 bg-primary rounded-full" />
-              قائمة الأخبار
-              <Badge variant="secondary" className="text-xs">{adminNewsTotal}</Badge>
-            </div>
-            <div className="flex items-center gap-2 text-sm font-normal">
-              <span className="text-muted-foreground text-xs">ترتيب:</span>
-              <Select value={adminNewsSortBy} onValueChange={(v) => { setAdminNewsSortBy(v); setAdminNewsPage(1); }}>
-                <SelectTrigger className="w-32 h-8 text-xs" data-testid="select-sort-by">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="publishedAt">تاريخ النشر</SelectItem>
-                  <SelectItem value="createdAt">تاريخ الإنشاء</SelectItem>
-                  <SelectItem value="title">العنوان</SelectItem>
-                  <SelectItem value="category">التصنيف</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button 
-                variant="outline" 
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setAdminNewsSortOrder(adminNewsSortOrder === 'desc' ? 'asc' : 'desc')}
-                data-testid="button-toggle-sort-order"
-              >
-                <ArrowUpDown className="h-3 w-3" />
-              </Button>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoadingAdminNews ? (
-            <div className="p-8 text-center">
-              <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary mb-4" />
-              <p className="text-muted-foreground">جاري التحميل...</p>
-            </div>
-          ) : filteredNews.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 border-b">
-                  <tr>
-                    <th className="p-3 text-right w-10">
-                      <button onClick={toggleSelectAll} className="hover:text-primary">
-                        {selectedNewsIds.size === filteredNews.length && filteredNews.length > 0 ? (
-                          <CheckSquare className="h-5 w-5 text-primary" />
-                        ) : (
-                          <Square className="h-5 w-5" />
-                        )}
-                      </button>
-                    </th>
-                    <th className="p-3 text-right font-medium">العنوان</th>
-                    <th className="p-3 text-right font-medium hidden md:table-cell">النوع</th>
-                    <th className="p-3 text-right font-medium hidden lg:table-cell">المصدر</th>
-                    <th className="p-3 text-right font-medium hidden md:table-cell">التصنيف</th>
-                    <th className="p-3 text-center font-medium hidden lg:table-cell">المشاهدات</th>
-                    <th className="p-3 text-center font-medium w-16">مميز</th>
-                    <th className="p-3 text-center font-medium">الإجراءات</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filteredNews.map((item: any, index: number) => (
-                    <tr 
-                      key={item.id} 
-                      className={`hover:bg-muted/30 transition-colors ${selectedNewsIds.has(item.id) ? 'bg-primary/5' : ''}`}
-                      data-testid={`row-news-${index}`}
-                    >
-                      <td className="p-3">
-                        <button onClick={() => toggleSelectNews(item.id)} data-testid={`checkbox-news-${index}`}>
-                          {selectedNewsIds.has(item.id) ? (
-                            <CheckSquare className="h-5 w-5 text-primary" />
-                          ) : (
-                            <Square className="h-5 w-5 text-muted-foreground hover:text-foreground" />
-                          )}
-                        </button>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-start gap-3">
-                          {item.imageUrl && (
-                            <img 
-                              src={item.imageUrl} 
-                              alt=""
-                              className="w-12 h-12 object-cover rounded-lg shrink-0 hidden sm:block"
-                            />
-                          )}
-                          <div className="min-w-0">
-                            <div className="font-medium line-clamp-2 mb-1">{item.title}</div>
-                            {item.createdBy && (
-                              <div className="text-xs text-muted-foreground mb-1">أضيف بواسطة: {item.createdBy}</div>
-                            )}
-                            {item.status === 'scheduled' && item.scheduledAt && (
-                              <div className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1 mb-1">
-                                <Clock className="h-3 w-3" />
-                                <span>تم جدولة الخبر في {fmtSaudiDateOnly(item.scheduledAt)}، الساعة {fmtSaudiTimeOnly(item.scheduledAt)}</span>
-                              </div>
-                            )}
-                            <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
-                              <span>{fmtSaudiDateOnly(item.publishedAt || item.createdAt)}</span>
-                              <span>-</span>
-                              <span>{fmtSaudiTimeOnly(item.publishedAt || item.createdAt)}</span>
-                              <span className="lg:hidden flex items-center gap-1">
-                                <Eye className="h-3 w-3" />
-                                {(item.viewCount ?? 0).toLocaleString('ar-SA-u-nu-latn')}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-3 hidden md:table-cell">
-                        <Badge variant="outline" className="text-xs">
-                          {item.status === 'published' ? 'منشور' : 
-                           item.status === 'scheduled' ? 'مجدول' : 
-                           item.status === 'draft' ? 'مسودة' : 'محذوف'}
-                        </Badge>
-                      </td>
-                      <td className="p-3 hidden lg:table-cell">
-                        <span className="text-muted-foreground text-xs truncate block max-w-[120px]">
-                          {item.source || '-'}
-                        </span>
-                      </td>
-                      <td className="p-3 hidden md:table-cell">
-                        <Badge variant="secondary" className="text-xs">
-                          {categories.find((c) => c.value === item.category)?.label || item.category}
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-center hidden lg:table-cell">
-                        <span className="text-sm font-medium text-muted-foreground" data-testid={`text-views-${index}`}>
-                          {(item.viewCount ?? 0).toLocaleString('ar-SA-u-nu-latn')}
-                        </span>
-                      </td>
-                      <td className="p-3 text-center">
-                        <button
-                          onClick={() => toggleFeaturedMutation.mutate({ id: item.id, isFeatured: !item.isFeatured })}
-                          disabled={toggleFeaturedMutation.isPending}
-                          className={`${item.isFeatured ? 'text-amber-500' : 'text-muted-foreground hover:text-amber-500'} transition-colors`}
-                          title={item.isFeatured ? 'إلغاء التمييز' : 'تمييز الخبر'}
-                          data-testid={`button-toggle-featured-${index}`}
-                        >
-                          <Star className={`h-5 w-5 ${item.isFeatured ? 'fill-current' : ''}`} />
-                        </button>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center justify-center gap-1">
-                          {newsStatusTab === 'deleted' ? (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleRestoreNews(item.id)}
-                                className="h-8 w-8 text-green-600"
-                                title="استعادة"
-                                data-testid={`button-restore-news-${index}`}
-                              >
-                                <ArrowUpRight className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteNews(item.id)}
-                                className="h-8 w-8 text-destructive"
-                                title="حذف نهائي"
-                                data-testid={`button-delete-news-${index}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEditNews(item)}
-                                className="h-8 w-8"
-                                title="تعديل"
-                                data-testid={`button-edit-news-${index}`}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteNews(item.id)}
-                                className="h-8 w-8 text-destructive"
-                                title="حذف"
-                                data-testid={`button-delete-news-${index}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-8 text-center">
-              <Newspaper className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                {newsSearchQuery || newsCategoryFilter !== 'all' 
-                  ? 'لا توجد نتائج مطابقة للبحث'
-                  : newsStatusTab === 'deleted' ? 'لا توجد أخبار محذوفة' :
-                    newsStatusTab === 'draft' ? 'لا توجد مسودات' :
-                    newsStatusTab === 'scheduled' ? 'لا توجد أخبار مجدولة' :
-                    'لا توجد أخبار منشورة'}
-              </p>
-              {newsStatusTab === 'published' && !newsSearchQuery && newsCategoryFilter === 'all' && (
-                <Button 
-                  className="mt-4"
-                  onClick={() => { resetForm(); setPublishMode('now'); setScheduledDateTime(""); setLocation('/admin/news/new'); }}
-                >
-                  إضافة أول خبر
-                </Button>
+      {/* ── News Cards List ── */}
+      <Card className="border-0 shadow-md overflow-hidden">
+        {/* List Header */}
+        <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button onClick={toggleSelectAll} className="hover:text-primary transition-colors" title="تحديد الكل">
+              {selectedNewsIds.size === filteredNews.length && filteredNews.length > 0 ? (
+                <CheckSquare className="h-4 w-4 text-primary" />
+              ) : (
+                <Square className="h-4 w-4 text-muted-foreground" />
               )}
+            </button>
+            <span className="text-sm font-semibold text-foreground">قائمة الأخبار</span>
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{adminNewsTotal}</span>
+          </div>
+          {isLoadingAdminNews && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        </div>
+
+        {isLoadingAdminNews ? (
+          <div className="p-12 text-center">
+            <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary mb-3" />
+            <p className="text-muted-foreground text-sm">جاري التحميل...</p>
+          </div>
+        ) : filteredNews.length > 0 ? (
+          <div className="divide-y divide-border/60">
+            {filteredNews.map((item: any, index: number) => (
+              <div
+                key={item.id}
+                className={`group flex items-start gap-3 p-3 md:p-4 transition-colors hover:bg-muted/30 ${selectedNewsIds.has(item.id) ? 'bg-primary/5' : ''}`}
+                data-testid={`row-news-${index}`}
+              >
+                {/* Checkbox */}
+                <button
+                  onClick={() => toggleSelectNews(item.id)}
+                  className="mt-1 shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                  data-testid={`checkbox-news-${index}`}
+                >
+                  {selectedNewsIds.has(item.id)
+                    ? <CheckSquare className="h-4 w-4 text-primary" />
+                    : <Square className="h-4 w-4" />
+                  }
+                </button>
+
+                {/* Thumbnail */}
+                {item.imageUrl ? (
+                  <img
+                    src={item.imageUrl}
+                    alt=""
+                    className="w-16 h-14 md:w-20 md:h-16 object-cover rounded-xl shrink-0 hidden sm:block bg-muted"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="w-16 h-14 md:w-20 md:h-16 rounded-xl bg-muted shrink-0 hidden sm:flex items-center justify-center">
+                    <Newspaper className="h-5 w-5 text-muted-foreground/40" />
+                  </div>
+                )}
+
+                {/* Main Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                    {statusBadge(item.status)}
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground">
+                      {categoryLabel(item.category)}
+                    </span>
+                    {item.isFeatured && (
+                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                        <Star className="h-2.5 w-2.5 fill-current" /> مميز
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2 mb-1.5 group-hover:text-primary transition-colors">
+                    {item.title}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+                    {item.source && (
+                      <span className="flex items-center gap-1 truncate max-w-[140px]">
+                        <Globe className="h-3 w-3 shrink-0" />
+                        {item.source}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3 shrink-0" />
+                      {fmtSaudiDateOnly(item.publishedAt || item.createdAt)}
+                      <span className="opacity-60">{fmtSaudiTimeOnly(item.publishedAt || item.createdAt)}</span>
+                    </span>
+                    <span className="flex items-center gap-1" data-testid={`text-views-${index}`}>
+                      <Eye className="h-3 w-3 shrink-0" />
+                      {(item.viewCount ?? 0).toLocaleString('ar-SA-u-nu-latn')}
+                    </span>
+                    {item.todayViews > 0 && (
+                      <span className="flex items-center gap-1 text-green-600">
+                        <TrendingUp className="h-3 w-3 shrink-0" />
+                        {item.todayViews} اليوم
+                      </span>
+                    )}
+                    {item.createdBy && (
+                      <span className="opacity-60 hidden lg:inline">بواسطة: {item.createdBy}</span>
+                    )}
+                    {item.status === 'scheduled' && item.scheduledAt && (
+                      <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                        <Clock className="h-3 w-3 shrink-0" />
+                        مجدول: {fmtSaudiDateOnly(item.scheduledAt)} {fmtSaudiTimeOnly(item.scheduledAt)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => toggleFeaturedMutation.mutate({ id: item.id, isFeatured: !item.isFeatured })}
+                    disabled={toggleFeaturedMutation.isPending}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${item.isFeatured ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/30' : 'text-muted-foreground hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30'}`}
+                    title={item.isFeatured ? 'إلغاء التمييز' : 'تمييز'}
+                    data-testid={`button-toggle-featured-${index}`}
+                  >
+                    <Star className={`h-3.5 w-3.5 ${item.isFeatured ? 'fill-current' : ''}`} />
+                  </button>
+                  {newsStatusTab === 'deleted' ? (
+                    <>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30" onClick={() => handleRestoreNews(item.id)} title="استعادة" data-testid={`button-restore-news-${index}`}>
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => handleDeleteNews(item.id)} title="حذف نهائي" data-testid={`button-delete-news-${index}`}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={() => handleEditNews(item)} title="تعديل" data-testid={`button-edit-news-${index}`}>
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => handleDeleteNews(item.id)} title="حذف" data-testid={`button-delete-news-${index}`}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-16 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted flex items-center justify-center">
+              <Newspaper className="h-7 w-7 text-muted-foreground/50" />
             </div>
-          )}
+            <p className="text-muted-foreground font-medium">
+              {newsSearchQuery || newsCategoryFilter !== 'all'
+                ? 'لا توجد نتائج مطابقة للبحث'
+                : newsStatusTab === 'deleted' ? 'لا توجد أخبار محذوفة'
+                : newsStatusTab === 'draft' ? 'لا توجد مسودات'
+                : newsStatusTab === 'scheduled' ? 'لا توجد أخبار مجدولة'
+                : 'لا توجد أخبار منشورة'}
+            </p>
+            {newsStatusTab === 'published' && !newsSearchQuery && newsCategoryFilter === 'all' && (
+              <Button className="mt-4 gap-2" onClick={() => { resetForm(); setPublishMode('now'); setScheduledDateTime(""); setLocation('/admin/news/new'); }}>
+                <Plus className="h-4 w-4" />
+                إضافة أول خبر
+              </Button>
+            )}
+          </div>
+        )}
 
           {/* Pagination */}
           {adminNewsTotalPages > 1 && (
@@ -2415,7 +2416,6 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
-        </CardContent>
       </Card>
     </div>
   );
