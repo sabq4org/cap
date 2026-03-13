@@ -378,6 +378,13 @@ export const insertRadarSourceSchema = createInsertSchema(radarSources).omit({
 export type InsertRadarSource = z.infer<typeof insertRadarSourceSchema>;
 export type RadarSource = typeof radarSources.$inferSelect;
 
+// URLs excluded from seed (deleted by admin — never re-add on restart)
+export const radarExcludedSeeds = pgTable("radar_excluded_seeds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  url: text("url").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Keywords for filtering and categorization
 export const radarKeywords = pgTable("radar_keywords", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

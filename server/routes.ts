@@ -2173,6 +2173,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/radar/sources/:id', isAdminAuthenticated, async (req, res) => {
     try {
+      const source = await storage.getRadarSource(req.params.id);
+      if (source?.url) {
+        await storage.addExcludedSeedUrl(source.url);
+      }
       await storage.deleteRadarSource(req.params.id);
       res.json({ success: true });
     } catch (error) {

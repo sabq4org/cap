@@ -691,11 +691,13 @@ const defaultHealthSources = [
 
 export async function seedDefaultSources(): Promise<number> {
   const existingSources = await storage.getRadarSources();
+  const excludedUrls = await storage.getExcludedSeedUrls();
   let added = 0;
 
   for (const source of defaultHealthSources) {
     const exists = existingSources.some(s => s.url === source.url);
-    if (!exists) {
+    const excluded = excludedUrls.includes(source.url);
+    if (!exists && !excluded) {
       await storage.createRadarSource(source);
       added++;
     }

@@ -10,6 +10,7 @@ import {
   chatSessions,
   chatMessages,
   radarSources,
+  radarExcludedSeeds,
   radarKeywords,
   radarItems,
   radarAlerts,
@@ -1149,6 +1150,15 @@ export class DatabaseStorage implements IStorage {
       .where(inArray(radarItems.status, reviewedStatuses))
       .returning({ id: radarItems.id });
     return result.length;
+  }
+
+  async addExcludedSeedUrl(url: string): Promise<void> {
+    await db.insert(radarExcludedSeeds).values({ url }).onConflictDoNothing();
+  }
+
+  async getExcludedSeedUrls(): Promise<string[]> {
+    const rows = await db.select({ url: radarExcludedSeeds.url }).from(radarExcludedSeeds);
+    return rows.map(r => r.url);
   }
 
   // ==========================================
