@@ -62,7 +62,7 @@ import {
   type InsertInfographicJob,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike, inArray } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike, inArray, ne } from "drizzle-orm";
 
 export interface IStorage {
   // User operations - mandatory for Replit Auth
@@ -793,11 +793,12 @@ export class DatabaseStorage implements IStorage {
 
     // View stats
     const totalViews = allNews.reduce((sum, n) => sum + (n.viewCount || 0), 0);
-    // Today's views: only sum todayViews for rows where todayViewsDate = today
-    // (articles published today are initialized at startup via initTodayViews)
-    const todayViews = allNews
-      .filter(n => n.todayViewsDate === todaySA)
-      .reduce((sum, n) => sum + (n.todayViews || 0), 0);
+    // Today's views: direct SQL query to avoid string comparison issues
+    const [tvRow] = await db
+      .select({ total: sql<string>`COALESCE(SUM(today_views), 0)::text` })
+      .from(news)
+      .where(sql`today_views_date = ${todaySA} AND status != 'deleted'`);
+    const todayViews = parseInt(tvRow?.total || '0');
 
     const allArticles = await db.select().from(articles);
     const publishedArticles = allArticles.filter(a => a.status === 'published').length;
@@ -853,30 +854,37 @@ export class DatabaseStorage implements IStorage {
       dateList.push(d.toLocaleDateString('en-CA', { timeZone: tz }));
     }
 
-    // Fetch published news within range
-    const cutoffISO = new Date(dateList[0] + 'T00:00:00+03:00');
-    const allPublished = await db.select({
+    // Fetch all non-deleted news (need todayViews data too)
+    const allItems = await db.select({
       publishedAt: news.publishedAt,
       createdAt: news.createdAt,
-      viewCount: news.viewCount,
+      status: news.status,
+      todayViews: news.todayViews,
+      todayViewsDate: news.todayViewsDate,
       category: news.category,
-    }).from(news).where(eq(news.status, 'published'));
+    }).from(news).where(ne(news.status, 'deleted'));
 
-    // Timeseries: group by publishedAt date in SA timezone
+    // Timeseries: newsCount by publishedAt date, views by todayViewsDate (daily actual views)
     const byDay: Record<string, { newsCount: number; views: number }> = {};
     dateList.forEach(d => { byDay[d] = { newsCount: 0, views: 0 }; });
-    for (const item of allPublished) {
-      const dt = item.publishedAt || item.createdAt;
-      if (!dt) continue;
-      const dayStr = new Date(dt).toLocaleDateString('en-CA', { timeZone: tz });
-      if (byDay[dayStr]) {
-        byDay[dayStr].newsCount++;
-        byDay[dayStr].views += item.viewCount || 0;
+    for (const item of allItems) {
+      // newsCount: group published news by publish date
+      if (item.status === 'published') {
+        const dt = item.publishedAt || item.createdAt;
+        if (dt) {
+          const dayStr = new Date(dt).toLocaleDateString('en-CA', { timeZone: tz });
+          if (byDay[dayStr]) byDay[dayStr].newsCount++;
+        }
+      }
+      // views: group by todayViewsDate — reflects actual daily views per day
+      if (item.todayViewsDate && byDay[item.todayViewsDate] !== undefined) {
+        byDay[item.todayViewsDate].views += item.todayViews || 0;
       }
     }
     const timeseries = dateList.map(d => ({ date: d, ...byDay[d] }));
 
-    // Category distribution: all published news
+    // Category distribution: published news only
+    const allPublished = allItems.filter(i => i.status === 'published');
     const catCount: Record<string, number> = {};
     for (const item of allPublished) {
       const cat = item.category || 'misc';

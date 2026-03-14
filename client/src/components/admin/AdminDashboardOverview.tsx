@@ -117,18 +117,59 @@ function buildInsights(stats: Stats, radarStats: RadarStats | undefined, chartDa
 
 // ── Mini Sparkline ───────────────────────────────────────────────────────────
 
+let _sparkId = 0;
 function Sparkline({ data, color = "#16a34a" }: { data: number[]; color?: string }) {
-  if (!data.length) return null;
+  const id = useState(() => `spk-${++_sparkId}`)[0];
+  if (!data || data.length < 2) {
+    // Flat line placeholder when data is empty/uniform
+    return (
+      <svg width={60} height={28} viewBox="0 0 60 28" opacity={0.3}>
+        <line x1="2" y1="14" x2="58" y2="14" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 3" />
+      </svg>
+    );
+  }
   const max = Math.max(...data, 1);
+  const min = Math.min(...data, 0);
+  const range = Math.max(max - min, 1);
   const w = 60, h = 28, pad = 2;
-  const pts = data.map((v, i) => {
-    const x = pad + (i / Math.max(1, data.length - 1)) * (w - pad * 2);
-    const y = h - pad - ((v / max) * (h - pad * 2));
-    return `${x},${y}`;
-  }).join(" ");
+  const coords = data.map((v, i) => ({
+    x: pad + (i / Math.max(1, data.length - 1)) * (w - pad * 2),
+    y: h - pad - (((v - min) / range) * (h - pad * 2)),
+  }));
+  const linePts = coords.map(c => `${c.x},${c.y}`).join(" ");
+  // Area path: line + close to bottom
+  const areaPath = [
+    `M ${coords[0].x},${coords[0].y}`,
+    ...coords.slice(1).map(c => `L ${c.x},${c.y}`),
+    `L ${coords[coords.length - 1].x},${h - pad}`,
+    `L ${coords[0].x},${h - pad}`,
+    "Z",
+  ].join(" ");
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <defs>
+        <linearGradient id={`${id}-g`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+        </linearGradient>
+        <style>{`
+          @keyframes ${id}-draw {
+            from { stroke-dashoffset: 200; opacity: 0.3; }
+            to   { stroke-dashoffset: 0;   opacity: 1;   }
+          }
+        `}</style>
+      </defs>
+      <path d={areaPath} fill={`url(#${id}-g)`} />
+      <polyline
+        points={linePts}
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeDasharray="200"
+        style={{ animation: `${id}-draw 1.2s ease-out forwards` }}
+      />
     </svg>
   );
 }
