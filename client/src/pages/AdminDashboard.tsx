@@ -1298,49 +1298,101 @@ export default function AdminDashboard() {
   ];
 
   const SidebarContent = () => (
-    <>
-      <div className="p-4 border-b">
-        <div className="flex items-center gap-3">
-          <img src={logoImage} alt="كبسولة" className="h-10" />
+    <div className="flex flex-col h-full">
+
+      {/* ── Header: green gradient ── */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-green-700 via-emerald-700 to-teal-700 p-4">
+        <div className="absolute -top-8 -right-8 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+        <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-emerald-300/10 rounded-full blur-2xl" />
+        <div className="relative flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20">
+            <img src={logoImage} alt="كبسولة" className="h-6 w-6 object-contain" />
+          </div>
           <div>
-            <h2 className="font-bold text-sm">لوحة التحكم</h2>
-            <p className="text-xs text-muted-foreground">إدارة النظام</p>
+            <h2 className="font-bold text-sm text-white leading-none">كبسولة</h2>
+            <p className="text-[11px] text-white/60 mt-0.5">لوحة التحكم</p>
+          </div>
+          <div className="mr-auto">
+            <span className="text-[10px] bg-white/15 text-white/80 px-2 py-0.5 rounded-full border border-white/20">
+              {adminUser?.role === 'super_admin' ? 'سوبر أدمن' : adminUser?.role === 'editor' ? 'محرر' : 'مدير'}
+            </span>
           </div>
         </div>
+        {/* User greeting */}
+        {adminUser?.displayName && (
+          <div className="relative mt-3 pt-3 border-t border-white/15 flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xs shrink-0">
+              {adminUser.displayName.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-white truncate">{adminUser.displayName}</p>
+              <p className="text-[10px] text-white/50">مرحباً بك 👋</p>
+            </div>
+          </div>
+        )}
       </div>
-      
+
+      {/* ── Navigation ── */}
       <ScrollArea className="flex-1">
-        <nav className="p-3 space-y-1">
-          <SidebarItem icon={LayoutDashboard} label="الرئيسية" active={activeSection === 'dashboard'} onClick={() => navigateTo('dashboard')} />
-          <SidebarItem icon={Newspaper} label="الأخبار" active={activeSection === 'news'} count={dashboardStats?.totalNews ?? adminNewsTotal} onClick={() => navigateTo('news')} />
-          <SidebarItem icon={BookOpen} label="المقالات" active={activeSection === 'articles'} count={articles?.length} onClick={() => navigateTo('articles')} />
-          <SidebarItem icon={Download} label="استيراد الأخبار" active={activeSection === 'import'} onClick={() => navigateTo('import')} />
-          <SidebarItem icon={Settings} label="التصنيفات" active={activeSection === 'categories'} count={categoriesList?.length} onClick={() => navigateTo('categories')} />
-          <SidebarItem icon={Users} label="المستخدمين" onClick={() => navigateTo('users')} />
-          <SidebarItem icon={Shield} label="الحسابات الإدارية" onClick={() => setLocation('/admin/accounts')} />
-          <SidebarItem icon={Radar} label="رادار الأخبار" onClick={() => navigateTo('radar')} />
-          <SidebarItem icon={LayoutTemplate} label="توليد إنفوجرافيك" onClick={() => setLocation('/admin/infographic')} />
-          <SidebarItem icon={Wand2} label="إعدادات التوليد" onClick={() => setLocation('/admin/generation-settings')} />
-          <SidebarItem icon={MessageSquare} label="المحادثات" count="89" />
-          <SidebarItem icon={Activity} label="التتبع الصحي" />
-          <SidebarItem icon={Utensils} label="التغذية" />
-          <SidebarItem icon={BarChart3} label="الإحصائيات" />
-          <SidebarItem icon={Settings} label="الإعدادات" />
+        <nav className="p-3 space-y-4">
+
+          {/* Main */}
+          <div>
+            <SidebarItem icon={LayoutDashboard} label="الرئيسية" active={activeSection === 'dashboard'} onClick={() => navigateTo('dashboard')} />
+          </div>
+
+          {/* Content */}
+          <div>
+            <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">المحتوى</p>
+            <div className="space-y-0.5">
+              <SidebarItem icon={Newspaper} label="الأخبار" active={activeSection === 'news'} count={dashboardStats?.publishedNews ?? undefined} onClick={() => navigateTo('news')} />
+              <SidebarItem icon={BookOpen} label="المقالات" active={activeSection === 'articles'} count={articles?.length} onClick={() => navigateTo('articles')} />
+              <SidebarItem icon={Settings} label="التصنيفات" active={activeSection === 'categories'} count={categoriesList?.length} onClick={() => navigateTo('categories')} />
+            </div>
+          </div>
+
+          {/* Tools */}
+          <div>
+            <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">الأدوات</p>
+            <div className="space-y-0.5">
+              <SidebarItem icon={Radar} label="رادار الأخبار" active={activeSection === 'radar'} onClick={() => navigateTo('radar')} />
+              <SidebarItem icon={Download} label="استيراد الأخبار" active={activeSection === 'import'} onClick={() => navigateTo('import')} />
+              <SidebarItem icon={LayoutTemplate} label="توليد إنفوجرافيك" onClick={() => setLocation('/admin/infographic')} />
+              <SidebarItem icon={Wand2} label="إعدادات التوليد" onClick={() => setLocation('/admin/generation-settings')} />
+            </div>
+          </div>
+
+          {/* Admin */}
+          <div>
+            <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">الإدارة</p>
+            <div className="space-y-0.5">
+              <SidebarItem icon={Shield} label="الحسابات الإدارية" onClick={() => setLocation('/admin/accounts')} />
+              <SidebarItem icon={Users} label="المستخدمين" onClick={() => navigateTo('users')} />
+            </div>
+          </div>
+
         </nav>
       </ScrollArea>
-      
-      <div className="p-3 border-t mt-auto">
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+
+      {/* ── Footer ── */}
+      <div className="p-3 border-t bg-muted/30 space-y-1">
+        <Link href="/">
+          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+            <Globe className="h-4 w-4 shrink-0" />
+            <span className="flex-1 text-right text-xs">عرض الموقع</span>
+          </button>
+        </Link>
+        <button
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
           onClick={handleLogout}
           data-testid="button-admin-logout"
         >
-          <LogOut className="h-4 w-4" />
-          تسجيل الخروج
-        </Button>
+          <LogOut className="h-4 w-4 shrink-0" />
+          <span className="flex-1 text-right text-xs">تسجيل الخروج</span>
+        </button>
       </div>
-    </>
+
+    </div>
   );
 
   // News Form Component
@@ -4333,19 +4385,33 @@ function SidebarItem({ icon: Icon, label, active, count, onClick }: { icon: any;
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-        active 
-          ? 'bg-primary text-primary-foreground' 
-          : 'hover-elevate text-muted-foreground hover:text-foreground'
+      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 relative group ${
+        active
+          ? 'bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-semibold'
+          : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
       }`}
     >
-      {count !== undefined && (
-        <Badge variant={active ? "secondary" : "outline"} className="text-xs min-w-[28px] justify-center">
-          {count}
-        </Badge>
+      {/* Active left border indicator */}
+      {active && (
+        <span className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-emerald-600 rounded-full" />
       )}
-      <span className="flex-1 text-right">{label}</span>
-      <Icon className="h-5 w-5" />
+      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+        active
+          ? 'bg-emerald-600 text-white'
+          : 'bg-muted/50 text-muted-foreground group-hover:bg-muted group-hover:text-foreground'
+      }`}>
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <span className="flex-1 text-right text-[13px]">{label}</span>
+      {count !== undefined && count !== null && (
+        <span className={`text-[11px] px-1.5 py-0.5 rounded-md font-medium min-w-[22px] text-center ${
+          active
+            ? 'bg-emerald-600/20 text-emerald-700 dark:text-emerald-300'
+            : 'bg-muted text-muted-foreground'
+        }`}>
+          {typeof count === 'number' && count > 999 ? '999+' : count}
+        </span>
+      )}
     </button>
   );
 }
