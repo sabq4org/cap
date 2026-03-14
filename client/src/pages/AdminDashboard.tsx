@@ -2330,6 +2330,17 @@ export default function AdminDashboard() {
                             {statusBadge(item.status)}
                             <span>{fmtSaudiDateOnly(item.publishedAt || item.createdAt)}</span>
                           </div>
+                          <div className="flex items-center gap-1.5 mt-0.5 lg:hidden">
+                            <span className="text-[11px] font-semibold text-foreground/70">
+                              {(item.viewCount ?? 0).toLocaleString('ar-SA-u-nu-latn')}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/50">مشاهدة</span>
+                            {item.todayViews > 0 && (
+                              <span className="text-[10px] text-emerald-600 flex items-center gap-0.5">
+                                <TrendingUp className="h-2.5 w-2.5" />+{item.todayViews}
+                              </span>
+                            )}
+                          </div>
                           {item.status === 'scheduled' && item.scheduledAt && (
                             <p className="text-[11px] text-blue-600 dark:text-blue-400 flex items-center gap-1 mt-0.5">
                               <Clock className="h-3 w-3" />
