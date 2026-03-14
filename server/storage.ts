@@ -868,9 +868,8 @@ export class DatabaseStorage implements IStorage {
     const byDay: Record<string, { newsCount: number; views: number }> = {};
     dateList.forEach(d => { byDay[d] = { newsCount: 0, views: 0 }; });
     for (const item of allItems) {
-      // newsCount: group published news by createdAt (DB insertion time, always accurate)
-      // publishedAt comes from RSS pubDate and may be old/wrong
-      if (item.status === 'published') {
+      // newsCount: group all non-deleted news by createdAt (matches "أخبار اليوم" stat card)
+      if (item.status !== 'deleted') {
         const dt = item.createdAt || item.publishedAt;
         if (dt) {
           const dayStr = new Date(dt).toLocaleDateString('en-CA', { timeZone: tz });
