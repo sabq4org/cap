@@ -1967,78 +1967,94 @@ export default function AdminDashboard() {
       return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.cls}`}>{s.label}</span>;
     };
 
+    const featuredCount = dashboardStats?.featuredNews || 0;
+
     return (
     <div className="space-y-5">
 
-      {/* ── Hero Header ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 shadow-xl">
-        <div className="absolute -top-12 -right-12 w-44 h-44 bg-white/5 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-12 -left-12 w-56 h-56 bg-green-400/5 rounded-full blur-2xl pointer-events-none" />
-        <div className="relative px-6 py-5 md:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* ── Hero Header (GREEN - same as Dashboard) ── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-700 via-emerald-700 to-teal-700 shadow-xl">
+        <div className="absolute -top-16 -right-16 w-56 h-56 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-72 h-72 bg-emerald-300/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-1/2 w-px h-full bg-white/5 pointer-events-none" />
+        <div className="relative px-6 py-6 md:px-8 md:py-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            {/* Title */}
             <div className="text-white">
-              <p className="text-white/50 text-xs mb-1 flex items-center gap-1.5">
+              <p className="text-white/50 text-xs mb-1.5 flex items-center gap-1.5">
                 <span>الرئيسية</span>
                 <ChevronRight className="h-3 w-3" />
                 <span>إدارة الأخبار</span>
               </p>
-              <h1 className="text-xl md:text-2xl font-bold">إدارة الأخبار</h1>
-              <p className="text-white/50 text-sm mt-0.5">
-                {publishedCount.toLocaleString('en-US')} منشور · {scheduledCount} مجدول · {draftCount} مسودة
-              </p>
+              <h1 className="text-2xl md:text-3xl font-bold mb-1">إدارة الأخبار</h1>
+              <p className="text-white/60 text-sm">إدارة وتنظيم ونشر المحتوى الإخباري</p>
+              <div className="flex flex-wrap gap-2 mt-4">
+                <Button
+                  size="sm"
+                  onClick={() => { resetForm(); setPublishMode('now'); setScheduledDateTime(""); setLocation('/admin/news/new'); }}
+                  className="gap-1.5 bg-white text-green-800 hover:bg-white/90 text-xs h-8 font-semibold shadow-md"
+                  data-testid="button-add-news"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  خبر جديد
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => autoClassifyMiscMutation.mutate()}
+                  disabled={autoClassifyMiscMutation.isPending || !!classifyJobId}
+                  className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white text-xs h-8"
+                  data-testid="button-auto-classify"
+                >
+                  {(autoClassifyMiscMutation.isPending || !!classifyJobId)
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Sparkles className="h-3.5 w-3.5" />
+                  }
+                  تصنيف ذكي
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2 shrink-0">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => autoClassifyMiscMutation.mutate()}
-                disabled={autoClassifyMiscMutation.isPending || !!classifyJobId}
-                className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white text-xs h-8"
-                data-testid="button-auto-classify"
-              >
-                {(autoClassifyMiscMutation.isPending || !!classifyJobId)
-                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  : <Sparkles className="h-3.5 w-3.5" />
-                }
-                تصنيف ذكي
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => { resetForm(); setPublishMode('now'); setScheduledDateTime(""); setLocation('/admin/news/new'); }}
-                className="gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs h-8 shadow-lg"
-                data-testid="button-add-news"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                خبر جديد
-              </Button>
+            {/* Compact Stats */}
+            <div className="grid grid-cols-4 gap-2 shrink-0">
+              {[
+                { label: "منشور", val: publishedCount, icon: Check },
+                { label: "مجدول", val: scheduledCount, icon: Clock },
+                { label: "مسودة", val: draftCount, icon: Edit },
+                { label: "مميز", val: featuredCount, icon: Star },
+              ].map(s => (
+                <div key={s.label} className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center border border-white/10 hover:bg-white/15 transition-colors">
+                  <s.icon className="h-4 w-4 mx-auto text-white/70 mb-1" />
+                  <p className="text-lg font-bold text-white leading-none">{s.val.toLocaleString('en-US')}</p>
+                  <p className="text-[10px] text-white/50 mt-0.5">{s.label}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Status Tab Cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* ── Status Tabs ── */}
+      <div className="flex items-center gap-1 bg-muted/60 rounded-xl p-1 w-fit">
         {statusCards.map((card) => (
           <button
             key={card.id}
             onClick={() => { setNewsStatusTab(card.id); setAdminNewsPage(1); }}
-            className={`group relative overflow-hidden rounded-xl p-4 text-right transition-all duration-200 border-2 ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
               newsStatusTab === card.id
-                ? 'border-current shadow-md scale-[1.02]'
-                : 'border-transparent hover:scale-[1.01] hover:shadow-sm'
-            } ${card.color}`}
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+            }`}
             data-testid={`stat-card-${card.id}`}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${card.iconBg} shadow-sm`}>
-                <card.icon className={`h-4 w-4 ${card.iconColor}`} />
-              </div>
-              {newsStatusTab === card.id && (
-                <div className="w-2 h-2 rounded-full bg-current mt-1" />
-              )}
-            </div>
-            <p className={`text-2xl font-bold ${card.textColor}`}>{card.count.toLocaleString('en-US')}</p>
-            <p className={`text-xs font-medium ${card.textColor} opacity-80 mt-0.5`}>{card.label}</p>
+            <card.icon className={`h-3.5 w-3.5 ${newsStatusTab === card.id ? card.iconColor : ''}`} />
+            {card.label}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+              newsStatusTab === card.id
+                ? `${card.iconBg} ${card.iconColor}`
+                : 'bg-muted text-muted-foreground'
+            }`}>
+              {card.count.toLocaleString('en-US')}
+            </span>
           </button>
         ))}
       </div>
@@ -2176,162 +2192,192 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ── News Cards List ── */}
+      {/* ── Professional News Table ── */}
       <Card className="border-0 shadow-md overflow-hidden">
-        {/* List Header */}
-        <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        {/* Table Header */}
+        <div className="px-5 py-3.5 border-b bg-muted/40 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <button onClick={toggleSelectAll} className="hover:text-primary transition-colors" title="تحديد الكل">
-              {selectedNewsIds.size === filteredNews.length && filteredNews.length > 0 ? (
-                <CheckSquare className="h-4 w-4 text-primary" />
-              ) : (
-                <Square className="h-4 w-4 text-muted-foreground" />
-              )}
+              {selectedNewsIds.size === filteredNews.length && filteredNews.length > 0
+                ? <CheckSquare className="h-4 w-4 text-primary" />
+                : <Square className="h-4 w-4 text-muted-foreground" />
+              }
             </button>
-            <span className="text-sm font-semibold text-foreground">قائمة الأخبار</span>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{adminNewsTotal}</span>
+            <div className="h-4 w-px bg-border" />
+            <p className="text-sm font-semibold text-foreground">قائمة الأخبار</p>
+            <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{adminNewsTotal} خبر</span>
           </div>
-          {isLoadingAdminNews && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          {isLoadingAdminNews
+            ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            : <span className="text-xs text-muted-foreground">صفحة {adminNewsPage} من {adminNewsTotalPages}</span>
+          }
         </div>
 
         {isLoadingAdminNews ? (
           <div className="p-12 text-center">
-            <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary mb-3" />
+            <Loader2 className="h-7 w-7 mx-auto animate-spin text-primary mb-3" />
             <p className="text-muted-foreground text-sm">جاري التحميل...</p>
           </div>
         ) : filteredNews.length > 0 ? (
-          <div className="divide-y divide-border/60">
-            {filteredNews.map((item: any, index: number) => (
-              <div
-                key={item.id}
-                className={`group flex items-start gap-3 p-3 md:p-4 transition-colors hover:bg-muted/30 ${selectedNewsIds.has(item.id) ? 'bg-primary/5' : ''}`}
-                data-testid={`row-news-${index}`}
-              >
-                {/* Checkbox */}
-                <button
-                  onClick={() => toggleSelectNews(item.id)}
-                  className="mt-1 shrink-0 text-muted-foreground hover:text-primary transition-colors"
-                  data-testid={`checkbox-news-${index}`}
-                >
-                  {selectedNewsIds.has(item.id)
-                    ? <CheckSquare className="h-4 w-4 text-primary" />
-                    : <Square className="h-4 w-4" />
-                  }
-                </button>
-
-                {/* Thumbnail */}
-                {item.imageUrl ? (
-                  <img
-                    src={item.imageUrl}
-                    alt=""
-                    className="w-16 h-14 md:w-20 md:h-16 object-cover rounded-xl shrink-0 hidden sm:block bg-muted"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <div className="w-16 h-14 md:w-20 md:h-16 rounded-xl bg-muted shrink-0 hidden sm:flex items-center justify-center">
-                    <Newspaper className="h-5 w-5 text-muted-foreground/40" />
-                  </div>
-                )}
-
-                {/* Main Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                    {statusBadge(item.status)}
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground">
-                      {categoryLabel(item.category)}
-                    </span>
-                    {item.isFeatured && (
-                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                        <Star className="h-2.5 w-2.5 fill-current" /> مميز
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2 mb-1.5 group-hover:text-primary transition-colors">
-                    {item.title}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-                    {item.source && (
-                      <span className="flex items-center gap-1 truncate max-w-[140px]">
-                        <Globe className="h-3 w-3 shrink-0" />
-                        {item.source}
-                      </span>
-                    )}
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3 shrink-0" />
-                      {fmtSaudiDateOnly(item.publishedAt || item.createdAt)}
-                      <span className="opacity-60">{fmtSaudiTimeOnly(item.publishedAt || item.createdAt)}</span>
-                    </span>
-                    <span className="flex items-center gap-1" data-testid={`text-views-${index}`}>
-                      <Eye className="h-3 w-3 shrink-0" />
-                      {(item.viewCount ?? 0).toLocaleString('ar-SA-u-nu-latn')}
-                    </span>
-                    {item.todayViews > 0 && (
-                      <span className="flex items-center gap-1 text-green-600">
-                        <TrendingUp className="h-3 w-3 shrink-0" />
-                        {item.todayViews} اليوم
-                      </span>
-                    )}
-                    {item.createdBy && (
-                      <span className="opacity-60 hidden lg:inline">بواسطة: {item.createdBy}</span>
-                    )}
-                    {item.status === 'scheduled' && item.scheduledAt && (
-                      <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                        <Clock className="h-3 w-3 shrink-0" />
-                        مجدول: {fmtSaudiDateOnly(item.scheduledAt)} {fmtSaudiTimeOnly(item.scheduledAt)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => toggleFeaturedMutation.mutate({ id: item.id, isFeatured: !item.isFeatured })}
-                    disabled={toggleFeaturedMutation.isPending}
-                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${item.isFeatured ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/30' : 'text-muted-foreground hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30'}`}
-                    title={item.isFeatured ? 'إلغاء التمييز' : 'تمييز'}
-                    data-testid={`button-toggle-featured-${index}`}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              {/* thead */}
+              <thead>
+                <tr className="border-b bg-muted/20">
+                  <th className="w-10 p-3 text-right" />
+                  <th className="p-3 text-right font-medium text-muted-foreground text-xs">الخبر</th>
+                  <th className="p-3 text-right font-medium text-muted-foreground text-xs hidden md:table-cell w-28">التصنيف</th>
+                  <th className="p-3 text-center font-medium text-muted-foreground text-xs hidden md:table-cell w-20">الحالة</th>
+                  <th className="p-3 text-right font-medium text-muted-foreground text-xs hidden lg:table-cell w-32">المصدر</th>
+                  <th className="p-3 text-right font-medium text-muted-foreground text-xs hidden lg:table-cell w-36">التاريخ</th>
+                  <th className="p-3 text-center font-medium text-muted-foreground text-xs hidden lg:table-cell w-20">المشاهدات</th>
+                  <th className="p-3 text-center font-medium text-muted-foreground text-xs w-12">⭐</th>
+                  <th className="p-3 text-center font-medium text-muted-foreground text-xs w-24">إجراءات</th>
+                </tr>
+              </thead>
+              {/* tbody */}
+              <tbody className="divide-y divide-border/50">
+                {filteredNews.map((item: any, index: number) => (
+                  <tr
+                    key={item.id}
+                    className={`group transition-colors hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 ${selectedNewsIds.has(item.id) ? 'bg-primary/5' : ''}`}
+                    data-testid={`row-news-${index}`}
                   >
-                    <Star className={`h-3.5 w-3.5 ${item.isFeatured ? 'fill-current' : ''}`} />
-                  </button>
-                  {newsStatusTab === 'deleted' ? (
-                    <>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30" onClick={() => handleRestoreNews(item.id)} title="استعادة" data-testid={`button-restore-news-${index}`}>
-                        <ArrowUpRight className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => handleDeleteNews(item.id)} title="حذف نهائي" data-testid={`button-delete-news-${index}`}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={() => handleEditNews(item)} title="تعديل" data-testid={`button-edit-news-${index}`}>
-                        <Edit className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => handleDeleteNews(item.id)} title="حذف" data-testid={`button-delete-news-${index}`}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
+                    {/* Checkbox */}
+                    <td className="p-3 w-10">
+                      <button onClick={() => toggleSelectNews(item.id)} className="text-muted-foreground hover:text-primary transition-colors" data-testid={`checkbox-news-${index}`}>
+                        {selectedNewsIds.has(item.id)
+                          ? <CheckSquare className="h-4 w-4 text-primary" />
+                          : <Square className="h-4 w-4" />
+                        }
+                      </button>
+                    </td>
+
+                    {/* Title + Thumbnail */}
+                    <td className="p-3">
+                      <div className="flex items-center gap-3">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt="" className="w-11 h-11 object-cover rounded-lg shrink-0 hidden sm:block bg-muted border border-border/50" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        ) : (
+                          <div className="w-11 h-11 rounded-lg bg-muted shrink-0 hidden sm:flex items-center justify-center border border-border/50">
+                            <Newspaper className="h-4 w-4 text-muted-foreground/40" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground line-clamp-2 leading-snug text-[13px] group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
+                            {item.title}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground md:hidden">
+                            {statusBadge(item.status)}
+                            <span>{fmtSaudiDateOnly(item.publishedAt || item.createdAt)}</span>
+                          </div>
+                          {item.status === 'scheduled' && item.scheduledAt && (
+                            <p className="text-[11px] text-blue-600 dark:text-blue-400 flex items-center gap-1 mt-0.5">
+                              <Clock className="h-3 w-3" />
+                              مجدول: {fmtSaudiDateOnly(item.scheduledAt)} {fmtSaudiTimeOnly(item.scheduledAt)}
+                            </p>
+                          )}
+                          {item.createdBy && (
+                            <p className="text-[11px] text-muted-foreground/60 mt-0.5 hidden lg:block">بواسطة: {item.createdBy}</p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Category */}
+                    <td className="p-3 hidden md:table-cell">
+                      <span className="inline-flex items-center px-2 py-1 rounded-lg text-[11px] font-medium bg-muted text-muted-foreground">
+                        {categoryLabel(item.category)}
+                      </span>
+                    </td>
+
+                    {/* Status */}
+                    <td className="p-3 text-center hidden md:table-cell">
+                      {statusBadge(item.status)}
+                    </td>
+
+                    {/* Source */}
+                    <td className="p-3 hidden lg:table-cell">
+                      <span className="text-[11px] text-muted-foreground truncate block max-w-[120px]" title={item.source || ''}>
+                        {item.source || <span className="opacity-40">—</span>}
+                      </span>
+                    </td>
+
+                    {/* Date */}
+                    <td className="p-3 hidden lg:table-cell">
+                      <p className="text-[11px] text-muted-foreground">{fmtSaudiDateOnly(item.publishedAt || item.createdAt)}</p>
+                      <p className="text-[10px] text-muted-foreground/60">{fmtSaudiTimeOnly(item.publishedAt || item.createdAt)}</p>
+                    </td>
+
+                    {/* Views */}
+                    <td className="p-3 text-center hidden lg:table-cell" data-testid={`text-views-${index}`}>
+                      <div className="flex flex-col items-center">
+                        <span className="text-sm font-semibold text-foreground">{(item.viewCount ?? 0).toLocaleString('ar-SA-u-nu-latn')}</span>
+                        {item.todayViews > 0 && (
+                          <span className="text-[10px] text-emerald-600 flex items-center gap-0.5">
+                            <TrendingUp className="h-2.5 w-2.5" />{item.todayViews}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Featured */}
+                    <td className="p-3 text-center">
+                      <button
+                        onClick={() => toggleFeaturedMutation.mutate({ id: item.id, isFeatured: !item.isFeatured })}
+                        disabled={toggleFeaturedMutation.isPending}
+                        className={`w-7 h-7 mx-auto flex items-center justify-center rounded-lg transition-all ${item.isFeatured ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/30' : 'text-muted-foreground/40 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 opacity-0 group-hover:opacity-100'}`}
+                        title={item.isFeatured ? 'إلغاء التمييز' : 'تمييز'}
+                        data-testid={`button-toggle-featured-${index}`}
+                      >
+                        <Star className={`h-3.5 w-3.5 ${item.isFeatured ? 'fill-current' : ''}`} />
+                      </button>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="p-3">
+                      <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {newsStatusTab === 'deleted' ? (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" onClick={() => handleRestoreNews(item.id)} title="استعادة" data-testid={`button-restore-news-${index}`}>
+                              <ArrowUpRight className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => handleDeleteNews(item.id)} title="حذف نهائي" data-testid={`button-delete-news-${index}`}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-muted hover:text-emerald-700" onClick={() => handleEditNews(item)} title="تعديل" data-testid={`button-edit-news-${index}`}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-red-50 dark:hover:bg-red-900/30" onClick={() => handleDeleteNews(item.id)} title="حذف" data-testid={`button-delete-news-${index}`}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
           <div className="py-16 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted flex items-center justify-center">
-              <Newspaper className="h-7 w-7 text-muted-foreground/50" />
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted/50 flex items-center justify-center">
+              <Newspaper className="h-7 w-7 text-muted-foreground/40" />
             </div>
-            <p className="text-muted-foreground font-medium">
+            <p className="text-muted-foreground font-medium mb-1">
               {newsSearchQuery || newsCategoryFilter !== 'all'
                 ? 'لا توجد نتائج مطابقة للبحث'
                 : newsStatusTab === 'deleted' ? 'لا توجد أخبار محذوفة'
                 : newsStatusTab === 'draft' ? 'لا توجد مسودات'
                 : newsStatusTab === 'scheduled' ? 'لا توجد أخبار مجدولة'
-                : 'لا توجد أخبار منشورة'}
+                : 'لا توجد أخبار منشورة بعد'}
             </p>
             {newsStatusTab === 'published' && !newsSearchQuery && newsCategoryFilter === 'all' && (
-              <Button className="mt-4 gap-2" onClick={() => { resetForm(); setPublishMode('now'); setScheduledDateTime(""); setLocation('/admin/news/new'); }}>
+              <Button className="mt-4 gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => { resetForm(); setPublishMode('now'); setScheduledDateTime(""); setLocation('/admin/news/new'); }}>
                 <Plus className="h-4 w-4" />
                 إضافة أول خبر
               </Button>
