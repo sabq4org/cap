@@ -496,13 +496,13 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
                 نشاط النشر والمشاهدات
               </CardTitle>
               <div className="flex gap-1">
-                {[7, 14, 30].map(d => (
+                {([7, 14, 30] as const).map(d => (
                   <button
                     key={d}
                     onClick={() => setChartDays(d)}
                     className={`text-xs px-2 py-0.5 rounded-md transition-colors ${chartDays === d ? "bg-green-600 text-white" : "text-muted-foreground hover:bg-muted"}`}
                   >
-                    {d}د
+                    {d} يوم
                   </button>
                 ))}
               </div>
