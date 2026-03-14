@@ -13,6 +13,7 @@ import {
   Strikethrough,
   Link as LinkIcon,
   Image as ImageIcon,
+  ImageOff,
   AlignLeft,
   AlignCenter,
   AlignRight,
@@ -366,6 +367,24 @@ export function RichTextEditor({
             <Upload className="h-4 w-4" />
           )}
         </ToolbarButton>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "h-8 w-8",
+            editor.isActive('image') && "bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-950 dark:text-red-400"
+          )}
+          onClick={() => {
+            editor.chain().focus().deleteSelection().run();
+          }}
+          title={editor.isActive('image') ? "حذف الصورة المحددة" : "انقر على صورة في المتن لتحديدها ثم احذفها"}
+          disabled={!editor.isActive('image')}
+          data-testid="button-delete-image"
+        >
+          <ImageOff className="h-4 w-4" />
+        </Button>
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 

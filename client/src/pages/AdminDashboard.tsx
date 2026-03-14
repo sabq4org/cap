@@ -1172,6 +1172,13 @@ export default function AdminDashboard() {
       return;
     }
 
+    if (formData.imageUrl) {
+      const confirmed = window.confirm(
+        'لديك صورة غلاف محملة بالفعل.\nهل تريد استبدالها بصورة جديدة مُولَّدة من الذكاء الاصطناعي؟'
+      );
+      if (!confirmed) return;
+    }
+
     setIsGeneratingImage(true);
     try {
       const res = await apiRequest("POST", "/api/admin/generate-image-ai", {
