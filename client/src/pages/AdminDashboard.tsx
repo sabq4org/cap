@@ -2326,10 +2326,20 @@ export default function AdminDashboard() {
                           <p className="font-semibold text-foreground line-clamp-2 leading-snug text-[13px] group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
                             {item.title}
                           </p>
-                          <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground md:hidden">
+                          {/* Mobile: status + date + time */}
+                          <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[11px] text-muted-foreground md:hidden">
                             {statusBadge(item.status)}
                             <span>{fmtSaudiDateOnly(item.publishedAt || item.createdAt)}</span>
+                            <span className="opacity-40">·</span>
+                            <span>{fmtSaudiTimeOnly(item.publishedAt || item.createdAt)}</span>
+                            {item.createdBy && (
+                              <>
+                                <span className="opacity-40">·</span>
+                                <span className="text-muted-foreground/70">{item.createdBy}</span>
+                              </>
+                            )}
                           </div>
+                          {/* Mobile: views count */}
                           <div className="flex items-center gap-1.5 mt-0.5 lg:hidden">
                             <span className="text-[11px] font-semibold text-foreground/70">
                               {(item.viewCount ?? 0).toLocaleString('ar-SA-u-nu-latn')}
@@ -4195,10 +4205,15 @@ export default function AdminDashboard() {
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="secondary" className="text-xs">{categories.find(c => c.value === item.category)?.label || item.category}</Badge>
                     </div>
-                    <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                      <span>{item.createdBy || "نظام"}</span>
-                      <span>•</span>
-                      <span>{fmtDateEnglish(item.publishedAt || item.createdAt)}</span>
+                    <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground flex-wrap">
+                      {item.createdBy && (
+                        <>
+                          <span>{item.createdBy}</span>
+                          <span className="opacity-40">·</span>
+                        </>
+                      )}
+                      <span>{fmtSaudiDateOnly(item.publishedAt || item.createdAt)}</span>
+                      <span className="opacity-40">·</span>
                       <span>{fmtSaudiTimeOnly(item.publishedAt || item.createdAt)}</span>
                     </div>
                   </div>

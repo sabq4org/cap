@@ -126,6 +126,7 @@ export default function AdminRadar() {
   const [searchQuery, setSearchQuery]       = useState("");
   const [sidebarOpen, setSidebarOpen]       = useState(false);
   const [processingId, setProcessingId]     = useState<string | null>(null);
+  const [translatingId, setTranslatingId]   = useState<string | null>(null);
   const [selected, setSelected]             = useState<Set<string>>(new Set());
   const [showAddSource, setShowAddSource]   = useState(false);
   const [showAddKeyword, setShowAddKeyword] = useState(false);
@@ -227,6 +228,25 @@ export default function AdminRadar() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items/stats"] });
+    },
+  });
+
+  const translateItemMut = useMutation({
+    mutationFn: async (id: string) => {
+      setTranslatingId(id);
+      return apiRequest("POST", `/api/radar/items/${id}/translate`).then(r => r.json());
+    },
+    onSuccess: (d) => {
+      setTranslatingId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
+      toast({
+        title: "تمت الترجمة",
+        description: `درجة الأهمية: ${d.translation?.importanceScore ?? d.importanceScore ?? "—"}/10`,
+      });
+    },
+    onError: () => {
+      setTranslatingId(null);
+      toast({ title: "فشل في الترجمة", variant: "destructive" });
     },
   });
 
@@ -730,13 +750,29 @@ export default function AdminRadar() {
 
                           {/* Actions */}
                           <td className="p-3">
-                            <div className="flex items-center justify-center gap-1">
+                            <div className="flex items-center justify-center gap-1 flex-wrap">
+                              {/* Translate only — shows result in row before publishing */}
+                              {item.status !== "published" && item.status !== "rejected" && !item.titleAr && (
+                                <Button
+                                  size="icon" variant="ghost"
+                                  className="h-7 w-7 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30"
+                                  onClick={() => translateItemMut.mutate(item.id)}
+                                  disabled={translatingId === item.id || processingId === item.id}
+                                  title="ترجمة فقط (لمراجعة النص قبل النشر)"
+                                  data-testid={`button-translate-${item.id}`}
+                                >
+                                  {translatingId === item.id
+                                    ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                    : <Brain className="h-3.5 w-3.5" />}
+                                </Button>
+                              )}
+                              {/* Publish as draft */}
                               {item.status !== "published" && item.status !== "rejected" && (
                                 <Button
                                   size="sm"
                                   className="h-7 text-[11px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2"
                                   onClick={() => processAndPublishMut.mutate(item.id)}
-                                  disabled={processingId === item.id}
+                                  disabled={processingId === item.id || translatingId === item.id}
                                   title="ترجمة ونشر مسودة"
                                   data-testid={`button-publish-${item.id}`}
                                 >
