@@ -19,7 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Star,
-  Brain
+  Brain,
+  AlertTriangle
 } from "lucide-react";
 import { isAiGeneratedImage } from "@/components/AIImageBadge";
 import defaultNewsImage from "@assets/stock_images/healthcare_medical_n_906373b9.jpg";
@@ -121,7 +122,7 @@ export default function Landing() {
               >
                 {featuredNewsList.map((item, index) => (
                   <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`} className="w-full flex-shrink-0">
-                    <Card className="overflow-hidden hover-elevate group cursor-pointer" data-testid={`card-featured-news-${index}`}>
+                    <Card className={`overflow-hidden hover-elevate group cursor-pointer ${item.isBreaking ? "ring-2 ring-red-500" : ""}`} data-testid={`card-featured-news-${index}`}>
                       <div className="grid md:grid-cols-2">
                         <div className="relative order-1 aspect-video md:aspect-auto md:h-full">
                           <img 
@@ -129,9 +130,20 @@ export default function Landing() {
                             alt={item.title}
                             className="absolute inset-0 w-full h-full object-cover"
                           />
+                          {item.isBreaking && (
+                            <span className="absolute top-3 right-3 inline-flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold animate-pulse shadow-lg z-10">
+                              <AlertTriangle className="h-4 w-4" />
+                              خبر عاجل
+                            </span>
+                          )}
                         </div>
                         <div className="p-4 md:p-6 flex flex-col justify-center order-2 min-h-[300px] md:min-h-[400px]">
                           <div className="flex items-center gap-2 mb-3 flex-wrap">
+                            {item.isBreaking && (
+                              <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 w-fit text-sm">
+                                عاجل
+                              </Badge>
+                            )}
                             <Badge className={`${categoryColors[item.category] || ""} w-fit text-sm`}>
                               {categoryLabels[item.category] || item.category}
                             </Badge>
@@ -139,7 +151,7 @@ export default function Landing() {
                               <Brain className="h-4 w-4 text-sky-500" />
                             )}
                           </div>
-                          <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3 group-hover:text-primary transition-colors">
+                          <h2 className={`text-xl md:text-2xl lg:text-3xl font-bold mb-3 transition-colors ${item.isBreaking ? "text-red-700 dark:text-red-400" : "group-hover:text-primary"}`}>
                             {item.title}
                           </h2>
                           <p className="text-sm md:text-base text-muted-foreground line-clamp-3 mb-4">
@@ -224,16 +236,27 @@ export default function Landing() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
               {latestNews.map((item, index) => (
                 <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
-                  <Card className="hover-elevate overflow-hidden cursor-pointer h-full" data-testid={`card-latest-news-${item.id}`}>
+                  <Card className={`hover-elevate overflow-hidden cursor-pointer h-full ${item.isBreaking ? "ring-2 ring-red-500 shadow-red-100 dark:shadow-red-950/30" : ""}`} data-testid={`card-latest-news-${item.id}`}>
                     <div className="relative">
                       <img 
                         src={item.imageUrl || newsImages[index % newsImages.length]} 
                         alt={item.title}
                         className="w-full h-24 md:h-28 object-cover"
                       />
+                      {item.isBreaking && (
+                        <span className="absolute top-1.5 right-1.5 inline-flex items-center gap-0.5 bg-red-600 text-white px-1.5 py-0.5 rounded text-[10px] font-bold animate-pulse shadow-lg z-10">
+                          <AlertTriangle className="h-3 w-3" />
+                          عاجل
+                        </span>
+                      )}
                     </div>
                     <CardContent className="p-3">
                       <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                        {item.isBreaking && (
+                          <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 text-sm">
+                            عاجل
+                          </Badge>
+                        )}
                         <Badge className={`${categoryColors[item.category] || ""} text-sm`}>
                           {categoryLabels[item.category] || item.category}
                         </Badge>
@@ -241,7 +264,7 @@ export default function Landing() {
                           <Brain className="h-3.5 w-3.5 text-sky-500" />
                         )}
                       </div>
-                      <h4 className="font-semibold text-xs md:text-sm line-clamp-2 mb-1">
+                      <h4 className={`font-semibold text-xs md:text-sm line-clamp-2 mb-1 ${item.isBreaking ? "text-red-700 dark:text-red-400" : ""}`}>
                         {item.title}
                       </h4>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
