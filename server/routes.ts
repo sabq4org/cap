@@ -447,9 +447,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? `${baseUrl}/n/${newsItem.shortCode}`
         : `${baseUrl}/news/${newsItem.id}`;
       
-      const rawTitle = newsItem.seoTitle || newsItem.title;
+      const ogTitle = escapeHtml(newsItem.title);
       const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
-      const title = escapeHtml(rawTitle);
       const description = escapeHtml(rawDescription);
       const imageId = newsItem.shortCode || newsItem.id;
       const imageVer = newsItem.updatedAt ? Math.floor(new Date(newsItem.updatedAt).getTime() / 1000) : 1;
@@ -459,12 +458,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>${title} | كبسولة</title>
+  <title>${ogTitle} | كبسولة</title>
   <meta name="description" content="${description}">
   
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="كبسولة">
-  <meta property="og:title" content="${title}">
+  <meta property="og:title" content="${ogTitle}">
   <meta property="og:description" content="${description}">
   <meta property="og:image" content="${imageUrl}">
   <meta property="og:image:width" content="1200">
@@ -476,10 +475,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@capsulah_sa">
-  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:title" content="${ogTitle}">
   <meta name="twitter:description" content="${description}">
   <meta name="twitter:image" content="${imageUrl}">
-  <meta name="twitter:image:alt" content="${title}">
+  <meta name="twitter:image:alt" content="${ogTitle}">
   
   <meta http-equiv="refresh" content="0;url=${pageUrl}">
   <link rel="canonical" href="${pageUrl}">
@@ -526,9 +525,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return next();
       }
       
-      const rawTitle = newsItem.seoTitle || newsItem.title;
+      const ogTitle = escapeHtml(newsItem.title);
       const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
-      const title = escapeHtml(rawTitle);
       const description = escapeHtml(rawDescription);
       const reqHost = req.get('host') || 'capsulah.com';
       const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
@@ -545,12 +543,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>${title} | كبسولة</title>
+  <title>${ogTitle} | كبسولة</title>
   <meta name="description" content="${description}">
   
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="كبسولة">
-  <meta property="og:title" content="${title}">
+  <meta property="og:title" content="${ogTitle}">
   <meta property="og:description" content="${description}">
   <meta property="og:image" content="${imageUrl}">
   <meta property="og:image:width" content="1200">
@@ -562,17 +560,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@capsulah_sa">
-  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:title" content="${ogTitle}">
   <meta name="twitter:description" content="${description}">
   <meta name="twitter:image" content="${imageUrl}">
-  <meta name="twitter:image:alt" content="${title}">
+  <meta name="twitter:image:alt" content="${ogTitle}">
   
   <link rel="canonical" href="${pageUrl}">
 </head>
 <body>
-  <h1>${title}</h1>
+  <h1>${ogTitle}</h1>
   <p>${description}</p>
-  <img src="${imageUrl}" alt="${title}">
+  <img src="${imageUrl}" alt="${ogTitle}">
 </body>
 </html>`;
       
@@ -602,9 +600,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return next();
       }
       
-      const rawTitle = newsItem.seoTitle || newsItem.title;
+      const ogTitle = escapeHtml(newsItem.title);
       const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
-      const title = escapeHtml(rawTitle);
       const description = escapeHtml(rawDescription);
       const reqHost = req.get('host') || 'capsulah.com';
       const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
@@ -618,12 +615,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>${title} | كبسولة</title>
+  <title>${ogTitle} | كبسولة</title>
   <meta name="description" content="${description}">
   
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="كبسولة">
-  <meta property="og:title" content="${title}">
+  <meta property="og:title" content="${ogTitle}">
   <meta property="og:description" content="${description}">
   <meta property="og:image" content="${imageUrl}">
   <meta property="og:image:width" content="1200">
@@ -635,17 +632,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@capsulah_sa">
-  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:title" content="${ogTitle}">
   <meta name="twitter:description" content="${description}">
   <meta name="twitter:image" content="${imageUrl}">
-  <meta name="twitter:image:alt" content="${title}">
+  <meta name="twitter:image:alt" content="${ogTitle}">
   
   <link rel="canonical" href="${pageUrl}">
 </head>
 <body>
-  <h1>${title}</h1>
+  <h1>${ogTitle}</h1>
   <p>${description}</p>
-  <img src="${imageUrl}" alt="${title}">
+  <img src="${imageUrl}" alt="${ogTitle}">
 </body>
 </html>`;
       

@@ -273,7 +273,7 @@ export default function NewsDetail() {
   return (
     <>
       <SEO
-        title={news.seoTitle || news.title}
+        title={news.title}
         description={seoDescription}
         image={seoImage}
         type="article"
