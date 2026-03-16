@@ -124,18 +124,25 @@ function TranslationPreviewDialog({
 }) {
   return (
     <Dialog open={!!preview} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] flex flex-col p-0 gap-0" dir="rtl">
+      <DialogContent
+        className="max-w-2xl w-full sm:w-[95vw] p-0 gap-0 flex flex-col
+          h-[100dvh] sm:h-auto sm:max-h-[92vh]
+          top-0 sm:top-[50%] translate-y-0 sm:translate-y-[-50%]
+          rounded-none sm:rounded-xl"
+        dir="rtl"
+      >
         {preview && (
           <>
-            <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+            {/* Header — fixed */}
+            <DialogHeader className="px-4 sm:px-6 pt-5 pb-4 border-b shrink-0">
               <div className="flex items-center gap-2 mb-2">
-                <Brain className="h-5 w-5 text-violet-600" />
+                <Brain className="h-4 w-4 text-violet-600" />
                 <span className="text-sm font-semibold text-violet-700 dark:text-violet-400">معاينة المادة المترجمة</span>
                 {preview.isBreaking && (
                   <Badge className="bg-red-100 text-red-700 text-[10px] px-2">عاجل</Badge>
                 )}
               </div>
-              <DialogTitle className="text-lg font-bold leading-snug text-right">
+              <DialogTitle className="text-base sm:text-lg font-bold leading-snug text-right">
                 {preview.title}
               </DialogTitle>
               <p className="text-[11px] text-muted-foreground mt-1 text-right line-clamp-2">
@@ -143,40 +150,40 @@ function TranslationPreviewDialog({
               </p>
             </DialogHeader>
 
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="px-6 py-5 space-y-5">
-                <div className="flex flex-wrap gap-2 items-center">
-                  <Badge variant="outline" className="text-xs gap-1 border-emerald-300 text-emerald-700 dark:text-emerald-400">
-                    <CheckCircle className="h-3 w-3" />
-                    أهمية: {preview.importance} من 10
+            {/* Scrollable body — native scroll for full touch support */}
+            <div className="flex-1 overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch px-4 sm:px-6 py-5 space-y-5">
+              <div className="flex flex-wrap gap-2 items-center">
+                <Badge variant="outline" className="text-xs gap-1 border-emerald-300 text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle className="h-3 w-3" />
+                  أهمية: {preview.importance} من 10
+                </Badge>
+                {preview.category && (
+                  <Badge variant="outline" className="text-xs text-blue-700 border-blue-200 dark:text-blue-400">
+                    {preview.category}
                   </Badge>
-                  {preview.category && (
-                    <Badge variant="outline" className="text-xs text-blue-700 border-blue-200 dark:text-blue-400">
-                      {preview.category}
-                    </Badge>
-                  )}
-                  {preview.keywords.slice(0, 5).map(kw => (
-                    <Badge key={kw} variant="secondary" className="text-[10px]">{kw}</Badge>
-                  ))}
-                </div>
-
-                {preview.summary && (
-                  <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400 mb-2">الملخص</p>
-                    <p className="text-sm leading-relaxed text-foreground">{preview.summary}</p>
-                  </div>
                 )}
-
-                {preview.content && (
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">المحتوى الكامل</p>
-                    <p className="text-sm leading-loose whitespace-pre-wrap text-foreground/90">{preview.content}</p>
-                  </div>
-                )}
+                {preview.keywords.slice(0, 5).map(kw => (
+                  <Badge key={kw} variant="secondary" className="text-[10px]">{kw}</Badge>
+                ))}
               </div>
-            </ScrollArea>
 
-            <div className="px-6 py-4 border-t shrink-0 flex items-center justify-between gap-3 bg-muted/30">
+              {preview.summary && (
+                <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400 mb-2">الملخص</p>
+                  <p className="text-sm leading-relaxed text-foreground">{preview.summary}</p>
+                </div>
+              )}
+
+              {preview.content && (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">المحتوى الكامل</p>
+                  <p className="text-sm leading-loose whitespace-pre-wrap text-foreground/90 pb-2">{preview.content}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer — fixed */}
+            <div className="px-4 sm:px-6 py-4 border-t shrink-0 flex items-center justify-between gap-3 bg-muted/30">
               <Button variant="outline" onClick={onClose} className="text-sm" data-testid="button-preview-close">
                 إغلاق فقط
               </Button>
