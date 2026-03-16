@@ -38,7 +38,8 @@ import {
   Pill,
   ShieldCheck,
   Utensils,
-  TrendingUp
+  TrendingUp,
+  AlertTriangle
 } from "lucide-react";
 import { SiX, SiWhatsapp } from "react-icons/si";
 import { AIImageBadge } from "@/components/AIImageBadge";
@@ -293,11 +294,17 @@ export default function NewsDetail() {
           <div className="lg:col-span-2">
             <article>
               <header className="mb-6">
-                <Badge className={`${categoryColors[news.category] || ""} mb-4 text-sm`}>
+                {news.isBreaking && (
+                  <div className="inline-flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold mb-3 animate-pulse shadow-lg">
+                    <AlertTriangle className="h-4 w-4" />
+                    خبر عاجل
+                  </div>
+                )}
+                <Badge className={`${news.isBreaking ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200" : categoryColors[news.category] || ""} mb-4 text-sm`}>
                   {categoryLabels[news.category] || news.category}
                 </Badge>
                 
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight mb-2" data-testid="text-news-title">
+                <h1 className={`text-2xl md:text-3xl lg:text-4xl font-bold leading-tight mb-2 ${news.isBreaking ? "text-red-700 dark:text-red-400" : ""}`} data-testid="text-news-title">
                   {news.title}
                 </h1>
                 

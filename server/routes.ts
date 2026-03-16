@@ -1423,7 +1423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/news/:id', isAdminAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, subtitle, content, summary, category, source, imageUrl, imageAlt, seoTitle, seoDescription, keywords, status, scheduledAt, isFeatured } = req.body;
+      const { title, subtitle, content, summary, category, source, imageUrl, imageAlt, seoTitle, seoDescription, keywords, status, scheduledAt, isFeatured, isBreaking } = req.body;
       
       const updateData: any = {};
       if (title !== undefined) updateData.title = title;
@@ -1438,6 +1438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (seoDescription !== undefined) updateData.seoDescription = seoDescription || null;
       if (keywords !== undefined) updateData.keywords = keywords || [];
       if (isFeatured !== undefined) updateData.isFeatured = isFeatured;
+      if (isBreaking !== undefined) updateData.isBreaking = isBreaking;
       if (status !== undefined) updateData.status = status;
       if (scheduledAt !== undefined) {
         updateData.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;

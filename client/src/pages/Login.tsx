@@ -14,7 +14,7 @@ import { Link } from "wouter";
 import { LogIn, Eye, EyeOff } from "lucide-react";
 
 const loginSchema = z.object({
-  email: z.string().email("البريد الإلكتروني غير صحيح"),
+  email: z.string().min(1, "الرجاء إدخال اسم المستخدم أو البريد الإلكتروني"),
   password: z.string().min(1, "كلمة المرور مطلوبة"),
 });
 type LoginForm = z.infer<typeof loginSchema>;

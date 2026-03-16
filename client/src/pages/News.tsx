@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Newspaper, Search, Clock, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Newspaper, Search, Clock, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertTriangle } from "lucide-react";
 import { AIImageBadge } from "@/components/AIImageBadge";
 import type { News as NewsType } from "@shared/schema";
 import newsImage1 from "@assets/stock_images/medical_health_healt_fdb22ee1.jpg";
@@ -193,7 +193,7 @@ export default function News() {
               {filteredNews.map((item, index) => (
                 <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
                   <Card 
-                    className="hover-elevate cursor-pointer transition-all overflow-hidden h-full"
+                    className={`hover-elevate cursor-pointer transition-all overflow-hidden h-full ${item.isBreaking ? "ring-2 ring-red-500 shadow-red-100 dark:shadow-red-950/30" : ""}`}
                     data-testid={`news-card-${item.id}`}
                   >
                     <div className="relative">
@@ -203,15 +203,21 @@ export default function News() {
                         className="w-full aspect-video object-cover"
                       />
                       <AIImageBadge imageUrl={item.imageUrl} size="sm" />
+                      {item.isBreaking && (
+                        <span className="absolute top-2 right-2 inline-flex items-center gap-1 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold animate-pulse shadow-lg z-10">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          عاجل
+                        </span>
+                      )}
                     </div>
                     <CardContent className="p-3" dir="rtl">
                       <Badge 
-                        className={`${categoryColors[item.category] || ""} text-sm mb-2`}
+                        className={`${item.isBreaking ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200" : categoryColors[item.category] || ""} text-sm mb-2`}
                         data-testid={`badge-category-${item.category}`}
                       >
-                        {getCategoryLabel(item.category)}
+                        {item.isBreaking ? "عاجل" : getCategoryLabel(item.category)}
                       </Badge>
-                      <h3 className="font-semibold text-sm line-clamp-2 mb-2">
+                      <h3 className={`font-semibold text-sm line-clamp-2 mb-2 ${item.isBreaking ? "text-red-700 dark:text-red-400" : ""}`}>
                         {item.title}
                       </h3>
                       <div className="flex items-center justify-between gap-1 text-xs text-muted-foreground">

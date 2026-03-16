@@ -240,6 +240,7 @@ export const news = pgTable("news", {
   todayViewsDate: varchar("today_views_date", { length: 10 }), // YYYY-MM-DD (Saudi timezone)
   isTranslated: boolean("is_translated").default(false), // Was translated from another language (e.g. English → Arabic)
   isFeatured: boolean("is_featured").default(false), // Featured news appears in Hero section
+  isBreaking: boolean("is_breaking").default(false), // Breaking news flag — red highlight
   status: varchar("status").notNull().default("published"), // "draft", "published", "scheduled", "deleted"
   scheduledAt: timestamp("scheduled_at"), // When to publish scheduled news
   deletedAt: timestamp("deleted_at"), // Soft delete timestamp

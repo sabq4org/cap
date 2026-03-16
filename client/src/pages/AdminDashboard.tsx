@@ -10,7 +10,7 @@ import {
   TrendingUp, Eye, LogOut, Plus, Edit, Trash2, Search,
   Activity, Utensils, Heart, Settings, ChevronLeft, BarChart3,
   Calendar, Clock, ArrowUpRight, ArrowDownRight, Sparkles, Menu, X,
-  Save, Loader2, ChevronRight, Image, Upload, ImagePlus, Download, Globe, Check, AlertCircle, CheckSquare, Square, Star, Shield, Apple, Radar, Wand2, LayoutTemplate, ChevronsLeft, ChevronsRight, ArrowUpDown, Rss
+  Save, Loader2, ChevronRight, Image, Upload, ImagePlus, Download, Globe, Check, AlertCircle, CheckSquare, Square, Star, Shield, Apple, Radar, Wand2, LayoutTemplate, ChevronsLeft, ChevronsRight, ArrowUpDown, Rss, AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -604,6 +604,23 @@ export default function AdminDashboard() {
         description: "حدث خطأ أثناء تغيير حالة التمييز",
         variant: "destructive",
       });
+    },
+  });
+
+  const toggleBreakingMutation = useMutation({
+    mutationFn: async ({ id, isBreaking }: { id: string; isBreaking: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/news/${id}`, { isBreaking });
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith("/api/news") });
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === "/api/admin/news" });
+      toast({
+        title: variables.isBreaking ? "تم تمييزه كخبر عاجل" : "تمت إزالة علامة العاجل",
+      });
+    },
+    onError: () => {
+      toast({ title: "خطأ", description: "حدث خطأ أثناء تحديث حالة العاجل", variant: "destructive" });
     },
   });
 
@@ -2291,6 +2308,7 @@ export default function AdminDashboard() {
                   <th className="p-3 text-right font-medium text-muted-foreground text-xs hidden lg:table-cell w-36">التاريخ</th>
                   <th className="p-3 text-center font-medium text-muted-foreground text-xs hidden lg:table-cell w-20">المشاهدات</th>
                   <th className="p-3 text-center font-medium text-muted-foreground text-xs w-12">⭐</th>
+                  <th className="p-3 text-center font-medium text-muted-foreground text-xs w-12">🔴</th>
                   <th className="p-3 text-center font-medium text-muted-foreground text-xs w-24">إجراءات</th>
                 </tr>
               </thead>
@@ -2299,7 +2317,7 @@ export default function AdminDashboard() {
                 {filteredNews.map((item: any, index: number) => (
                   <tr
                     key={item.id}
-                    className={`group transition-colors hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 ${selectedNewsIds.has(item.id) ? 'bg-primary/5' : ''}`}
+                    className={`group transition-colors ${item.isBreaking ? "bg-red-50/60 dark:bg-red-950/20 hover:bg-red-100/60 dark:hover:bg-red-950/30 border-r-[3px] border-r-red-500" : "hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20"} ${selectedNewsIds.has(item.id) ? 'bg-primary/5' : ''}`}
                     data-testid={`row-news-${index}`}
                   >
                     {/* Checkbox */}
@@ -2323,9 +2341,17 @@ export default function AdminDashboard() {
                           </div>
                         )}
                         <div className="min-w-0">
-                          <p className="font-semibold text-foreground line-clamp-2 leading-snug text-[13px] group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
-                            {item.title}
-                          </p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {item.isBreaking && (
+                              <span className="inline-flex items-center gap-0.5 bg-red-600 text-white px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 animate-pulse">
+                                <AlertTriangle className="h-3 w-3" />
+                                عاجل
+                              </span>
+                            )}
+                            <p className={`font-semibold line-clamp-2 leading-snug text-[13px] transition-colors ${item.isBreaking ? "text-red-700 dark:text-red-400 group-hover:text-red-800 dark:group-hover:text-red-300" : "text-foreground group-hover:text-emerald-700 dark:group-hover:text-emerald-400"}`}>
+                              {item.title}
+                            </p>
+                          </div>
                           {/* Mobile: status + date + time */}
                           <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[11px] text-muted-foreground md:hidden">
                             {statusBadge(item.status)}
@@ -2411,6 +2437,19 @@ export default function AdminDashboard() {
                         data-testid={`button-toggle-featured-${index}`}
                       >
                         <Star className={`h-3.5 w-3.5 ${item.isFeatured ? 'fill-current' : ''}`} />
+                      </button>
+                    </td>
+
+                    {/* Breaking */}
+                    <td className="p-3 text-center">
+                      <button
+                        onClick={() => toggleBreakingMutation.mutate({ id: item.id, isBreaking: !item.isBreaking })}
+                        disabled={toggleBreakingMutation.isPending}
+                        className={`w-7 h-7 mx-auto flex items-center justify-center rounded-lg transition-all ${item.isBreaking ? 'text-red-600 bg-red-50 dark:bg-red-900/30' : 'text-muted-foreground/40 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100'}`}
+                        title={item.isBreaking ? 'إزالة علامة عاجل' : 'تمييز كخبر عاجل'}
+                        data-testid={`button-toggle-breaking-${index}`}
+                      >
+                        <AlertTriangle className={`h-3.5 w-3.5 ${item.isBreaking ? 'fill-current' : ''}`} />
                       </button>
                     </td>
 
