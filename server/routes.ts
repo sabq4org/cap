@@ -2280,6 +2280,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/radar/items/:id/breaking', isAdminAuthenticated, async (req, res) => {
+    try {
+      const { isBreaking } = req.body;
+      if (typeof isBreaking !== 'boolean') {
+        return res.status(400).json({ message: "isBreaking must be boolean" });
+      }
+      const item = await storage.toggleRadarItemBreaking(req.params.id, isBreaking);
+      if (!item) return res.status(404).json({ message: "Item not found" });
+      res.json(item);
+    } catch (error) {
+      console.error("Error toggling breaking:", error);
+      res.status(500).json({ message: "Failed to toggle breaking" });
+    }
+  });
+
   app.patch('/api/radar/items/:id/status', isAdminAuthenticated, async (req, res) => {
     try {
       const statusUpdateSchema = z.object({

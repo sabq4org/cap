@@ -1089,6 +1089,15 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async toggleRadarItemBreaking(id: string, isBreaking: boolean): Promise<RadarItem | undefined> {
+    const [updated] = await db
+      .update(radarItems)
+      .set({ isBreaking, updatedAt: new Date() })
+      .where(eq(radarItems.id, id))
+      .returning();
+    return updated;
+  }
+
   async updateRadarItemStatus(id: string, status: string, reviewedBy?: string, reviewNotes?: string): Promise<RadarItem | undefined> {
     const [updated] = await db
       .update(radarItems)

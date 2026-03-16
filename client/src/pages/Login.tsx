@@ -81,7 +81,7 @@ export default function Login() {
                       <FormControl>
                         <Input
                           data-testid="input-email"
-                          type="email"
+                          type="text"
                           placeholder="example@email.com"
                           dir="ltr"
                           className="text-left"

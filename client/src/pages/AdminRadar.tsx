@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   Radar, Rss, Globe, RefreshCw, Search, XCircle, Play, Plus,
-  ExternalLink, Trash2, Zap, Brain, CheckCircle,
+  ExternalLink, Trash2, Zap, Brain, CheckCircle, AlertTriangle,
   LayoutDashboard, Newspaper, BookOpen, Download, Settings,
   Users, Shield, LogOut, Menu, ChevronRight, ChevronLeft,
   LayoutTemplate, Wand2, TrendingUp, Activity, Clock, Filter,
@@ -349,6 +349,16 @@ export default function AdminRadar() {
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items/stats"] });
     },
+  });
+
+  const toggleBreakingMut = useMutation({
+    mutationFn: ({ id, isBreaking }: { id: string; isBreaking: boolean }) =>
+      apiRequest("PATCH", `/api/radar/items/${id}/breaking`, { isBreaking }).then(r => r.json()),
+    onSuccess: (_d, v) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
+      toast({ title: v.isBreaking ? "تم تمييزه كخبر عاجل" : "تمت إزالة علامة العاجل" });
+    },
+    onError: () => toast({ title: "فشل في تحديث الحالة", variant: "destructive" }),
   });
 
   const translateItemMut = useMutation({
@@ -807,7 +817,7 @@ export default function AdminRadar() {
                       {filteredItems.map((item, idx) => (
                         <tr
                           key={item.id}
-                          className={`group transition-colors hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 ${selected.has(item.id) ? "bg-primary/5" : ""}`}
+                          className={`group transition-colors ${item.isBreaking ? "bg-red-50/60 dark:bg-red-950/20 hover:bg-red-100/60 dark:hover:bg-red-950/30 border-r-[3px] border-r-red-500" : "hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20"} ${selected.has(item.id) ? "bg-primary/5" : ""}`}
                           data-testid={`row-radar-${idx}`}
                         >
                           {/* Checkbox */}
@@ -828,9 +838,17 @@ export default function AdminRadar() {
                                 />
                               )}
                               <div className="min-w-0">
-                                <p className="font-semibold text-foreground line-clamp-2 leading-snug text-[13px] group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
-                                  {item.titleAr || item.title}
-                                </p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {item.isBreaking && (
+                                    <span className="inline-flex items-center gap-0.5 bg-red-600 text-white px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 animate-pulse">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      عاجل
+                                    </span>
+                                  )}
+                                  <p className={`font-semibold line-clamp-2 leading-snug text-[13px] transition-colors ${item.isBreaking ? "text-red-700 dark:text-red-400 group-hover:text-red-800 dark:group-hover:text-red-300" : "text-foreground group-hover:text-emerald-700 dark:group-hover:text-emerald-400"}`}>
+                                    {item.titleAr || item.title}
+                                  </p>
+                                </div>
                                 {(item.summaryAr || item.summary) && (
                                   <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
                                     {item.summaryAr || item.summary}
@@ -902,6 +920,15 @@ export default function AdminRadar() {
                           {/* Actions */}
                           <td className="p-3">
                             <div className="flex items-center justify-center gap-1 flex-wrap">
+                              <Button
+                                size="icon" variant="ghost"
+                                className={`h-7 w-7 ${item.isBreaking ? "text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-950/50" : "text-muted-foreground hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/20"}`}
+                                onClick={() => toggleBreakingMut.mutate({ id: item.id, isBreaking: !item.isBreaking })}
+                                title={item.isBreaking ? "إزالة علامة عاجل" : "تمييز كخبر عاجل"}
+                                data-testid={`button-breaking-${item.id}`}
+                              >
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                              </Button>
                               {/* Translate only — shows result in row before publishing */}
                               {item.status !== "published" && item.status !== "rejected" && !item.titleAr && (
                                 <Button
