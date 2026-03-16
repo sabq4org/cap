@@ -98,6 +98,106 @@ function SidebarItem({ icon: Icon, label, active, count, onClick }: {
   );
 }
 
+
+/* ─── TranslationPreviewDialog ──────────────────────────────────────── */
+type TranslationPreview = {
+  id: string;
+  titleOrig: string;
+  title: string;
+  summary: string;
+  content: string;
+  importance: number;
+  keywords: string[];
+  category: string;
+  isBreaking: boolean;
+};
+function TranslationPreviewDialog({
+  preview,
+  onClose,
+  onPublish,
+  isPublishing,
+}: {
+  preview: TranslationPreview | null;
+  onClose: () => void;
+  onPublish: (id: string) => void;
+  isPublishing: boolean;
+}) {
+  return (
+    <Dialog open={!!preview} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] flex flex-col p-0 gap-0" dir="rtl">
+        {preview && (
+          <>
+            <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+              <div className="flex items-center gap-2 mb-2">
+                <Brain className="h-5 w-5 text-violet-600" />
+                <span className="text-sm font-semibold text-violet-700 dark:text-violet-400">معاينة المادة المترجمة</span>
+                {preview.isBreaking && (
+                  <Badge className="bg-red-100 text-red-700 text-[10px] px-2">عاجل</Badge>
+                )}
+              </div>
+              <DialogTitle className="text-lg font-bold leading-snug text-right">
+                {preview.title}
+              </DialogTitle>
+              <p className="text-[11px] text-muted-foreground mt-1 text-right line-clamp-2">
+                العنوان الأصلي: {preview.titleOrig}
+              </p>
+            </DialogHeader>
+
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="px-6 py-5 space-y-5">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Badge variant="outline" className="text-xs gap-1 border-emerald-300 text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle className="h-3 w-3" />
+                    أهمية: {preview.importance} من 10
+                  </Badge>
+                  {preview.category && (
+                    <Badge variant="outline" className="text-xs text-blue-700 border-blue-200 dark:text-blue-400">
+                      {preview.category}
+                    </Badge>
+                  )}
+                  {preview.keywords.slice(0, 5).map(kw => (
+                    <Badge key={kw} variant="secondary" className="text-[10px]">{kw}</Badge>
+                  ))}
+                </div>
+
+                {preview.summary && (
+                  <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400 mb-2">الملخص</p>
+                    <p className="text-sm leading-relaxed text-foreground">{preview.summary}</p>
+                  </div>
+                )}
+
+                {preview.content && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">المحتوى الكامل</p>
+                    <p className="text-sm leading-loose whitespace-pre-wrap text-foreground/90">{preview.content}</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+
+            <div className="px-6 py-4 border-t shrink-0 flex items-center justify-between gap-3 bg-muted/30">
+              <Button variant="outline" onClick={onClose} className="text-sm" data-testid="button-preview-close">
+                إغلاق فقط
+              </Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 text-sm"
+                onClick={() => { onPublish(preview.id); }}
+                disabled={isPublishing}
+                data-testid="button-preview-publish"
+              >
+                {isPublishing
+                  ? <RefreshCw className="h-4 w-4 animate-spin" />
+                  : <Zap className="h-4 w-4" />}
+                نقل إلى المسودات
+              </Button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 /* ─── StatCard ──────────────────────────────────────────────────────── */
 function StatCard({ label, value, icon: Icon, color }: {
   label: string; value: number | string; icon: any; color: string;
@@ -232,22 +332,42 @@ export default function AdminRadar() {
   });
 
   const translateItemMut = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, titleOrig }: { id: string; titleOrig: string }) => {
       setTranslatingId(id);
-      return apiRequest("POST", `/api/radar/items/${id}/translate`).then(r => r.json());
+      const d = await apiRequest("POST", `/api/radar/items/${id}/translate`).then(r => r.json());
+      return { id, titleOrig, ...d };
     },
     onSuccess: (d) => {
       setTranslatingId(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
-      toast({
-        title: "تمت الترجمة",
-        description: `درجة الأهمية: ${d.translation?.importanceScore ?? d.importanceScore ?? "—"}/10`,
+      const t = d.translation ?? {};
+      setTranslationPreview({
+        id: d.id,
+        titleOrig: d.titleOrig,
+        title: t.title ?? "",
+        summary: t.summary ?? "",
+        content: t.content ?? "",
+        importance: t.importanceScore ?? 0,
+        keywords: Array.isArray(t.keywords) ? t.keywords : [],
+        category: t.category ?? "",
+        isBreaking: !!t.isBreaking,
       });
     },
     onError: () => {
       setTranslatingId(null);
       toast({ title: "فشل في الترجمة", variant: "destructive" });
     },
+  });
+
+  const publishTranslatedMut = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest("POST", `/api/radar/items/${id}/publish`).then(r => r.json()),
+    onSuccess: () => {
+      setTranslationPreview(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/items/stats"] });
+      toast({ title: "تم نقل المادة إلى المسودات" });
+    },
+    onError: () => toast({ title: "فشل في النشر", variant: "destructive" }),
   });
 
   const processAndPublishMut = useMutation({
@@ -756,7 +876,7 @@ export default function AdminRadar() {
                                 <Button
                                   size="icon" variant="ghost"
                                   className="h-7 w-7 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30"
-                                  onClick={() => translateItemMut.mutate(item.id)}
+                                  onClick={() => translateItemMut.mutate({ id: item.id, titleOrig: item.title })}
                                   disabled={translatingId === item.id || processingId === item.id}
                                   title="ترجمة فقط (لمراجعة النص قبل النشر)"
                                   data-testid={`button-translate-${item.id}`}
@@ -1095,6 +1215,14 @@ export default function AdminRadar() {
           )}
 
         </main>
+
+      <TranslationPreviewDialog
+        preview={translationPreview}
+        onClose={() => setTranslationPreview(null)}
+        onPublish={(id) => { publishTranslatedMut.mutate(id); }}
+        isPublishing={publishTranslatedMut.isPending}
+      />
+
       </div>
     </div>
   );
