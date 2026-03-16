@@ -227,6 +227,7 @@ export default function AdminRadar() {
   const [sidebarOpen, setSidebarOpen]       = useState(false);
   const [processingId, setProcessingId]     = useState<string | null>(null);
   const [translatingId, setTranslatingId]   = useState<string | null>(null);
+  const [translationPreview, setTranslationPreview] = useState<TranslationPreview | null>(null);
   const [selected, setSelected]             = useState<Set<string>>(new Set());
   const [showAddSource, setShowAddSource]   = useState(false);
   const [showAddKeyword, setShowAddKeyword] = useState(false);
