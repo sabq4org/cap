@@ -2452,6 +2452,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // حذف الأخبار غير الصحية من الرادار
+  app.post('/api/radar/items/batch-delete', isAdminAuthenticated, async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "يجب تحديد أخبار للحذف" });
+      }
+      const deleted = await storage.deleteRadarItemsByIds(ids);
+      res.json({ deleted, message: `تم حذف ${deleted} خبر` });
+    } catch (error) {
+      console.error("Error batch deleting radar items:", error);
+      res.status(500).json({ message: "فشل حذف الأخبار" });
+    }
+  });
+
   app.post('/api/radar/cleanup-non-health', isAdminAuthenticated, async (req, res) => {
     try {
       const result = await cleanupNonHealthItems();

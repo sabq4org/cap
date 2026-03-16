@@ -1152,6 +1152,14 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
+  async deleteRadarItemsByIds(ids: string[]): Promise<number> {
+    if (!ids.length) return 0;
+    const result = await db.delete(radarItems)
+      .where(inArray(radarItems.id, ids))
+      .returning({ id: radarItems.id });
+    return result.length;
+  }
+
   async deleteReviewedRadarItems(): Promise<number> {
     const reviewedStatuses = ['approved', 'rejected', 'published', 'archived'];
     const result = await db.delete(radarItems)
