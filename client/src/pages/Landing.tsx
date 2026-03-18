@@ -23,16 +23,8 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { isAiGeneratedImage } from "@/components/AIImageBadge";
-import defaultNewsImage from "@assets/stock_images/healthcare_medical_n_906373b9.jpg";
-import newsImage1 from "@assets/stock_images/medical_health_healt_fdb22ee1.jpg";
-import newsImage2 from "@assets/stock_images/medical_health_healt_2bc2bc37.jpg";
-import newsImage3 from "@assets/stock_images/medical_health_healt_af440b4a.jpg";
-import newsImage4 from "@assets/stock_images/medical_health_healt_981aee81.jpg";
-import newsImage5 from "@assets/stock_images/medical_health_healt_8bccc8a3.jpg";
-import newsImage6 from "@assets/stock_images/medical_health_healt_46b1b20f.jpg";
+import { getNewsImage, getNewsFallbackImage, newsImages } from "@/lib/newsImages";
 import type { News, Article } from "@shared/schema";
-
-const newsImages = [newsImage1, newsImage2, newsImage3, newsImage4, newsImage5, newsImage6];
 
 const categoryLabels: Record<string, string> = {
   "health": "صحة عامة",
@@ -126,7 +118,7 @@ export default function Landing() {
                       <div className="grid md:grid-cols-2">
                         <div className="relative order-1 aspect-video md:aspect-auto md:h-full">
                           <img 
-                            src={item.imageUrl || defaultNewsImage} 
+                            src={getNewsImage(item)} 
                             alt={item.title}
                             className="absolute inset-0 w-full h-full object-cover"
                           />
@@ -239,7 +231,7 @@ export default function Landing() {
                   <Card className={`hover-elevate overflow-hidden cursor-pointer h-full ${item.isBreaking ? "ring-2 ring-red-500 shadow-red-100 dark:shadow-red-950/30" : ""}`} data-testid={`card-latest-news-${item.id}`}>
                     <div className="relative">
                       <img 
-                        src={item.imageUrl || newsImages[index % newsImages.length]} 
+                        src={getNewsImage(item)} 
                         alt={item.title}
                         className="w-full h-24 md:h-28 object-cover"
                       />
@@ -330,7 +322,7 @@ export default function Landing() {
                   <div className="flex flex-col sm:flex-row">
                     <div className="sm:w-48 md:w-56 h-40 sm:h-auto flex-shrink-0">
                       <img 
-                        src={newsImages[index % newsImages.length]}
+                        src={getNewsFallbackImage(article.id.toString())}
                         alt={article.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />

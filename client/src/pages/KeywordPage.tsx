@@ -6,14 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tag, ArrowRight, Calendar, Newspaper } from "lucide-react";
 import type { News } from "@shared/schema";
-import newsImage1 from "@assets/stock_images/medical_health_healt_fdb22ee1.jpg";
-import newsImage2 from "@assets/stock_images/medical_health_healt_2bc2bc37.jpg";
-import newsImage3 from "@assets/stock_images/medical_health_healt_af440b4a.jpg";
-import newsImage4 from "@assets/stock_images/medical_health_healt_981aee81.jpg";
-import newsImage5 from "@assets/stock_images/medical_health_healt_8bccc8a3.jpg";
-import newsImage6 from "@assets/stock_images/medical_health_healt_46b1b20f.jpg";
+import { getNewsImage } from "@/lib/newsImages";
 
-const newsImages = [newsImage1, newsImage2, newsImage3, newsImage4, newsImage5, newsImage6];
 
 const categoryLabels: Record<string, string> = {
   medical: "أخبار طبية",
@@ -106,7 +100,7 @@ export default function KeywordPage() {
                   data-testid={`card-keyword-news-${item.id}`}
                 >
                   <img 
-                    src={item.imageUrl || newsImages[index % newsImages.length]} 
+                    src={getNewsImage(item)} 
                     alt={item.title}
                     className="w-full h-24 md:h-28 object-cover"
                   />

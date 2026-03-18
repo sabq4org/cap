@@ -44,14 +44,7 @@ import {
 import { SiX, SiWhatsapp } from "react-icons/si";
 import { AIImageBadge } from "@/components/AIImageBadge";
 import type { News } from "@shared/schema";
-import newsImage1 from "@assets/stock_images/medical_health_healt_fdb22ee1.jpg";
-import newsImage2 from "@assets/stock_images/medical_health_healt_2bc2bc37.jpg";
-import newsImage3 from "@assets/stock_images/medical_health_healt_af440b4a.jpg";
-import newsImage4 from "@assets/stock_images/medical_health_healt_981aee81.jpg";
-import newsImage5 from "@assets/stock_images/medical_health_healt_8bccc8a3.jpg";
-import newsImage6 from "@assets/stock_images/medical_health_healt_46b1b20f.jpg";
-
-const newsImages = [newsImage1, newsImage2, newsImage3, newsImage4, newsImage5, newsImage6];
+import { getNewsImage, getNewsFallbackImage } from "@/lib/newsImages";
 
 const categoryLabels: Record<string, string> = {
   "health": "صحة عامة",
@@ -265,10 +258,8 @@ export default function NewsDetail() {
     );
   }
 
-  const imageIndex = news.id ? news.id.charCodeAt(0) % newsImages.length : 0;
-
   const seoDescription = news.summary || news.seoDescription || `${news.title} - اقرأ المزيد على كبسولة`;
-  const seoImage = news.imageUrl || newsImages[0];
+  const seoImage = getNewsImage(news);
 
   return (
     <>
@@ -367,7 +358,7 @@ export default function NewsDetail() {
 
               <figure className="relative mb-6 rounded-xl overflow-hidden shadow-lg bg-muted/30">
                 <img 
-                  src={news.imageUrl || newsImages[imageIndex]} 
+                  src={getNewsImage(news)} 
                   alt={news.imageAlt || news.title}
                   className="w-full h-auto"
                   data-testid="img-news-cover"
@@ -573,7 +564,7 @@ export default function NewsDetail() {
                     <Link key={item.id} href={`/news/${item.id}`}>
                       <div className="flex gap-3 p-2 rounded-lg hover-elevate cursor-pointer" data-testid={`card-related-${item.id}`}>
                         <img 
-                          src={item.imageUrl || newsImages[index % newsImages.length]} 
+                          src={getNewsImage(item)} 
                           alt={item.title}
                           className="w-20 h-16 object-cover rounded"
                         />
