@@ -5,7 +5,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupLocalAuth, registerLocalAuthRoutes } from "./localAuth";
-import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, generateInfographicImage, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle } from "./openai";
+import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, generateInfographicImage, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle, generateEditorialInsights } from "./openai";
 import { 
   insertGenerationSettingsSchema, 
   insertImageGenerationSchema, 
@@ -1214,6 +1214,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching chart data:", error);
       res.status(500).json({ message: "Failed to fetch chart data" });
+    }
+  });
+
+  app.get('/api/admin/ai-insights', isAdminAuthenticated, async (req, res) => {
+    try {
+      const analyticsData = await storage.getAnalyticsForAI();
+      const insights = await generateEditorialInsights(analyticsData);
+      res.json({ success: true, insights, analyticsData });
+    } catch (error: any) {
+      console.error('[AI Insights] Error:', error.message);
+      res.status(500).json({ success: false, error: 'فشل في إنشاء التحليل' });
     }
   });
 

@@ -1231,4 +1231,95 @@ export async function generateInfographicImage(data: InfographicData): Promise<I
   }
 }
 
+export async function generateEditorialInsights(analyticsData: any): Promise<{
+  summary: string;
+  categoryRecommendations: { category: string; action: string; reason: string; priority: "high" | "medium" | "low" }[];
+  newSectionSuggestions: { name: string; description: string; reasoning: string }[];
+  contentStrategy: string[];
+  growthTips: string[];
+}> {
+  const systemPrompt = `أنت مستشار تحريري خبير ومحلل بيانات صحفي متخصص في الصحافة الصحية الرقمية العربية.
+مهمتك تحليل بيانات أداء صحيفة "كبسولة" الصحية وتقديم توصيات عملية وذكية للمحرر المسؤول.
+
+القواعد:
+1. حلل البيانات بعمق — لا تكرر الأرقام فقط، بل استنتج الأنماط والفرص
+2. قدم توصيات عملية قابلة للتطبيق فوراً
+3. اقترح أبواب/تصنيفات جديدة بناءً على الفجوات في المحتوى الحالي واتجاهات القراء
+4. استخدم لغة عربية واضحة ومهنية
+5. ركز على ما يهم القارئ السعودي والعربي
+6. كن صريحاً في نقاط الضعف واقترح حلولاً
+
+أجب بتنسيق JSON التالي بالضبط:
+{
+  "summary": "ملخص تحليلي شامل للوضع الحالي (3-4 جمل)",
+  "categoryRecommendations": [
+    {
+      "category": "اسم التصنيف",
+      "action": "زيادة النشر | تقليل النشر | تحسين الجودة | إعادة تصنيف",
+      "reason": "السبب مع أرقام داعمة",
+      "priority": "high | medium | low"
+    }
+  ],
+  "newSectionSuggestions": [
+    {
+      "name": "اسم الباب الجديد المقترح",
+      "description": "وصف مختصر للباب",
+      "reasoning": "لماذا هذا الباب مهم الآن"
+    }
+  ],
+  "contentStrategy": ["توصية استراتيجية 1", "توصية 2", ...],
+  "growthTips": ["نصيحة نمو 1", "نصيحة 2", ...]
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `حلل بيانات أداء صحيفة كبسولة الصحية وقدم توصياتك:
+
+📊 إحصائيات عامة:
+- إجمالي الأخبار المنشورة: ${analyticsData.totalStats.published}
+- إجمالي المشاهدات: ${analyticsData.totalStats.totalViews}
+- متوسط المشاهدات لكل خبر: ${analyticsData.totalStats.avgViewsPerNews}
+- عدد أيام النشاط: ${analyticsData.totalStats.daysActive} يوم
+
+📂 أداء التصنيفات (مرتبة بالمشاهدات):
+${analyticsData.categoryPerformance.map((c: any) => `- ${c.category}: ${c.count} خبر، ${c.views} مشاهدة، متوسط ${c.avgViews} مشاهدة/خبر`).join('\n')}
+
+📈 ترند النشر (آخر 30 يوم):
+${analyticsData.publishingTrend.filter((d: any) => d.count > 0).map((d: any) => `- ${d.date}: ${d.count} خبر`).join('\n') || 'لا توجد بيانات نشر'}
+
+🏆 أعلى 10 أخبار مشاهدة:
+${analyticsData.topPerformingNews.map((n: any, i: number) => `${i + 1}. [${n.category}] ${n.title} (${n.views} مشاهدة)`).join('\n')}
+
+⚠️ تصنيفات ضعيفة الأداء:
+${analyticsData.lowPerformingCategories.length > 0 ? analyticsData.lowPerformingCategories.map((c: any) => `- ${c.category}: ${c.count} خبر، متوسط ${c.avgViews} مشاهدة`).join('\n') : 'لا توجد تصنيفات ضعيفة'}
+
+📡 مصادر الرادار:
+${analyticsData.radarSourcePerformance.map((s: any) => `- ${s.name}: ${s.itemsCount} خبر`).join('\n') || 'لا توجد مصادر'}`
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000,
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) throw new Error("Empty response");
+    return JSON.parse(content);
+  } catch (error: any) {
+    console.error("[AI Insights] Error:", error.message);
+    return {
+      summary: "تعذر إنشاء التحليل حالياً. يرجى المحاولة مرة أخرى.",
+      categoryRecommendations: [],
+      newSectionSuggestions: [],
+      contentStrategy: [],
+      growthTips: [],
+    };
+  }
+}
+
 export default openai;

@@ -142,6 +142,15 @@ export interface IStorage {
     totalChatMessages: number;
   }>;
 
+  getAnalyticsForAI(): Promise<{
+    categoryPerformance: { category: string; count: number; views: number; avgViews: number }[];
+    publishingTrend: { date: string; count: number }[];
+    topPerformingNews: { title: string; category: string; views: number }[];
+    lowPerformingCategories: { category: string; count: number; avgViews: number }[];
+    totalStats: { published: number; totalViews: number; avgViewsPerNews: number; daysActive: number };
+    radarSourcePerformance: { name: string; itemsCount: number }[];
+  }>;
+
   // User management operations
   getAllUsers(): Promise<User[]>;
   updateUserRole(userId: string, role: string): Promise<User | undefined>;
@@ -908,6 +917,103 @@ export class DatabaseStorage implements IStorage {
       .map(s => ({ name: (s.name || s.nameEn || '').slice(0, 18), count: s.itemsCount || 0 }));
 
     return { timeseries, categories, radarSourcesActivity };
+  }
+
+  async getAnalyticsForAI(): Promise<{
+    categoryPerformance: { category: string; count: number; views: number; avgViews: number }[];
+    publishingTrend: { date: string; count: number }[];
+    topPerformingNews: { title: string; category: string; views: number }[];
+    lowPerformingCategories: { category: string; count: number; avgViews: number }[];
+    totalStats: { published: number; totalViews: number; avgViewsPerNews: number; daysActive: number };
+    radarSourcePerformance: { name: string; itemsCount: number }[];
+  }> {
+    const tz = 'Asia/Riyadh';
+
+    const allItems = await db.select({
+      id: news.id,
+      title: news.title,
+      category: news.category,
+      status: news.status,
+      viewCount: news.viewCount,
+      publishedAt: news.publishedAt,
+      createdAt: news.createdAt,
+    }).from(news).where(ne(news.status, 'deleted'));
+
+    const published = allItems.filter(i => i.status === 'published');
+
+    const catMap: Record<string, { count: number; views: number }> = {};
+    for (const item of published) {
+      const cat = item.category || 'misc';
+      if (!catMap[cat]) catMap[cat] = { count: 0, views: 0 };
+      catMap[cat].count++;
+      catMap[cat].views += item.viewCount || 0;
+    }
+    const categoryPerformance = Object.entries(catMap)
+      .map(([category, d]) => ({
+        category,
+        count: d.count,
+        views: d.views,
+        avgViews: d.count > 0 ? Math.round(d.views / d.count) : 0,
+      }))
+      .sort((a, b) => b.views - a.views);
+
+    const last30: string[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      last30.push(d.toLocaleDateString('en-CA', { timeZone: tz }));
+    }
+    const dayCount: Record<string, number> = {};
+    last30.forEach(d => { dayCount[d] = 0; });
+    for (const item of allItems) {
+      const dt = item.createdAt || item.publishedAt;
+      if (dt) {
+        const dayStr = new Date(dt).toLocaleDateString('en-CA', { timeZone: tz });
+        if (dayCount[dayStr] !== undefined) dayCount[dayStr]++;
+      }
+    }
+    const publishingTrend = last30.map(d => ({ date: d, count: dayCount[d] }));
+
+    const topPerformingNews = [...published]
+      .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+      .slice(0, 10)
+      .map(n => ({ title: n.title, category: n.category || 'misc', views: n.viewCount || 0 }));
+
+    const lowPerformingCategories = categoryPerformance
+      .filter(c => c.avgViews < 50 && c.count >= 3)
+      .sort((a, b) => a.avgViews - b.avgViews);
+
+    const totalViews = published.reduce((s, n) => s + (n.viewCount || 0), 0);
+    const dates = published.map(n => new Date(n.createdAt || n.publishedAt || Date.now()).getTime());
+    const oldestDate = dates.length ? Math.min(...dates) : Date.now();
+    const daysActive = Math.max(1, Math.ceil((Date.now() - oldestDate) / 86400000));
+
+    const allSources = await db.select({
+      name: radarSources.nameAr,
+      nameEn: radarSources.name,
+      itemsCount: radarSources.itemsCount,
+      isActive: radarSources.isActive,
+    }).from(radarSources);
+
+    const radarSourcePerformance = allSources
+      .filter(s => s.isActive)
+      .sort((a, b) => (b.itemsCount || 0) - (a.itemsCount || 0))
+      .slice(0, 10)
+      .map(s => ({ name: s.name || s.nameEn || '', itemsCount: s.itemsCount || 0 }));
+
+    return {
+      categoryPerformance,
+      publishingTrend,
+      topPerformingNews,
+      lowPerformingCategories,
+      totalStats: {
+        published: published.length,
+        totalViews,
+        avgViewsPerNews: published.length > 0 ? Math.round(totalViews / published.length) : 0,
+        daysActive,
+      },
+      radarSourcePerformance,
+    };
   }
 
   // User management operations
