@@ -27,9 +27,7 @@ function getSaudiTime(): { date: string; time: string; greeting: string } {
 }
 
 function formatNumber(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "م";
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + "ك";
-  return n.toLocaleString("ar-SA");
+  return n.toLocaleString("ar-SA-u-nu-latn");
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
