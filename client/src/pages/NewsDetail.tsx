@@ -226,7 +226,10 @@ export default function NewsDetail() {
     navigator.clipboard.writeText(shareUrl);
   };
 
-  const related = relatedNews?.filter(n => n.id !== newsId && news && n.category === news.category).slice(0, 3) || [];
+  const related = relatedNews
+    ?.filter(n => n.id !== news?.id && news && n.category === news.category)
+    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+    .slice(0, 10) || [];
 
   if (isLoading) {
     return (
