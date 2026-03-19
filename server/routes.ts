@@ -1362,6 +1362,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/news/:id/related', async (req, res) => {
+    try {
+      const newsItem = await storage.getNewsById(req.params.id);
+      if (!newsItem) {
+        return res.status(404).json({ message: "News not found" });
+      }
+      const categoryNews = await storage.getNews(newsItem.category || undefined, 20);
+      const related = categoryNews
+        .filter(n => n.id !== newsItem.id)
+        .slice(0, 10);
+      res.json(related);
+    } catch (error) {
+      console.error("Error fetching related news:", error);
+      res.status(500).json({ message: "Failed to fetch related news" });
+    }
+  });
+
   // Get news by short code (for short URLs)
   app.get('/api/n/:shortCode', async (req, res) => {
     try {

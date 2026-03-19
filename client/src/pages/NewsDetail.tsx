@@ -167,7 +167,13 @@ export default function NewsDetail() {
   });
 
   const { data: relatedNews } = useQuery<News[]>({
-    queryKey: ["/api/news"],
+    queryKey: ["/api/news", news?.id, "related"],
+    queryFn: async () => {
+      const res = await fetch(`/api/news/${news!.id}/related`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!news?.id,
   });
 
   // Fire-and-forget view count increment
@@ -226,10 +232,7 @@ export default function NewsDetail() {
     navigator.clipboard.writeText(shareUrl);
   };
 
-  const related = relatedNews
-    ?.filter(n => n.id !== news?.id && news && n.category === news.category)
-    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-    .slice(0, 10) || [];
+  const related = relatedNews || [];
 
   if (isLoading) {
     return (
