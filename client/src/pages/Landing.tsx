@@ -76,8 +76,7 @@ export default function Landing() {
     });
   };
 
-  // Featured news for the carousel (all featured items, no limit)
-  const featuredNewsList = news?.filter(n => n.isFeatured) || [];
+  const featuredNewsList = news?.filter(n => n.isFeatured).slice(0, 5) || [];
   // All news shown in the latest section (including featured ones)
   const allNewsList = news || [];
   
