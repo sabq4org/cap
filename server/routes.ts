@@ -895,11 +895,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/news', async (req, res) => {
     try {
       const category = req.query.category as string | undefined;
+      const search = req.query.search as string | undefined;
       const page = req.query.page ? parseInt(req.query.page as string) : undefined;
       const perPage = req.query.perPage ? parseInt(req.query.perPage as string) : undefined;
 
       if (page) {
-        const result = await storage.getNewsPaginated(category, page, perPage || 20);
+        const result = await storage.getNewsPaginated(category, page, perPage || 20, search);
         return res.json(result);
       }
 

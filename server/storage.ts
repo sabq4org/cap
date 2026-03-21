@@ -94,7 +94,7 @@ export interface IStorage {
 
   // News operations
   getNews(category?: string, limit?: number): Promise<News[]>;
-  getNewsPaginated(category?: string, page?: number, perPage?: number): Promise<{ news: News[]; total: number; page: number; totalPages: number }>;
+  getNewsPaginated(category?: string, page?: number, perPage?: number, search?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }>;
   getNewsById(id: string): Promise<News | undefined>;
   getNewsByShortCode(shortCode: string): Promise<News | undefined>;
   getNewsByLegacyUrl(urlPath: string): Promise<News | undefined>;
@@ -416,7 +416,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getNewsPaginated(category?: string, page: number = 1, perPage: number = 20): Promise<{ news: News[]; total: number; page: number; totalPages: number }> {
+  async getNewsPaginated(category?: string, page: number = 1, perPage: number = 20, search?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }> {
     const now = new Date();
     const conditions = [
       sql`${news.status} != 'deleted'`,
@@ -426,6 +426,10 @@ export class DatabaseStorage implements IStorage {
 
     if (category) {
       conditions.push(sql`${news.category} = ${category}`);
+    }
+
+    if (search) {
+      conditions.push(sql`(${news.title} ILIKE ${'%' + search + '%'} OR ${news.summary} ILIKE ${'%' + search + '%'} OR ${news.content} ILIKE ${'%' + search + '%'} OR ${news.keywords}::text ILIKE ${'%' + search + '%'} OR ${news.subtitle} ILIKE ${'%' + search + '%'})`);
     }
 
     const whereClause = sql.join(conditions, sql` AND `);
@@ -540,7 +544,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (search) {
-      conditions.push(sql`(${news.title} ILIKE ${'%' + search + '%'} OR ${news.summary} ILIKE ${'%' + search + '%'})`);
+      conditions.push(sql`(${news.title} ILIKE ${'%' + search + '%'} OR ${news.summary} ILIKE ${'%' + search + '%'} OR ${news.content} ILIKE ${'%' + search + '%'} OR ${news.keywords}::text ILIKE ${'%' + search + '%'} OR ${news.subtitle} ILIKE ${'%' + search + '%'})`);
     }
 
     if (category && category !== 'all') {

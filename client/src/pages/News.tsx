@@ -59,11 +59,27 @@ export default function News() {
     setLocalSearch(new URLSearchParams(search).get("q") || "");
   }, [search]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams();
+      if (selectedCategory) params.set("category", selectedCategory);
+      if (localSearch) params.set("q", localSearch);
+      params.set("page", "1");
+      const newSearch = params.toString();
+      const currentSearch = new URLSearchParams(search);
+      if ((currentSearch.get("q") || "") !== localSearch) {
+        setLocation(`/news?${newSearch}`);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [localSearch]);
+
   const buildQueryKey = () => {
     const params = new URLSearchParams();
     params.set("page", String(currentPage));
     params.set("perPage", String(PER_PAGE));
     if (selectedCategory) params.set("category", selectedCategory);
+    if (searchQuery) params.set("search", searchQuery);
     return `/api/news?${params.toString()}`;
   };
 
@@ -71,12 +87,7 @@ export default function News() {
     queryKey: [buildQueryKey()],
   });
 
-  const filteredNews = localSearch
-    ? data?.news?.filter((item) =>
-        item.title.toLowerCase().includes(localSearch.toLowerCase()) ||
-        (item.summary?.toLowerCase().includes(localSearch.toLowerCase()) ?? false)
-      )
-    : data?.news;
+  const filteredNews = data?.news;
 
   const totalPages = data?.totalPages || 1;
   const total = data?.total || 0;
