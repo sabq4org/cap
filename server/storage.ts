@@ -787,69 +787,71 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDashboardStats() {
-    const allNews = await db.select().from(news);
-    const publishedNews = allNews.filter(n => n.status === 'published').length;
-    const draftNews = allNews.filter(n => n.status === 'draft').length;
-    const scheduledNews = allNews.filter(n => n.status === 'scheduled').length;
-    const deletedNews = allNews.filter(n => n.status === 'deleted').length;
-    const featuredNews = allNews.filter(n => n.isFeatured).length;
+    const todaySA = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+    const todayStartUTC = new Date(`${todaySA}T00:00:00+03:00`).toISOString();
 
-    // Saudi timezone today start
-    const todaySA = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' }); // YYYY-MM-DD
-    const todayStartUTC = new Date(`${todaySA}T00:00:00+03:00`);
-    const todayNews = allNews.filter(n => n.createdAt && new Date(n.createdAt) >= todayStartUTC).length;
-    const miscNews = allNews.filter(n => n.category === 'misc' || n.category === 'منوعات').length;
+    const [newsStats] = await db.select({
+      totalNews: sql<string>`COUNT(*)::text`,
+      publishedNews: sql<string>`COUNT(*) FILTER (WHERE status = 'published')::text`,
+      draftNews: sql<string>`COUNT(*) FILTER (WHERE status = 'draft')::text`,
+      scheduledNews: sql<string>`COUNT(*) FILTER (WHERE status = 'scheduled')::text`,
+      deletedNews: sql<string>`COUNT(*) FILTER (WHERE status = 'deleted')::text`,
+      featuredNews: sql<string>`COUNT(*) FILTER (WHERE is_featured = true)::text`,
+      todayNews: sql<string>`COUNT(*) FILTER (WHERE created_at >= ${todayStartUTC}::timestamptz)::text`,
+      miscNews: sql<string>`COUNT(*) FILTER (WHERE category IN ('misc', 'منوعات'))::text`,
+      totalTranslated: sql<string>`COUNT(*) FILTER (WHERE is_translated = true)::text`,
+      todayTranslated: sql<string>`COUNT(*) FILTER (WHERE is_translated = true AND created_at >= ${todayStartUTC}::timestamptz)::text`,
+      totalViews: sql<string>`COALESCE(SUM(view_count), 0)::text`,
+      todayViews: sql<string>`COALESCE(SUM(CASE WHEN today_views_date = ${todaySA} AND status != 'deleted' THEN today_views ELSE 0 END), 0)::text`,
+    }).from(news);
 
-    // Translation stats
-    const totalTranslated = allNews.filter(n => n.isTranslated).length;
-    const todayTranslated = allNews.filter(n => n.isTranslated && n.createdAt && new Date(n.createdAt) >= todayStartUTC).length;
+    const [articleStats] = await db.select({
+      totalArticles: sql<string>`COUNT(*)::text`,
+      publishedArticles: sql<string>`COUNT(*) FILTER (WHERE status = 'published')::text`,
+      draftArticles: sql<string>`COUNT(*) FILTER (WHERE status = 'draft')::text`,
+      miscArticles: sql<string>`COUNT(*) FILTER (WHERE category IN ('misc', 'منوعات'))::text`,
+    }).from(articles);
 
-    // View stats
-    const totalViews = allNews.reduce((sum, n) => sum + (n.viewCount || 0), 0);
-    // Today's views: direct SQL query to avoid string comparison issues
-    const [tvRow] = await db
-      .select({ total: sql<string>`COALESCE(SUM(today_views), 0)::text` })
-      .from(news)
-      .where(sql`today_views_date = ${todaySA} AND status != 'deleted'`);
-    const todayViews = parseInt(tvRow?.total || '0');
+    const [userCount] = await db.select({ c: sql<string>`COUNT(*)::text` }).from(users);
+    const [sessionCount] = await db.select({ c: sql<string>`COUNT(*)::text` }).from(chatSessions);
+    const [messageCount] = await db.select({ c: sql<string>`COUNT(*)::text` }).from(chatMessages);
+    const [radarTotal] = await db.select({ c: sql<string>`COUNT(*)::text` }).from(radarSources);
+    const [radarActive] = await db.select({ c: sql<string>`COUNT(*) FILTER (WHERE is_active = true)::text` }).from(radarSources);
 
-    const allArticles = await db.select().from(articles);
-    const publishedArticles = allArticles.filter(a => a.status === 'published').length;
-    const draftArticles = allArticles.filter(a => a.status === 'draft').length;
-    const miscArticles = allArticles.filter(a => a.category === 'misc' || a.category === 'منوعات').length;
+    const p = (v: string | null) => parseInt(v || '0');
 
-    const allUsers = await db.select().from(users);
-    const allChatSessions = await db.select().from(chatSessions);
-    const allChatMessages = await db.select().from(chatMessages);
-
-    const allRadarSources = await db.select().from(radarSources);
-    const activeRadarSources = allRadarSources.filter(s => s.isActive).length;
+    const totalNews = p(newsStats.totalNews);
+    const publishedNews = p(newsStats.publishedNews);
+    const miscNews = p(newsStats.miscNews);
+    const totalArticles = p(articleStats.totalArticles);
+    const publishedArticles = p(articleStats.publishedArticles);
+    const miscArticles = p(articleStats.miscArticles);
 
     return {
-      totalNews: allNews.length,
+      totalNews,
       publishedNews,
-      draftNews,
-      scheduledNews,
-      deletedNews,
-      featuredNews,
-      todayNews,
+      draftNews: p(newsStats.draftNews),
+      scheduledNews: p(newsStats.scheduledNews),
+      deletedNews: p(newsStats.deletedNews),
+      featuredNews: p(newsStats.featuredNews),
+      todayNews: p(newsStats.todayNews),
       miscNews,
-      totalTranslated,
-      todayTranslated,
-      totalViews,
-      todayViews,
-      totalArticles: allArticles.length,
+      totalTranslated: p(newsStats.totalTranslated),
+      todayTranslated: p(newsStats.todayTranslated),
+      totalViews: p(newsStats.totalViews),
+      todayViews: p(newsStats.todayViews),
+      totalArticles,
       publishedArticles,
-      draftArticles,
+      draftArticles: p(articleStats.draftArticles),
       miscArticles,
-      totalContent: allNews.length + allArticles.length,
+      totalContent: totalNews + totalArticles,
       publishedContent: publishedNews + publishedArticles,
       unclassified: miscNews + miscArticles,
-      totalUsers: allUsers.length,
-      totalChatSessions: allChatSessions.length,
-      totalChatMessages: allChatMessages.length,
-      totalRadarSources: allRadarSources.length,
-      activeRadarSources,
+      totalUsers: p(userCount.c),
+      totalChatSessions: p(sessionCount.c),
+      totalChatMessages: p(messageCount.c),
+      totalRadarSources: p(radarTotal.c),
+      activeRadarSources: p(radarActive.c),
     };
   }
 
@@ -859,7 +861,6 @@ export class DatabaseStorage implements IStorage {
     radarSourcesActivity: { name: string; count: number }[];
   }> {
     const tz = 'Asia/Riyadh';
-    // Build list of last N days in Saudi timezone
     const dateList: string[] = [];
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date();
@@ -867,48 +868,39 @@ export class DatabaseStorage implements IStorage {
       dateList.push(d.toLocaleDateString('en-CA', { timeZone: tz }));
     }
 
-    // Fetch all non-deleted news (need todayViews data too)
-    const allItems = await db.select({
-      publishedAt: news.publishedAt,
-      createdAt: news.createdAt,
-      status: news.status,
-      todayViews: news.todayViews,
-      todayViewsDate: news.todayViewsDate,
-      category: news.category,
-    }).from(news).where(ne(news.status, 'deleted'));
+    const startDate = dateList[0];
+    const startUTC = new Date(`${startDate}T00:00:00+03:00`).toISOString();
 
-    // Timeseries: newsCount by publishedAt date, views by todayViewsDate (daily actual views)
+    const newsCountRows = await db.select({
+      day: sql<string>`(COALESCE(created_at, published_at) AT TIME ZONE 'Asia/Riyadh')::date::text`,
+      cnt: sql<string>`COUNT(*)::text`,
+    }).from(news)
+      .where(sql`status != 'deleted' AND COALESCE(created_at, published_at) >= ${startUTC}::timestamptz`)
+      .groupBy(sql`(COALESCE(created_at, published_at) AT TIME ZONE 'Asia/Riyadh')::date`);
+
+    const viewRows = await db.select({
+      day: news.todayViewsDate,
+      views: sql<string>`COALESCE(SUM(today_views), 0)::text`,
+    }).from(news)
+      .where(sql`today_views_date >= ${startDate} AND status != 'deleted'`)
+      .groupBy(news.todayViewsDate);
+
     const byDay: Record<string, { newsCount: number; views: number }> = {};
     dateList.forEach(d => { byDay[d] = { newsCount: 0, views: 0 }; });
-    for (const item of allItems) {
-      // newsCount: group all non-deleted news by createdAt (matches "أخبار اليوم" stat card)
-      if (item.status !== 'deleted') {
-        const dt = item.createdAt || item.publishedAt;
-        if (dt) {
-          const dayStr = new Date(dt).toLocaleDateString('en-CA', { timeZone: tz });
-          if (byDay[dayStr]) byDay[dayStr].newsCount++;
-        }
-      }
-      // views: group by todayViewsDate — reflects actual daily views per day
-      if (item.todayViewsDate && byDay[item.todayViewsDate] !== undefined) {
-        byDay[item.todayViewsDate].views += item.todayViews || 0;
-      }
-    }
+    for (const r of newsCountRows) { if (r.day && byDay[r.day]) byDay[r.day].newsCount = parseInt(r.cnt || '0'); }
+    for (const r of viewRows) { if (r.day && byDay[r.day]) byDay[r.day].views = parseInt(r.views || '0'); }
     const timeseries = dateList.map(d => ({ date: d, ...byDay[d] }));
 
-    // Category distribution: published news only
-    const allPublished = allItems.filter(i => i.status === 'published');
-    const catCount: Record<string, number> = {};
-    for (const item of allPublished) {
-      const cat = item.category || 'misc';
-      catCount[cat] = (catCount[cat] || 0) + 1;
-    }
-    const categories = Object.entries(catCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([name, count]) => ({ name, count }));
+    const catRows = await db.select({
+      name: sql<string>`COALESCE(category, 'misc')`,
+      count: sql<string>`COUNT(*)::text`,
+    }).from(news)
+      .where(eq(news.status, 'published'))
+      .groupBy(sql`COALESCE(category, 'misc')`)
+      .orderBy(sql`COUNT(*) DESC`)
+      .limit(8);
+    const categories = catRows.map(r => ({ name: r.name, count: parseInt(r.count || '0') }));
 
-    // Radar sources activity: items per source (using itemsCount field)
     const allSources = await db.select({
       name: radarSources.nameAr,
       nameEn: radarSources.name,

@@ -550,10 +550,13 @@ export default function AdminDashboard() {
       setPublishMode('now');
       setScheduledDateTime("");
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      const msg = error?.message?.includes("401") || error?.message?.includes("Unauthorized")
+        ? "انتهت الجلسة — أعد تسجيل الدخول"
+        : error?.message || "حدث خطأ أثناء نشر الخبر";
       toast({
         title: "خطأ في النشر",
-        description: "حدث خطأ أثناء نشر الخبر",
+        description: msg,
         variant: "destructive",
       });
     },

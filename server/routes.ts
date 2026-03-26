@@ -149,8 +149,8 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
     const targetWidth = 1200;
     const targetHeight = 630;
     
-    // Resize the image first
-    const resizedBuffer = await sharp(imageBuffer)
+    const resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
+      .toFormat('jpeg')
       .resize(targetWidth, targetHeight, { fit: 'cover', position: 'center' })
       .jpeg({ quality: 85, progressive: true })
       .toBuffer();
