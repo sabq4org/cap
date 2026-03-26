@@ -1,0 +1,108 @@
+026-03-26 14:50:31.46
+470376f3
+User
+11:50:31 AM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+2026-03-26 14:50:45.93
+470376f3
+User
+[Crawler] /n/fVDaPiJ | UA: Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KH
+2026-03-26 14:50:49.33
+470376f3
+User
+[Crawler] /n/ZYrQo2z | UA: Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KH
+2026-03-26 14:50:49.73
+470376f3
+User
+[Crawler] /n/XQ0pNEQ | UA: Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KH
+2026-03-26 14:50:52.20
+470376f3
+User
+[Crawler] /n/nO5KKL1 | UA: Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KH
+2026-03-26 14:50:53.23
+470376f3
+User
+[Crawler] /n/udBz805 | UA: Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KH
+2026-03-26 14:50:55.14
+470376f3
+User
+[Crawler] /n/4s3o35f | UA: Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KH
+2026-03-26 14:51:00.99
+470376f3
+User
+[Crawler] /n/cgO01Or | UA: Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KH
+2026-03-26 14:51:23.63
+470376f3
+User
+[Crawler] /n/4UM6C2T | UA: Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KH
+2026-03-26 14:51:24.45
+470376f3
+User
+[Crawler] /n/HfDJj0V | UA: Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KH
+2026-03-26 14:52:04.57
+470376f3
+User
+11:52:04 AM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+2026-03-26 14:53:10.65
+470376f3
+User
+11:53:10 AM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+2026-03-26 14:53:47.59
+470376f3
+User
+11:53:47 AM [express] POST /api/admin/generate-news-meta 401 in 1ms :: {"message":"غير مصرح"}
+2026-03-26 14:54:03.70
+470376f3
+User
+11:54:03 AM [express] GET /api/admin/check-session 304 in 1ms :: {"authenticated":false}
+2026-03-26 14:54:03.74
+470376f3
+User
+11:54:03 AM [express] GET /api/admin/charts 401 in 1ms :: {"message":"غير مصرح"}
+2026-03-26 14:54:03.80
+470376f3
+User
+11:54:03 AM [express] GET /api/admin/news 401 in 1ms :: {"message":"غير مصرح"}
+2026-03-26 14:54:03.87
+470376f3
+User
+11:54:03 AM [express] GET /api/admin/stats 200 in 171ms :: {"totalNews":7851,"publishedNews":7768,"dr…
+2026-03-26 14:54:03.89
+470376f3
+User
+11:54:03 AM [express] GET /api/articles 304 in 97ms :: []
+2026-03-26 14:54:03.98
+470376f3
+User
+11:54:03 AM [express] GET /api/news 200 in 194ms :: [{"id":"05844f15-0235-47fa-a9b0-c7caacda4c79","sh…
+2026-03-26 14:54:06.32
+470376f3
+User
+11:54:06 AM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+2026-03-26 14:54:34.41
+470376f3
+User
+11:54:34 AM [express] GET /api/admin/news 401 in 1ms :: {"message":"غير مصرح"}
+2026-03-26 14:54:34.51
+470376f3
+User
+11:54:34 AM [express] GET /api/admin/check-session 304 in 1ms :: {"authenticated":false}
+2026-03-26 14:54:34.51
+470376f3
+User
+11:54:34 AM [express] GET /api/admin/charts 401 in 0ms :: {"message":"غير مصرح"}
+2026-03-26 14:54:34.61
+470376f3
+User
+11:54:34 AM [express] GET /api/articles 304 in 95ms :: []
+2026-03-26 14:54:34.64
+470376f3
+User
+11:54:34 AM [express] GET /api/news 304 in 226ms :: [{"id":"05844f15-0235-47fa-a9b0-c7caacda4c79","sh…
+2026-03-26 14:54:34.76
+470376f3
+User
+11:54:34 AM [express] GET /api/admin/stats 304 in 255ms :: {"totalNews":7851,"publishedNews":7768,"dr…
+2026-03-26 14:54:37.10
+470376f3
+User
+11:54:37 AM [express] GET /api/admin/news 401 in 1ms :: {"message":"غير مصرح"}

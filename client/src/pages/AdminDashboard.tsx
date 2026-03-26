@@ -350,15 +350,20 @@ export default function AdminDashboard() {
     if (!isAdmin) {
       setLocation("/admin");
     } else {
-      // Fetch current admin session
       fetch("/api/admin/check-session", { credentials: "include" })
         .then(r => r.json())
         .then(data => {
           if (data.authenticated && data.displayName) {
             setAdminUser({ displayName: data.displayName, role: data.role });
+          } else if (!data.authenticated) {
+            localStorage.removeItem("adminAuthenticated");
+            setLocation("/admin");
           }
         })
-        .catch(e => console.log("Session check:", e));
+        .catch(() => {
+          localStorage.removeItem("adminAuthenticated");
+          setLocation("/admin");
+        });
     }
   }, [setLocation]);
 

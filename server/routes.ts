@@ -1196,8 +1196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin: Dashboard statistics
-  app.get('/api/admin/stats', async (req, res) => {
+  app.get('/api/admin/stats', isAdminAuthenticated, async (req, res) => {
     try {
       const stats = await storage.getDashboardStats();
       res.json(stats);
