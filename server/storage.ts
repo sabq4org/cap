@@ -389,31 +389,26 @@ export class DatabaseStorage implements IStorage {
 
   async getNews(category?: string, limit: number = 50): Promise<News[]> {
     const now = new Date();
-    let results: News[];
-    
+    const conditions = [
+      sql`${news.status} != 'deleted'`,
+      sql`${news.status} != 'draft'`,
+      sql`(${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${now})`,
+    ];
+
     if (category) {
-      results = await db
-        .select()
-        .from(news)
-        .where(eq(news.category, category))
-        .orderBy(desc(news.publishedAt), desc(news.createdAt))
-        .limit(limit);
-    } else {
-      results = await db
-        .select()
-        .from(news)
-        .orderBy(desc(news.publishedAt), desc(news.createdAt))
-        .limit(limit);
+      conditions.push(sql`${news.category} = ${category}`);
     }
-    
+
+    const results = await db
+      .select()
+      .from(news)
+      .where(sql`${sql.join(conditions, sql` AND `)}`)
+      .orderBy(desc(news.publishedAt), desc(news.createdAt))
+      .limit(limit);
+
     await this.autoPromoteScheduledItems(results);
-    
-    return results.filter(item => {
-      if (item.status === 'deleted') return false;
-      if (item.status === 'draft') return false;
-      if (item.status === 'scheduled' && item.scheduledAt && item.scheduledAt > now) return false;
-      return true;
-    });
+
+    return results;
   }
 
   async getNewsPaginated(category?: string, page: number = 1, perPage: number = 20, search?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }> {
