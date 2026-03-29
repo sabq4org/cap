@@ -444,8 +444,13 @@ export default function AdminDashboard() {
       params.set("status", newsStatusTab);
       params.set("page", String(adminNewsPage));
       params.set("perPage", String(ADMIN_NEWS_PER_PAGE));
-      params.set("sortBy", adminNewsSortBy);
-      params.set("sortOrder", adminNewsSortOrder);
+      if (newsStatusTab === 'scheduled') {
+        params.set("sortBy", "scheduledAt");
+        params.set("sortOrder", "asc");
+      } else {
+        params.set("sortBy", adminNewsSortBy);
+        params.set("sortOrder", adminNewsSortOrder);
+      }
       if (newsSearchQuery) params.set("search", newsSearchQuery);
       if (newsCategoryFilter !== 'all') params.set("category", newsCategoryFilter);
       const res = await fetch(`/api/admin/news?${params.toString()}`);

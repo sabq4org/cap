@@ -561,6 +561,7 @@ export class DatabaseStorage implements IStorage {
     const sortColumn = sortBy === 'title' ? news.title 
       : sortBy === 'createdAt' ? news.createdAt 
       : sortBy === 'category' ? news.category
+      : sortBy === 'scheduledAt' ? news.scheduledAt
       : news.publishedAt;
     const orderFn = sortOrder === 'asc' ? asc : desc;
 
