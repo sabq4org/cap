@@ -304,6 +304,11 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
     refetchInterval: 60_000,
   });
 
+  const { data: countryStats, isLoading: countryLoading } = useQuery<{ countryCode: string; countryName: string; views: number }[]>({
+    queryKey: ["/api/admin/country-stats"],
+    refetchInterval: 120_000,
+  });
+
   const { data: recentNews } = useQuery<any[]>({
     queryKey: ["/api/admin/news", "recent"],
     queryFn: async () => {
@@ -668,6 +673,60 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Country Distribution ────────────────────────────────────────── */}
+      <Card className="border-0 shadow-md" data-testid="card-country-stats">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Globe className="h-4 w-4 text-blue-600" />
+            توزيع الزوار حسب الدولة
+            <Badge variant="secondary" className="text-[10px] h-4 px-1.5 mr-auto">آخر 30 يوم</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {countryLoading ? (
+            <div className="h-48 flex items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : countryStats && countryStats.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={countryStats.slice(0, 10)} layout="vertical" margin={{ right: 10, left: 0 }}>
+                  <XAxis type="number" tick={{ fontSize: 9, fill: "gray" }} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="countryName" type="category" tick={{ fontSize: 11, fill: "gray" }} axisLine={false} tickLine={false} width={75} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="views" name="مشاهدات" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
+                {countryStats.map((c, i) => {
+                  const maxViews = countryStats[0]?.views || 1;
+                  const pct = Math.round((c.views / maxViews) * 100);
+                  return (
+                    <div key={c.countryCode} className="flex items-center gap-2 group" data-testid={`country-row-${c.countryCode}`}>
+                      <span className="text-xs font-medium w-5 text-muted-foreground">{i + 1}</span>
+                      <span className="text-lg leading-none" role="img" aria-label={c.countryName}>
+                        {String.fromCodePoint(...c.countryCode.split('').map(ch => 0x1F1E6 + ch.charCodeAt(0) - 65))}
+                      </span>
+                      <span className="text-sm font-medium flex-1 truncate">{c.countryName}</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden max-w-[100px]">
+                        <div className="h-full rounded-full bg-blue-500 transition-all duration-700" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs font-semibold tabular-nums min-w-[40px] text-left">{formatNumber(c.views)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-10 text-muted-foreground text-sm space-y-2">
+              <Globe className="h-8 w-8 mx-auto opacity-30" />
+              <p>لا توجد بيانات جغرافية بعد</p>
+              <p className="text-xs">ستظهر البيانات تلقائياً مع زيادة المشاهدات</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Recent News ─────────────────────────────────────────────────── */}
       <Card className="border-0 shadow-md">

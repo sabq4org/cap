@@ -2,7 +2,7 @@
 
 ## Project Status: ✅ COMPLETE & READY FOR DEPLOYMENT
 
-**Last Updated**: February 5, 2026
+**Last Updated**: March 29, 2026
 
 ### Implementation Status
 
@@ -38,6 +38,13 @@ All core features have been successfully implemented and tested:
 - Nutritional data entry
 - Calorie and macronutrient tracking
 - Tested successfully with meal creation
+
+✅ **Country/Geo Visitor Analytics**
+- IP geolocation via geoip-lite on news view endpoint
+- view_country_stats table with atomic UPSERT (unique index on country_code+date)
+- Arabic country names for 40+ countries
+- Admin dashboard chart with horizontal bar chart + ranked list with flags
+- API: GET /api/admin/country-stats?days=30 (admin-authenticated, days clamped 1-365)
 
 ✅ **Medical Content Hub**
 - Article management system with seeding

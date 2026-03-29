@@ -60,6 +60,8 @@ import {
   type InsertInfographicTemplate,
   type InfographicJob,
   type InsertInfographicJob,
+  viewCountryStats,
+  type ViewCountryStat,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike, inArray, ne } from "drizzle-orm";
@@ -670,6 +672,38 @@ export class DatabaseStorage implements IStorage {
     } else {
       await db.update(news).set({ viewCount: sql`${news.viewCount} + 2`, todayViews: 2, todayViewsDate: todaySA }).where(eq(news.id, id));
     }
+  }
+
+  async recordCountryView(countryCode: string, countryName: string): Promise<void> {
+    const todaySA = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+    await db.execute(sql`
+      INSERT INTO view_country_stats (id, country_code, country_name, view_count, date)
+      VALUES (gen_random_uuid(), ${countryCode}, ${countryName}, 1, ${todaySA})
+      ON CONFLICT (country_code, date)
+      DO UPDATE SET view_count = view_country_stats.view_count + 1
+    `);
+  }
+
+  async getCountryStats(days: number = 30): Promise<{ countryCode: string; countryName: string; views: number }[]> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffDate = cutoff.toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+
+    const rows = await db.select({
+      countryCode: viewCountryStats.countryCode,
+      countryName: viewCountryStats.countryName,
+      views: sql<string>`SUM(${viewCountryStats.viewCount})::text`,
+    }).from(viewCountryStats)
+      .where(sql`${viewCountryStats.date} >= ${cutoffDate}`)
+      .groupBy(viewCountryStats.countryCode, viewCountryStats.countryName)
+      .orderBy(sql`SUM(${viewCountryStats.viewCount}) DESC`)
+      .limit(20);
+
+    return rows.map(r => ({
+      countryCode: r.countryCode,
+      countryName: r.countryName,
+      views: parseInt(r.views || '0'),
+    }));
   }
 
   async deleteNews(id: string): Promise<boolean> {

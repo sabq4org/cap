@@ -773,6 +773,16 @@ export const insertAdminAccountSchema = createInsertSchema(adminAccounts).omit({
 export type InsertAdminAccount = z.infer<typeof insertAdminAccountSchema>;
 export type AdminAccount = typeof adminAccounts.$inferSelect;
 
+export const viewCountryStats = pgTable("view_country_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  countryCode: varchar("country_code", { length: 2 }).notNull(),
+  countryName: varchar("country_name").notNull(),
+  viewCount: integer("view_count").default(0).notNull(),
+  date: varchar("date", { length: 10 }).notNull(),
+});
+
+export type ViewCountryStat = typeof viewCountryStats.$inferSelect;
+
 export const adminPermissions = [
   { key: "publish_news",       label: "نشر المحتوى" },
   { key: "edit_news",          label: "تعديل المحتوى" },

@@ -1196,6 +1196,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/admin/country-stats', isAdminAuthenticated, async (req, res) => {
+    try {
+      const raw = parseInt(req.query.days as string);
+      const days = Number.isNaN(raw) ? 30 : Math.max(1, Math.min(365, raw));
+      const stats = await storage.getCountryStats(days);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching country stats:", error);
+      res.status(500).json({ message: "Failed to fetch country stats" });
+    }
+  });
+
   app.get('/api/admin/stats', isAdminAuthenticated, async (req, res) => {
     try {
       const stats = await storage.getDashboardStats();
@@ -1352,10 +1364,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Increment view count (fire-and-forget from client)
   app.post('/api/news/:id/view', async (req, res) => {
     try {
       await storage.incrementViewCount(req.params.id);
+      try {
+        const forwarded = req.headers['x-forwarded-for'];
+        const ip = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.ip || '';
+        if (ip && ip !== '127.0.0.1' && ip !== '::1') {
+          const geoip = await import('geoip-lite');
+          const geo = geoip.default.lookup(ip);
+          if (geo && geo.country) {
+            const COUNTRY_NAMES_AR: Record<string, string> = {
+              SA: "السعودية", AE: "الإمارات", KW: "الكويت", QA: "قطر", BH: "البحرين",
+              OM: "عُمان", EG: "مصر", JO: "الأردن", LB: "لبنان", IQ: "العراق",
+              SY: "سوريا", YE: "اليمن", PS: "فلسطين", SD: "السودان", LY: "ليبيا",
+              TN: "تونس", DZ: "الجزائر", MA: "المغرب", MR: "موريتانيا", SO: "الصومال",
+              DJ: "جيبوتي", KM: "جزر القمر", US: "أمريكا", GB: "بريطانيا", DE: "ألمانيا",
+              FR: "فرنسا", TR: "تركيا", IN: "الهند", PK: "باكستان", CN: "الصين",
+              JP: "اليابان", KR: "كوريا", AU: "أستراليا", CA: "كندا", BR: "البرازيل",
+              RU: "روسيا", IT: "إيطاليا", ES: "إسبانيا", NL: "هولندا", SE: "السويد",
+              MY: "ماليزيا", ID: "إندونيسيا", NG: "نيجيريا", ZA: "جنوب أفريقيا",
+            };
+            const name = COUNTRY_NAMES_AR[geo.country] || geo.country;
+            storage.recordCountryView(geo.country, name).catch(() => {});
+          }
+        }
+      } catch {}
       res.json({ ok: true });
     } catch {
       res.json({ ok: false });
