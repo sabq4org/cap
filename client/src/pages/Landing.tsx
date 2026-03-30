@@ -113,7 +113,7 @@ export default function Landing() {
               >
                 {featuredNewsList.map((item, index) => (
                   <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`} className="w-full flex-shrink-0">
-                    <Card className={`overflow-hidden hover-elevate group cursor-pointer ${item.isBreaking ? "ring-2 ring-red-500" : ""}`} data-testid={`card-featured-news-${index}`}>
+                    <Card className={`overflow-hidden hover-elevate group cursor-pointer ${item.isBreaking ? "ring-2 ring-red-500 bg-red-50/60 dark:bg-red-950/20" : ""}`} data-testid={`card-featured-news-${index}`}>
                       <div className="grid md:grid-cols-2">
                         <div className="relative order-1 aspect-video md:aspect-auto md:h-full">
                           <img 
