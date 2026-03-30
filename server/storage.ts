@@ -827,10 +827,10 @@ export class DatabaseStorage implements IStorage {
       scheduledNews: sql<string>`COUNT(*) FILTER (WHERE status = 'scheduled')::text`,
       deletedNews: sql<string>`COUNT(*) FILTER (WHERE status = 'deleted')::text`,
       featuredNews: sql<string>`COUNT(*) FILTER (WHERE is_featured = true)::text`,
-      todayNews: sql<string>`COUNT(*) FILTER (WHERE created_at >= ${todayStartUTC}::timestamptz)::text`,
+      todayNews: sql<string>`COUNT(*) FILTER (WHERE published_at >= ${todayStartUTC}::timestamptz AND status = 'published')::text`,
       miscNews: sql<string>`COUNT(*) FILTER (WHERE category IN ('misc', 'منوعات'))::text`,
       totalTranslated: sql<string>`COUNT(*) FILTER (WHERE is_translated = true)::text`,
-      todayTranslated: sql<string>`COUNT(*) FILTER (WHERE is_translated = true AND created_at >= ${todayStartUTC}::timestamptz)::text`,
+      todayTranslated: sql<string>`COUNT(*) FILTER (WHERE is_translated = true AND published_at >= ${todayStartUTC}::timestamptz AND status = 'published')::text`,
       totalViews: sql<string>`COALESCE(SUM(view_count), 0)::text`,
       todayViews: sql<string>`COALESCE(SUM(CASE WHEN today_views_date = ${todaySA} AND status != 'deleted' THEN today_views ELSE 0 END), 0)::text`,
     }).from(news);
