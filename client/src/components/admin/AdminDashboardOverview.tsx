@@ -744,73 +744,57 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
         </CardHeader>
         <CardContent>
           {referrerLoading ? (
-            <div className="h-48 flex items-center justify-center">
+            <div className="h-32 flex items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : referrerStats && referrerStats.length > 0 ? (() => {
             const totalViews = referrerStats.reduce((sum, r) => sum + r.views, 0);
-            const SOURCE_ICONS: Record<string, { icon: string; color: string }> = {
-              google: { icon: "🔍", color: "bg-blue-500" },
-              google_news: { icon: "📰", color: "bg-blue-400" },
-              bing: { icon: "🔎", color: "bg-teal-500" },
-              yahoo: { icon: "🔎", color: "bg-purple-500" },
-              yandex: { icon: "🔎", color: "bg-red-400" },
-              duckduckgo: { icon: "🦆", color: "bg-orange-400" },
-              direct: { icon: "🔗", color: "bg-green-500" },
-              twitter: { icon: "𝕏", color: "bg-black dark:bg-white" },
-              facebook: { icon: "📘", color: "bg-blue-600" },
-              instagram: { icon: "📸", color: "bg-pink-500" },
-              tiktok: { icon: "🎵", color: "bg-gray-800" },
-              snapchat: { icon: "👻", color: "bg-yellow-400" },
-              linkedin: { icon: "💼", color: "bg-blue-700" },
-              youtube: { icon: "▶️", color: "bg-red-500" },
-              telegram: { icon: "✈️", color: "bg-sky-500" },
-              whatsapp: { icon: "💬", color: "bg-green-600" },
-              reddit: { icon: "🤖", color: "bg-orange-500" },
-              other: { icon: "🌐", color: "bg-gray-400" },
+            const SOURCE_META: Record<string, { icon: string; color: string }> = {
+              google: { icon: "🔍", color: "#3b82f6" },
+              google_news: { icon: "📰", color: "#60a5fa" },
+              bing: { icon: "🔎", color: "#14b8a6" },
+              yahoo: { icon: "🔎", color: "#a855f7" },
+              yandex: { icon: "🔎", color: "#f87171" },
+              duckduckgo: { icon: "🦆", color: "#fb923c" },
+              direct: { icon: "🔗", color: "#22c55e" },
+              twitter: { icon: "𝕏", color: "#1d9bf0" },
+              facebook: { icon: "📘", color: "#1877f2" },
+              instagram: { icon: "📸", color: "#e4405f" },
+              tiktok: { icon: "🎵", color: "#25f4ee" },
+              snapchat: { icon: "👻", color: "#fffc00" },
+              linkedin: { icon: "💼", color: "#0a66c2" },
+              youtube: { icon: "▶️", color: "#ff0000" },
+              telegram: { icon: "✈️", color: "#0088cc" },
+              whatsapp: { icon: "💬", color: "#25d366" },
+              reddit: { icon: "🤖", color: "#ff4500" },
+              other: { icon: "🌐", color: "#9ca3af" },
             };
             return (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie
-                      data={referrerStats.map(r => ({ name: r.sourceLabel, value: r.views }))}
-                      cx="50%" cy="50%"
-                      innerRadius={45} outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {referrerStats.map((_, i) => (
-                        <Cell key={i} fill={["#3b82f6","#22c55e","#000000","#3b82f6","#ec4899","#f97316","#06b6d4","#a855f7","#eab308","#ef4444","#6366f1","#14b8a6"][i % 12]} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<ChartTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="space-y-2 max-h-[220px] overflow-y-auto">
-                  {referrerStats.map((r) => {
-                    const pct = Math.round((r.views / totalViews) * 100);
-                    const meta = SOURCE_ICONS[r.source] || SOURCE_ICONS.other;
-                    return (
-                      <div key={r.source} className="flex items-center gap-2" data-testid={`referrer-row-${r.source}`}>
-                        <span className="text-base leading-none">{meta.icon}</span>
-                        <span className="text-sm font-medium flex-1 truncate">{r.sourceLabel}</span>
-                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden max-w-[80px]">
-                          <div className={`h-full rounded-full ${meta.color} transition-all duration-700`} style={{ width: `${pct}%` }} />
+              <div className="space-y-2.5">
+                {referrerStats.map((r) => {
+                  const pct = Math.round((r.views / totalViews) * 100);
+                  const meta = SOURCE_META[r.source] || SOURCE_META.other;
+                  return (
+                    <div key={r.source} data-testid={`referrer-row-${r.source}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm leading-none">{meta.icon}</span>
+                          <span className="text-xs font-medium">{r.sourceLabel}</span>
                         </div>
-                        <span className="text-xs font-semibold tabular-nums min-w-[35px] text-left">{pct}%</span>
+                        <span className="text-xs font-bold">{pct}%</span>
                       </div>
-                    );
-                  })}
-                </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: meta.color }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             );
           })() : (
-            <div className="text-center py-10 text-muted-foreground text-sm space-y-2">
-              <ArrowUpRight className="h-8 w-8 mx-auto opacity-30" />
-              <p>لا توجد بيانات عن مصادر الزيارات بعد</p>
-              <p className="text-xs">ستظهر البيانات تلقائياً مع زيادة المشاهدات</p>
+            <div className="text-center py-8 text-muted-foreground text-sm space-y-1">
+              <ArrowUpRight className="h-7 w-7 mx-auto opacity-30" />
+              <p>لا توجد بيانات بعد</p>
             </div>
           )}
         </CardContent>
