@@ -62,6 +62,8 @@ import {
   type InsertInfographicJob,
   viewCountryStats,
   type ViewCountryStat,
+  viewReferrerStats,
+  type ViewReferrerStat,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike, inArray, ne } from "drizzle-orm";
@@ -703,6 +705,37 @@ export class DatabaseStorage implements IStorage {
     return rows.map(r => ({
       countryCode: r.countryCode,
       countryName: r.countryName,
+      views: parseInt(r.views || '0'),
+    }));
+  }
+
+  async recordReferrerView(source: string, sourceLabel: string): Promise<void> {
+    const todaySA = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+    await db.execute(sql`
+      INSERT INTO view_referrer_stats (id, source, source_label, view_count, date)
+      VALUES (gen_random_uuid(), ${source}, ${sourceLabel}, 1, ${todaySA})
+      ON CONFLICT (source, date)
+      DO UPDATE SET view_count = view_referrer_stats.view_count + 1
+    `);
+  }
+
+  async getReferrerStats(days: number = 30): Promise<{ source: string; sourceLabel: string; views: number }[]> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffDate = cutoff.toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+
+    const rows = await db.select({
+      source: viewReferrerStats.source,
+      sourceLabel: viewReferrerStats.sourceLabel,
+      views: sql<string>`SUM(${viewReferrerStats.viewCount})::text`,
+    }).from(viewReferrerStats)
+      .where(sql`${viewReferrerStats.date} >= ${cutoffDate}`)
+      .groupBy(viewReferrerStats.source, viewReferrerStats.sourceLabel)
+      .orderBy(sql`SUM(${viewReferrerStats.viewCount}) DESC`);
+
+    return rows.map(r => ({
+      source: r.source,
+      sourceLabel: r.sourceLabel,
       views: parseInt(r.views || '0'),
     }));
   }

@@ -179,7 +179,11 @@ export default function NewsDetail() {
   // Fire-and-forget view count increment
   useEffect(() => {
     if (news?.id) {
-      fetch(`/api/news/${news.id}/view`, { method: "POST" }).catch(() => {});
+      fetch(`/api/news/${news.id}/view`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ referrer: document.referrer || "" }),
+      }).catch(() => {});
     }
   }, [news?.id]);
 

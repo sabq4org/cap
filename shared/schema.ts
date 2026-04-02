@@ -783,6 +783,16 @@ export const viewCountryStats = pgTable("view_country_stats", {
 
 export type ViewCountryStat = typeof viewCountryStats.$inferSelect;
 
+export const viewReferrerStats = pgTable("view_referrer_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  source: varchar("source", { length: 50 }).notNull(),
+  sourceLabel: varchar("source_label").notNull(),
+  viewCount: integer("view_count").default(0).notNull(),
+  date: varchar("date", { length: 10 }).notNull(),
+});
+
+export type ViewReferrerStat = typeof viewReferrerStats.$inferSelect;
+
 export const adminPermissions = [
   { key: "publish_news",       label: "نشر المحتوى" },
   { key: "edit_news",          label: "تعديل المحتوى" },

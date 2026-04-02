@@ -309,6 +309,11 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
     refetchInterval: 120_000,
   });
 
+  const { data: referrerStats, isLoading: referrerLoading } = useQuery<{ source: string; sourceLabel: string; views: number }[]>({
+    queryKey: ["/api/admin/referrer-stats"],
+    refetchInterval: 120_000,
+  });
+
   const { data: recentNews } = useQuery<any[]>({
     queryKey: ["/api/admin/news", "recent"],
     queryFn: async () => {
@@ -722,6 +727,90 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
             <div className="text-center py-10 text-muted-foreground text-sm space-y-2">
               <Globe className="h-8 w-8 mx-auto opacity-30" />
               <p>لا توجد بيانات جغرافية بعد</p>
+              <p className="text-xs">ستظهر البيانات تلقائياً مع زيادة المشاهدات</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Referrer Sources ─────────────────────────────────────────────── */}
+      <Card className="border-0 shadow-md" data-testid="card-referrer-stats">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <ArrowUpRight className="h-4 w-4 text-violet-600" />
+            من أين يأتي الزوار؟
+            <Badge variant="secondary" className="text-[10px] h-4 px-1.5 mr-auto">آخر 30 يوم</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {referrerLoading ? (
+            <div className="h-48 flex items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : referrerStats && referrerStats.length > 0 ? (() => {
+            const totalViews = referrerStats.reduce((sum, r) => sum + r.views, 0);
+            const SOURCE_ICONS: Record<string, { icon: string; color: string }> = {
+              google: { icon: "🔍", color: "bg-blue-500" },
+              google_news: { icon: "📰", color: "bg-blue-400" },
+              bing: { icon: "🔎", color: "bg-teal-500" },
+              yahoo: { icon: "🔎", color: "bg-purple-500" },
+              yandex: { icon: "🔎", color: "bg-red-400" },
+              duckduckgo: { icon: "🦆", color: "bg-orange-400" },
+              direct: { icon: "🔗", color: "bg-green-500" },
+              twitter: { icon: "𝕏", color: "bg-black dark:bg-white" },
+              facebook: { icon: "📘", color: "bg-blue-600" },
+              instagram: { icon: "📸", color: "bg-pink-500" },
+              tiktok: { icon: "🎵", color: "bg-gray-800" },
+              snapchat: { icon: "👻", color: "bg-yellow-400" },
+              linkedin: { icon: "💼", color: "bg-blue-700" },
+              youtube: { icon: "▶️", color: "bg-red-500" },
+              telegram: { icon: "✈️", color: "bg-sky-500" },
+              whatsapp: { icon: "💬", color: "bg-green-600" },
+              reddit: { icon: "🤖", color: "bg-orange-500" },
+              other: { icon: "🌐", color: "bg-gray-400" },
+            };
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={referrerStats.map(r => ({ name: r.sourceLabel, value: r.views }))}
+                      cx="50%" cy="50%"
+                      innerRadius={45} outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {referrerStats.map((_, i) => (
+                        <Cell key={i} fill={["#3b82f6","#22c55e","#000000","#3b82f6","#ec4899","#f97316","#06b6d4","#a855f7","#eab308","#ef4444","#6366f1","#14b8a6"][i % 12]} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<ChartTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-2 max-h-[220px] overflow-y-auto">
+                  {referrerStats.map((r) => {
+                    const pct = Math.round((r.views / totalViews) * 100);
+                    const meta = SOURCE_ICONS[r.source] || SOURCE_ICONS.other;
+                    return (
+                      <div key={r.source} className="flex items-center gap-2" data-testid={`referrer-row-${r.source}`}>
+                        <span className="text-base leading-none">{meta.icon}</span>
+                        <span className="text-sm font-medium flex-1 truncate">{r.sourceLabel}</span>
+                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden max-w-[80px]">
+                          <div className={`h-full rounded-full ${meta.color} transition-all duration-700`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs font-semibold tabular-nums min-w-[35px] text-left">{pct}%</span>
+                        <span className="text-[10px] text-muted-foreground tabular-nums min-w-[35px] text-left">{formatNumber(r.views)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })() : (
+            <div className="text-center py-10 text-muted-foreground text-sm space-y-2">
+              <ArrowUpRight className="h-8 w-8 mx-auto opacity-30" />
+              <p>لا توجد بيانات عن مصادر الزيارات بعد</p>
               <p className="text-xs">ستظهر البيانات تلقائياً مع زيادة المشاهدات</p>
             </div>
           )}

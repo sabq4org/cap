@@ -1196,6 +1196,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/admin/referrer-stats', isAdminAuthenticated, async (req, res) => {
+    try {
+      const raw = parseInt(req.query.days as string);
+      const days = Number.isNaN(raw) ? 30 : Math.max(1, Math.min(365, raw));
+      const stats = await storage.getReferrerStats(days);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching referrer stats:", error);
+      res.status(500).json({ message: "Failed to fetch referrer stats" });
+    }
+  });
+
   app.get('/api/admin/country-stats', isAdminAuthenticated, async (req, res) => {
     try {
       const raw = parseInt(req.query.days as string);
@@ -1390,6 +1402,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       } catch {}
+
+      try {
+        const refHeader = (req.body?.referrer || req.headers['referer'] || '') as string;
+        let source = 'direct';
+        let sourceLabel = 'مباشر';
+        if (refHeader) {
+          const refLower = refHeader.toLowerCase();
+          if (/google\./i.test(refLower)) { source = 'google'; sourceLabel = 'قوقل'; }
+          else if (/bing\./i.test(refLower)) { source = 'bing'; sourceLabel = 'بينق'; }
+          else if (/yahoo\./i.test(refLower)) { source = 'yahoo'; sourceLabel = 'ياهو'; }
+          else if (/yandex\./i.test(refLower)) { source = 'yandex'; sourceLabel = 'ياندكس'; }
+          else if (/duckduckgo\./i.test(refLower)) { source = 'duckduckgo'; sourceLabel = 'DuckDuckGo'; }
+          else if (/t\.co|twitter\.com|x\.com/i.test(refLower)) { source = 'twitter'; sourceLabel = 'تويتر / X'; }
+          else if (/facebook\.com|fb\.com|fbcdn/i.test(refLower)) { source = 'facebook'; sourceLabel = 'فيسبوك'; }
+          else if (/instagram\.com/i.test(refLower)) { source = 'instagram'; sourceLabel = 'انستقرام'; }
+          else if (/tiktok\.com/i.test(refLower)) { source = 'tiktok'; sourceLabel = 'تيك توك'; }
+          else if (/snapchat\.com|snap\.com/i.test(refLower)) { source = 'snapchat'; sourceLabel = 'سناب شات'; }
+          else if (/linkedin\.com/i.test(refLower)) { source = 'linkedin'; sourceLabel = 'لينكدإن'; }
+          else if (/youtube\.com|youtu\.be/i.test(refLower)) { source = 'youtube'; sourceLabel = 'يوتيوب'; }
+          else if (/t\.me|telegram\./i.test(refLower)) { source = 'telegram'; sourceLabel = 'تليقرام'; }
+          else if (/wa\.me|whatsapp\./i.test(refLower)) { source = 'whatsapp'; sourceLabel = 'واتساب'; }
+          else if (/reddit\.com/i.test(refLower)) { source = 'reddit'; sourceLabel = 'ريديت'; }
+          else if (/news\.google/i.test(refLower)) { source = 'google_news'; sourceLabel = 'أخبار قوقل'; }
+          else {
+            try {
+              const hostname = new URL(refLower).hostname;
+              if (!hostname.includes('capsulah.com') && !hostname.includes('replit')) {
+                source = 'other'; sourceLabel = 'مواقع أخرى';
+              }
+            } catch { source = 'other'; sourceLabel = 'مواقع أخرى'; }
+          }
+        }
+        if (source !== 'direct' || !refHeader) {
+          storage.recordReferrerView(source, sourceLabel).catch(() => {});
+        }
+      } catch {}
+
       res.json({ ok: true });
     } catch {
       res.json({ ok: false });
