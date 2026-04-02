@@ -1445,9 +1445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } catch { source = 'other'; sourceLabel = 'مواقع أخرى'; }
           }
         }
-        if (source !== 'direct' || !refHeader) {
-          storage.recordReferrerView(source, sourceLabel).catch(() => {});
-        }
+        storage.recordReferrerView(source, sourceLabel).catch(() => {});
       } catch {}
 
       res.json({ ok: true });

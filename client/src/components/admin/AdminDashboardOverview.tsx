@@ -800,7 +800,6 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
                           <div className={`h-full rounded-full ${meta.color} transition-all duration-700`} style={{ width: `${pct}%` }} />
                         </div>
                         <span className="text-xs font-semibold tabular-nums min-w-[35px] text-left">{pct}%</span>
-                        <span className="text-[10px] text-muted-foreground tabular-nums min-w-[35px] text-left">{formatNumber(r.views)}</span>
                       </div>
                     );
                   })}
