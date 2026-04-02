@@ -281,7 +281,7 @@ export default function Landing() {
           <div className="my-8 md:my-12">
             <div className="flex items-center gap-3 mb-6">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30">
-                <Flame className="h-5 w-5 text-orange-500" />
+                <TrendingUp className="h-5 w-5 text-orange-500" />
               </div>
               <div>
                 <h2 className="text-xl md:text-2xl font-bold">ترند الأسبوع</h2>
@@ -289,7 +289,7 @@ export default function Landing() {
               </div>
             </div>
             <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-              {trendingNews.slice(0, 10).map((item) => (
+              {trendingNews.slice(0, 5).map((item) => (
                 <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
                   <Card className="hover-elevate overflow-hidden cursor-pointer min-w-[220px] w-[220px] md:min-w-[240px] md:w-[240px] shrink-0 group" data-testid={`card-trending-${item.id}`}>
                     <div className="relative">
