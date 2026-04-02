@@ -677,6 +677,19 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getTrendingNews(limit: number = 10): Promise<News[]> {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const results = await db.select().from(news)
+      .where(and(
+        eq(news.status, 'published'),
+        gte(news.publishedAt, weekAgo)
+      ))
+      .orderBy(desc(news.viewCount))
+      .limit(limit);
+    return results;
+  }
+
   async recordCountryView(countryCode: string, countryName: string): Promise<void> {
     const todaySA = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
     await db.execute(sql`

@@ -20,7 +20,9 @@ import {
   ChevronRight,
   Star,
   Brain,
-  AlertTriangle
+  AlertTriangle,
+  Eye,
+  Flame
 } from "lucide-react";
 import { isAiGeneratedImage } from "@/components/AIImageBadge";
 import { getNewsImage, getNewsFallbackImage, newsImages } from "@/lib/newsImages";
@@ -64,6 +66,10 @@ export default function Landing() {
 
   const { data: articles, isLoading: articlesLoading } = useQuery<Article[]>({
     queryKey: ["/api/articles"],
+  });
+
+  const { data: trendingNews } = useQuery<News[]>({
+    queryKey: ["/api/news/trending"],
   });
 
   const formatDate = (date: Date | string) => {
@@ -269,6 +275,52 @@ export default function Landing() {
             </div>
           ) : null}
         </div>
+
+        {/* ── ترند الأسبوع ──────────────────────────────────────── */}
+        {trendingNews && trendingNews.length > 0 && (
+          <div className="my-8 md:my-12">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30">
+                <Flame className="h-5 w-5 text-orange-500" />
+              </div>
+              <div>
+                <h2 className="text-xl md:text-2xl font-bold">ترند الأسبوع</h2>
+                <p className="text-xs text-muted-foreground">أكثر الأخبار مشاهدة هذا الأسبوع</p>
+              </div>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+              {trendingNews.slice(0, 10).map((item) => (
+                <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
+                  <Card className="hover-elevate overflow-hidden cursor-pointer min-w-[220px] w-[220px] md:min-w-[240px] md:w-[240px] shrink-0 group" data-testid={`card-trending-${item.id}`}>
+                    <div className="relative">
+                      <img
+                        src={getNewsImage(item)}
+                        alt={item.title}
+                        className="w-full h-32 md:h-36 object-cover"
+                      />
+                      <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                        <Eye className="h-3 w-3" />
+                        {(item.viewCount || 0).toLocaleString('ar-SA-u-nu-latn')}
+                      </div>
+                      <Badge className={`absolute top-2 right-2 text-[10px] ${categoryColors[item.category] || ""}`}>
+                        {categoryLabels[item.category] || item.category}
+                      </Badge>
+                    </div>
+                    <CardContent className="p-3">
+                      <h4 className="font-semibold text-sm line-clamp-2 mb-2 group-hover:text-primary transition-colors leading-relaxed">
+                        {item.title}
+                      </h4>
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {formatDate(item.publishedAt)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="my-8 md:my-12">
           <div className="flex items-center justify-between mb-6">

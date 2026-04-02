@@ -892,6 +892,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // News routes
+  app.get('/api/news/trending', async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 10, 20);
+      const items = await storage.getTrendingNews(limit);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching trending news:", error);
+      res.status(500).json({ message: "Failed to fetch trending news" });
+    }
+  });
+
   app.get('/api/news', async (req, res) => {
     try {
       const category = req.query.category as string | undefined;
