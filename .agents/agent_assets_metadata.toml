@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "PlpxXbAfRDAD7V6FL5lc4"
+uri = "file://Capsulah_API_Documentation.md"
+type = "text"
+title = "Capsulah API Documentation - دليل واجهة برمجة التطبيقات"
