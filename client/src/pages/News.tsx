@@ -204,6 +204,8 @@ export default function News() {
                       <img 
                         src={getNewsImage(item)} 
                         alt={item.title}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full aspect-video object-cover"
                       />
                       <AIImageBadge imageUrl={item.imageUrl} size="sm" />

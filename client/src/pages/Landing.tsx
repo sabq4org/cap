@@ -125,6 +125,9 @@ export default function Landing() {
                           <img 
                             src={getNewsImage(item)} 
                             alt={item.title}
+                            loading={index === 0 ? "eager" : "lazy"}
+                            decoding={index === 0 ? "sync" : "async"}
+                            fetchPriority={index === 0 ? "high" : "auto"}
                             className="absolute inset-0 w-full h-full object-cover"
                           />
                           {item.isBreaking && (
@@ -238,6 +241,8 @@ export default function Landing() {
                       <img 
                         src={getNewsImage(item)} 
                         alt={item.title}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-24 md:h-28 object-cover"
                       />
                       {item.isBreaking && (
@@ -296,6 +301,8 @@ export default function Landing() {
                       <img
                         src={getNewsImage(item)}
                         alt={item.title}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-32 md:h-36 object-cover"
                       />
                       <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[11px] font-semibold">
@@ -375,6 +382,8 @@ export default function Landing() {
                       <img 
                         src={getNewsFallbackImage(article.id.toString())}
                         alt={article.title}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     </div>

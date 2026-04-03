@@ -370,6 +370,9 @@ export default function NewsDetail() {
                 <img 
                   src={getNewsImage(news)} 
                   alt={news.imageAlt || news.title}
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
                   className="w-full h-auto"
                   data-testid="img-news-cover"
                 />
@@ -576,6 +579,8 @@ export default function NewsDetail() {
                         <img 
                           src={getNewsImage(item)} 
                           alt={item.title}
+                          loading="lazy"
+                          decoding="async"
                           className="w-20 h-16 object-cover rounded"
                         />
                         <div className="flex-1 min-w-0">

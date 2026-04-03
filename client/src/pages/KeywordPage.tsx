@@ -102,6 +102,8 @@ export default function KeywordPage() {
                   <img 
                     src={getNewsImage(item)} 
                     alt={item.title}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-24 md:h-28 object-cover"
                   />
                   <CardContent className="p-3">
