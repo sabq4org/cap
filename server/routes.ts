@@ -30,6 +30,15 @@ import { objectStorageClient } from "./replit_integrations/object_storage";
 import { randomUUID } from "crypto";
 import sharp from "sharp";
 
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 // Helper function to download image and upload to object storage
 async function downloadAndUploadImage(imageUrl: string): Promise<string | null> {
   try {
@@ -391,42 +400,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // robots.txt
   app.get('/robots.txt', (_req, res) => {
     res.type('text/plain').send(
-      `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: https://capsulah.com/sitemap.xml`
+      [
+        'User-agent: *',
+        'Allow: /',
+        'Disallow: /admin',
+        'Disallow: /api/',
+        'Disallow: /login',
+        'Disallow: /register',
+        '',
+        'Sitemap: https://capsulah.replit.app/sitemap.xml',
+        'Sitemap: https://capsulah.replit.app/sitemap-news.xml',
+      ].join('\n')
     );
   });
 
-  // Dynamic sitemap.xml
   app.get('/sitemap.xml', async (_req, res) => {
     try {
-      const published = await storage.getNews(undefined, 5000);
-      const baseUrl = 'https://capsulah.com';
-
-      const staticUrls = [
-        { loc: baseUrl, priority: '1.0', changefreq: 'hourly' },
-        { loc: `${baseUrl}/news`, priority: '0.9', changefreq: 'hourly' },
-        { loc: `${baseUrl}/news?category=health-news`, priority: '0.8', changefreq: 'hourly' },
-        { loc: `${baseUrl}/news?category=diseases`, priority: '0.8', changefreq: 'daily' },
-        { loc: `${baseUrl}/news?category=nutrition`, priority: '0.8', changefreq: 'daily' },
-        { loc: `${baseUrl}/news?category=mental-health`, priority: '0.8', changefreq: 'daily' },
-        { loc: `${baseUrl}/news?category=medications`, priority: '0.8', changefreq: 'daily' },
-        { loc: `${baseUrl}/news?category=quality-life`, priority: '0.7', changefreq: 'daily' },
-      ];
-
-      const newsUrls = published.map(item => {
-        const loc = item.shortCode ? `${baseUrl}/n/${item.shortCode}` : `${baseUrl}/news/${item.id}`;
-        const lastmod = item.publishedAt ? new Date(item.publishedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-        return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>`;
-      });
-
-      const staticXml = staticUrls.map(u =>
-        `  <url>\n    <loc>${u.loc}</loc>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
-      ).join('\n');
-
-      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${staticXml}\n${newsUrls.join('\n')}\n</urlset>`;
-
+      const baseUrl = 'https://capsulah.replit.app';
+      const xml = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        `  <sitemap><loc>${baseUrl}/sitemap-static.xml</loc></sitemap>`,
+        `  <sitemap><loc>${baseUrl}/sitemap-news.xml</loc></sitemap>`,
+        `  <sitemap><loc>${baseUrl}/sitemap-articles.xml</loc></sitemap>`,
+        '</sitemapindex>',
+      ].join('\n');
       res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
     } catch (error) {
-      console.error('Error generating sitemap:', error);
+      console.error('Error generating sitemap index:', error);
+      res.status(500).send('Error generating sitemap');
+    }
+  });
+
+  app.get('/sitemap-static.xml', async (_req, res) => {
+    try {
+      const baseUrl = 'https://capsulah.replit.app';
+      const today = new Date().toISOString().split('T')[0];
+      const cats = await storage.getCategories(true);
+
+      const staticPages = [
+        { loc: baseUrl, priority: '1.0', changefreq: 'hourly' },
+        { loc: `${baseUrl}/news`, priority: '0.9', changefreq: 'hourly' },
+        { loc: `${baseUrl}/articles`, priority: '0.8', changefreq: 'daily' },
+      ];
+
+      const catPages = cats.map(c => ({
+        loc: `${baseUrl}/news?category=${encodeURIComponent(c.slug)}`,
+        priority: '0.7',
+        changefreq: 'daily',
+      }));
+
+      const allPages = [...staticPages, ...catPages];
+
+      const urls = allPages.map(u =>
+        `  <url>\n    <loc>${escapeXml(u.loc)}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
+      ).join('\n');
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
+      res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+    } catch (error) {
+      console.error('Error generating static sitemap:', error);
+      res.status(500).send('Error generating sitemap');
+    }
+  });
+
+  app.get('/sitemap-news.xml', async (_req, res) => {
+    try {
+      const baseUrl = 'https://capsulah.replit.app';
+      const published = await storage.getNews(undefined, 5000);
+
+      const urls = published.map(item => {
+        const loc = item.shortCode ? `${baseUrl}/n/${item.shortCode}` : `${baseUrl}/news/${item.id}`;
+        const lastmod = item.publishedAt ? new Date(item.publishedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        const pubDate = item.publishedAt ? new Date(item.publishedAt).toISOString() : new Date().toISOString();
+
+        let imageTag = '';
+        if (item.imageUrl) {
+          imageTag = `\n    <image:image>\n      <image:loc>${escapeXml(item.imageUrl)}</image:loc>\n      <image:title>${escapeXml(item.title)}</image:title>\n    </image:image>`;
+        }
+
+        const newsTag = [
+          '    <news:news>',
+          '      <news:publication>',
+          '        <news:name>كبسولة</news:name>',
+          '        <news:language>ar</news:language>',
+          '      </news:publication>',
+          `      <news:publication_date>${pubDate}</news:publication_date>`,
+          `      <news:title>${escapeXml(item.title)}</news:title>`,
+          item.keywords && item.keywords.length > 0
+            ? `      <news:keywords>${escapeXml(item.keywords.join(', '))}</news:keywords>`
+            : '',
+          '    </news:news>',
+        ].filter(Boolean).join('\n');
+
+        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>${imageTag}\n${newsTag}\n  </url>`;
+      }).join('\n');
+
+      const xml = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"',
+        '  xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"',
+        '  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">',
+        urls,
+        '</urlset>',
+      ].join('\n');
+
+      res.type('application/xml').set('Cache-Control', 'public, max-age=1800').send(xml);
+    } catch (error) {
+      console.error('Error generating news sitemap:', error);
+      res.status(500).send('Error generating sitemap');
+    }
+  });
+
+  app.get('/sitemap-articles.xml', async (_req, res) => {
+    try {
+      const baseUrl = 'https://capsulah.replit.app';
+      const articlesList = await storage.getArticles(undefined, 500);
+
+      const urls = articlesList.map(article => {
+        const loc = `${baseUrl}/articles/${article.slug}`;
+        const lastmod = article.updatedAt ? new Date(article.updatedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>`;
+      }).join('\n');
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
+      res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+    } catch (error) {
+      console.error('Error generating articles sitemap:', error);
       res.status(500).send('Error generating sitemap');
     }
   });
