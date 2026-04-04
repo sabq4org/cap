@@ -154,44 +154,59 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
       return null;
     }
     
-    // Resize image to 1200x630 then add branding overlay
     const targetWidth = 1200;
     const targetHeight = 630;
-    
-    const resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
-      .toFormat('jpeg')
-      .resize(targetWidth, targetHeight, { fit: 'cover', position: 'center' })
-      .jpeg({ quality: 85, progressive: true })
-      .toBuffer();
-    
-    // Build SVG overlay: dark gradient at bottom + site branding
+
+    const metadata = await sharp(imageBuffer, { failOn: 'none' }).metadata();
+    const srcW = metadata.width || targetWidth;
+    const srcH = metadata.height || targetHeight;
+    const srcRatio = srcW / srcH;
+    const targetRatio = targetWidth / targetHeight;
+
+    let resizedBuffer: Buffer;
+
+    if (Math.abs(srcRatio - targetRatio) < 0.3) {
+      resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
+        .resize(targetWidth, targetHeight, { fit: 'cover', position: 'attention' })
+        .toFormat('jpeg')
+        .jpeg({ quality: 85, progressive: true })
+        .toBuffer();
+    } else {
+      resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
+        .resize(targetWidth, targetHeight, {
+          fit: 'contain',
+          background: { r: 24, g: 24, b: 24 },
+        })
+        .toFormat('jpeg')
+        .jpeg({ quality: 85, progressive: true })
+        .toBuffer();
+    }
+
     const svgOverlay = `<svg width="${targetWidth}" height="${targetHeight}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="black" stop-opacity="0"/>
-      <stop offset="55%" stop-color="black" stop-opacity="0.5"/>
-      <stop offset="100%" stop-color="black" stop-opacity="0.82"/>
+      <stop offset="60%" stop-color="black" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="black" stop-opacity="0.7"/>
     </linearGradient>
   </defs>
   <rect width="${targetWidth}" height="${targetHeight}" fill="url(#grad)"/>
 </svg>`;
 
     const svgBuffer = Buffer.from(svgOverlay);
-    
-    // Composite the overlay on the image
+
     let brandedBuffer = await sharp(resizedBuffer)
       .composite([{ input: svgBuffer, top: 0, left: 0 }])
       .jpeg({ quality: 82, progressive: true })
       .toBuffer();
-    
-    // If still too large, reduce quality
+
     if (brandedBuffer.length > 300 * 1024) {
       brandedBuffer = await sharp(resizedBuffer)
         .composite([{ input: svgBuffer, top: 0, left: 0 }])
         .jpeg({ quality: 65, progressive: true })
         .toBuffer();
     }
-    
+
     return brandedBuffer;
   } catch (error) {
     console.error('Error optimizing image for OG:', error);
