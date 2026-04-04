@@ -312,6 +312,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .replace(/'/g, '&#39;');
   };
 
+  function buildCrawlerHtml(opts: { ogTitle: string; description: string; imageUrl: string; pageUrl: string; publishedAt?: Date | string | null; redirect?: boolean }) {
+    const { ogTitle, description, imageUrl, pageUrl, publishedAt, redirect = true } = opts;
+    return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>${ogTitle} | كبسولة</title>
+  <meta name="description" content="${description}">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="كبسولة">
+  <meta property="og:title" content="${ogTitle}">
+  <meta property="og:description" content="${description}">
+  <meta property="og:image" content="${imageUrl}">
+  <meta property="og:url" content="${pageUrl}">
+  <meta property="og:locale" content="ar_SA">
+  ${publishedAt ? `<meta property="article:published_time" content="${new Date(publishedAt).toISOString()}">` : ''}
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@capsulah_sa">
+  <meta name="twitter:title" content="${ogTitle}">
+  <meta name="twitter:description" content="${description}">
+  <meta name="twitter:image" content="${imageUrl}">
+  <meta name="twitter:image:alt" content="${ogTitle}">
+  ${redirect ? `<meta http-equiv="refresh" content="0;url=${pageUrl}">` : ''}
+  <link rel="canonical" href="${pageUrl}">
+</head>
+<body>
+  <h1>${ogTitle}</h1>
+  <p>${description}</p>
+  <img src="${imageUrl}" alt="${ogTitle}">
+  ${redirect ? `<p>جاري التحويل... <a href="${pageUrl}">اضغط هنا</a></p><script>window.location.href="${pageUrl}";</script>` : ''}
+</body>
+</html>`;
+  }
+
   // Optimized OG image endpoint - serves resized 1200x630 JPEG for WhatsApp/Facebook
   // Maximum allowed size for OG images (strict enforcement)
   const OG_MAX_SIZE = 300 * 1024; // 300KB
@@ -565,46 +599,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ogTitle = escapeHtml(newsItem.title);
       const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
       const description = escapeHtml(rawDescription);
-      const imageId = newsItem.shortCode || newsItem.id;
-      const imageVer = newsItem.updatedAt ? Math.floor(new Date(newsItem.updatedAt).getTime() / 1000) : 1;
-      const imageUrl = `${baseUrl}/og/${imageId}?v=${imageVer}`;
+      const imageUrl = newsItem.imageUrl
+        ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl)
+        : `${baseUrl}/og/${newsItem.shortCode || newsItem.id}`;
       
-      const html = `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <title>${ogTitle} | كبسولة</title>
-  <meta name="description" content="${description}">
-  
-  <meta property="og:type" content="article">
-  <meta property="og:site_name" content="كبسولة">
-  <meta property="og:title" content="${ogTitle}">
-  <meta property="og:description" content="${description}">
-  <meta property="og:image" content="${imageUrl}">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:type" content="image/jpeg">
-  <meta property="og:url" content="${pageUrl}">
-  <meta property="og:locale" content="ar_SA">
-  ${newsItem.publishedAt ? `<meta property="article:published_time" content="${new Date(newsItem.publishedAt).toISOString()}">` : ''}
-  
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:site" content="@capsulah_sa">
-  <meta name="twitter:title" content="${ogTitle}">
-  <meta name="twitter:description" content="${description}">
-  <meta name="twitter:image" content="${imageUrl}">
-  <meta name="twitter:image:alt" content="${ogTitle}">
-  
-  <meta http-equiv="refresh" content="0;url=${pageUrl}">
-  <link rel="canonical" href="${pageUrl}">
-</head>
-<body>
-  <h1>${newsItem.title}</h1>
-  <p>${description}</p>
-  <p>جاري التحويل... <a href="${pageUrl}">اضغط هنا إذا لم يتم التحويل تلقائياً</a></p>
-  <script>window.location.href = "${pageUrl}";</script>
-</body>
-</html>`;
+      const html = buildCrawlerHtml({ ogTitle, description, imageUrl, pageUrl, publishedAt: newsItem.publishedAt });
       
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
@@ -646,48 +645,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const reqHost = req.get('host') || 'capsulah.com';
       const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
       const baseUrl = `${proto}://${reqHost}`;
-      // Prefer short URL if available
       const pageUrl = newsItem.shortCode 
         ? `${baseUrl}/n/${newsItem.shortCode}`
         : `${baseUrl}/news/${newsItem.id}`;
-      const imageId = newsItem.shortCode || newsItem.id;
-      const imageVer = newsItem.updatedAt ? Math.floor(new Date(newsItem.updatedAt).getTime() / 1000) : 1;
-      const imageUrl = `${baseUrl}/og/${imageId}?v=${imageVer}`;
+      const imageUrl = newsItem.imageUrl
+        ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl)
+        : `${baseUrl}/og/${newsItem.shortCode || newsItem.id}`;
       
-      const html = `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <title>${ogTitle} | كبسولة</title>
-  <meta name="description" content="${description}">
-  
-  <meta property="og:type" content="article">
-  <meta property="og:site_name" content="كبسولة">
-  <meta property="og:title" content="${ogTitle}">
-  <meta property="og:description" content="${description}">
-  <meta property="og:image" content="${imageUrl}">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:type" content="image/jpeg">
-  <meta property="og:url" content="${pageUrl}">
-  <meta property="og:locale" content="ar_SA">
-  ${newsItem.publishedAt ? `<meta property="article:published_time" content="${new Date(newsItem.publishedAt).toISOString()}">` : ''}
-  
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:site" content="@capsulah_sa">
-  <meta name="twitter:title" content="${ogTitle}">
-  <meta name="twitter:description" content="${description}">
-  <meta name="twitter:image" content="${imageUrl}">
-  <meta name="twitter:image:alt" content="${ogTitle}">
-  
-  <link rel="canonical" href="${pageUrl}">
-</head>
-<body>
-  <h1>${ogTitle}</h1>
-  <p>${description}</p>
-  <img src="${imageUrl}" alt="${ogTitle}">
-</body>
-</html>`;
+      const html = buildCrawlerHtml({ ogTitle, description, imageUrl, pageUrl, publishedAt: newsItem.publishedAt, redirect: false });
       
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
@@ -722,44 +687,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
       const baseUrl = `${proto}://${reqHost}`;
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
-      const imageId = newsItem.shortCode || newsItem.id;
-      const imageVer = newsItem.updatedAt ? Math.floor(new Date(newsItem.updatedAt).getTime() / 1000) : 1;
-      const imageUrl = `${baseUrl}/og/${imageId}?v=${imageVer}`;
+      const imageUrl = newsItem.imageUrl
+        ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl)
+        : `${baseUrl}/og/${newsItem.shortCode || newsItem.id}`;
       
-      const html = `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <title>${ogTitle} | كبسولة</title>
-  <meta name="description" content="${description}">
-  
-  <meta property="og:type" content="article">
-  <meta property="og:site_name" content="كبسولة">
-  <meta property="og:title" content="${ogTitle}">
-  <meta property="og:description" content="${description}">
-  <meta property="og:image" content="${imageUrl}">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:type" content="image/jpeg">
-  <meta property="og:url" content="${pageUrl}">
-  <meta property="og:locale" content="ar_SA">
-  ${newsItem.publishedAt ? `<meta property="article:published_time" content="${new Date(newsItem.publishedAt).toISOString()}">` : ''}
-  
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:site" content="@capsulah_sa">
-  <meta name="twitter:title" content="${ogTitle}">
-  <meta name="twitter:description" content="${description}">
-  <meta name="twitter:image" content="${imageUrl}">
-  <meta name="twitter:image:alt" content="${ogTitle}">
-  
-  <link rel="canonical" href="${pageUrl}">
-</head>
-<body>
-  <h1>${ogTitle}</h1>
-  <p>${description}</p>
-  <img src="${imageUrl}" alt="${ogTitle}">
-</body>
-</html>`;
+      const html = buildCrawlerHtml({ ogTitle, description, imageUrl, pageUrl, publishedAt: newsItem.publishedAt });
       
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
