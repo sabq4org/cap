@@ -408,15 +408,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Disallow: /login',
         'Disallow: /register',
         '',
-        'Sitemap: https://capsulah.replit.app/sitemap.xml',
-        'Sitemap: https://capsulah.replit.app/sitemap-news.xml',
+        'Sitemap: https://capsulah.com/sitemap.xml',
+        'Sitemap: https://capsulah.com/sitemap-news.xml',
       ].join('\n')
     );
   });
 
   app.get('/sitemap.xml', async (_req, res) => {
     try {
-      const baseUrl = 'https://capsulah.replit.app';
+      const baseUrl = 'https://capsulah.com';
       const xml = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
@@ -434,7 +434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/sitemap-static.xml', async (_req, res) => {
     try {
-      const baseUrl = 'https://capsulah.replit.app';
+      const baseUrl = 'https://capsulah.com';
       const today = new Date().toISOString().split('T')[0];
       const cats = await storage.getCategories(true);
 
@@ -466,7 +466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/sitemap-news.xml', async (_req, res) => {
     try {
-      const baseUrl = 'https://capsulah.replit.app';
+      const baseUrl = 'https://capsulah.com';
       const published = await storage.getNews(undefined, 5000);
 
       const urls = published.map(item => {
@@ -514,7 +514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/sitemap-articles.xml', async (_req, res) => {
     try {
-      const baseUrl = 'https://capsulah.replit.app';
+      const baseUrl = 'https://capsulah.com';
       const articlesList = await storage.getArticles(undefined, 500);
 
       const urls = articlesList.map(article => {
