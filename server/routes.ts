@@ -154,60 +154,31 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
       return null;
     }
     
-    const targetWidth = 1200;
-    const targetHeight = 630;
+    const maxDim = 1200;
 
-    const metadata = await sharp(imageBuffer, { failOn: 'none' }).metadata();
-    const srcW = metadata.width || targetWidth;
-    const srcH = metadata.height || targetHeight;
-    const srcRatio = srcW / srcH;
-    const targetRatio = targetWidth / targetHeight;
-
-    let resizedBuffer: Buffer;
-
-    if (Math.abs(srcRatio - targetRatio) < 0.3) {
-      resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
-        .resize(targetWidth, targetHeight, { fit: 'cover', position: 'attention' })
-        .toFormat('jpeg')
-        .jpeg({ quality: 85, progressive: true })
-        .toBuffer();
-    } else {
-      resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
-        .resize(targetWidth, targetHeight, {
-          fit: 'contain',
-          background: { r: 24, g: 24, b: 24 },
-        })
-        .toFormat('jpeg')
-        .jpeg({ quality: 85, progressive: true })
-        .toBuffer();
-    }
-
-    const svgOverlay = `<svg width="${targetWidth}" height="${targetHeight}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="black" stop-opacity="0"/>
-      <stop offset="60%" stop-color="black" stop-opacity="0.3"/>
-      <stop offset="100%" stop-color="black" stop-opacity="0.7"/>
-    </linearGradient>
-  </defs>
-  <rect width="${targetWidth}" height="${targetHeight}" fill="url(#grad)"/>
-</svg>`;
-
-    const svgBuffer = Buffer.from(svgOverlay);
-
-    let brandedBuffer = await sharp(resizedBuffer)
-      .composite([{ input: svgBuffer, top: 0, left: 0 }])
+    let resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
+      .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
+      .toFormat('jpeg')
       .jpeg({ quality: 82, progressive: true })
       .toBuffer();
 
-    if (brandedBuffer.length > 300 * 1024) {
-      brandedBuffer = await sharp(resizedBuffer)
-        .composite([{ input: svgBuffer, top: 0, left: 0 }])
-        .jpeg({ quality: 65, progressive: true })
+    if (resizedBuffer.length > OG_MAX_SIZE) {
+      resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
+        .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
+        .toFormat('jpeg')
+        .jpeg({ quality: 60, progressive: true })
         .toBuffer();
     }
 
-    return brandedBuffer;
+    if (resizedBuffer.length > OG_MAX_SIZE) {
+      resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
+        .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+        .toFormat('jpeg')
+        .jpeg({ quality: 50, progressive: true })
+        .toBuffer();
+    }
+
+    return resizedBuffer;
   } catch (error) {
     console.error('Error optimizing image for OG:', error);
     return null;
@@ -312,8 +283,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .replace(/'/g, '&#39;');
   };
 
-  function buildCrawlerHtml(opts: { ogTitle: string; description: string; imageUrl: string; pageUrl: string; publishedAt?: Date | string | null; redirect?: boolean }) {
-    const { ogTitle, description, imageUrl, pageUrl, publishedAt, redirect = true } = opts;
+  function buildCrawlerHtml(opts: { ogTitle: string; description: string; ogImageUrl: string; pageUrl: string; publishedAt?: Date | string | null; redirect?: boolean }) {
+    const { ogTitle, description, ogImageUrl, pageUrl, publishedAt, redirect = true } = opts;
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -324,7 +295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta property="og:site_name" content="كبسولة">
   <meta property="og:title" content="${ogTitle}">
   <meta property="og:description" content="${description}">
-  <meta property="og:image" content="${imageUrl}">
+  <meta property="og:image" content="${ogImageUrl}">
   <meta property="og:url" content="${pageUrl}">
   <meta property="og:locale" content="ar_SA">
   ${publishedAt ? `<meta property="article:published_time" content="${new Date(publishedAt).toISOString()}">` : ''}
@@ -332,7 +303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta name="twitter:site" content="@capsulah_sa">
   <meta name="twitter:title" content="${ogTitle}">
   <meta name="twitter:description" content="${description}">
-  <meta name="twitter:image" content="${imageUrl}">
+  <meta name="twitter:image" content="${ogImageUrl}">
   <meta name="twitter:image:alt" content="${ogTitle}">
   ${redirect ? `<meta http-equiv="refresh" content="0;url=${pageUrl}">` : ''}
   <link rel="canonical" href="${pageUrl}">
@@ -340,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 <body>
   <h1>${ogTitle}</h1>
   <p>${description}</p>
-  <img src="${imageUrl}" alt="${ogTitle}">
+  <img src="${ogImageUrl}" alt="${ogTitle}">
   ${redirect ? `<p>جاري التحويل... <a href="${pageUrl}">اضغط هنا</a></p><script>window.location.href="${pageUrl}";</script>` : ''}
 </body>
 </html>`;
@@ -599,11 +570,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ogTitle = escapeHtml(newsItem.title);
       const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
       const description = escapeHtml(rawDescription);
-      const imageUrl = newsItem.imageUrl
-        ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl)
-        : `${baseUrl}/og/${newsItem.shortCode || newsItem.id}`;
+      const imageId = newsItem.shortCode || newsItem.id;
+      const ogImageUrl = `${baseUrl}/og/${imageId}`;
       
-      const html = buildCrawlerHtml({ ogTitle, description, imageUrl, pageUrl, publishedAt: newsItem.publishedAt });
+      const html = buildCrawlerHtml({ ogTitle, description, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt });
       
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
@@ -648,11 +618,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pageUrl = newsItem.shortCode 
         ? `${baseUrl}/n/${newsItem.shortCode}`
         : `${baseUrl}/news/${newsItem.id}`;
-      const imageUrl = newsItem.imageUrl
-        ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl)
-        : `${baseUrl}/og/${newsItem.shortCode || newsItem.id}`;
+      const imageId = newsItem.shortCode || newsItem.id;
+      const ogImageUrl = `${baseUrl}/og/${imageId}`;
       
-      const html = buildCrawlerHtml({ ogTitle, description, imageUrl, pageUrl, publishedAt: newsItem.publishedAt, redirect: false });
+      const html = buildCrawlerHtml({ ogTitle, description, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, redirect: false });
       
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
@@ -687,11 +656,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
       const baseUrl = `${proto}://${reqHost}`;
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
-      const imageUrl = newsItem.imageUrl
-        ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl)
-        : `${baseUrl}/og/${newsItem.shortCode || newsItem.id}`;
+      const imageId = newsItem.shortCode || newsItem.id;
+      const ogImageUrl = `${baseUrl}/og/${imageId}`;
       
-      const html = buildCrawlerHtml({ ogTitle, description, imageUrl, pageUrl, publishedAt: newsItem.publishedAt });
+      const html = buildCrawlerHtml({ ogTitle, description, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt });
       
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
