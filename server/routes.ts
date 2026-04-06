@@ -389,7 +389,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.set({
         'Content-Type': 'image/jpeg',
         'Content-Length': safeBuffer.length,
-        'Cache-Control': `public, max-age=${cacheTime}`
+        'Cache-Control': `public, max-age=${cacheTime}`,
+        'X-Robots-Tag': 'noindex'
       });
       res.send(safeBuffer);
     };
@@ -428,8 +429,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Disallow: /api/',
         'Disallow: /login',
         'Disallow: /register',
-        'Disallow: /og/',
-        'Disallow: /objects/',
         '',
         'Sitemap: https://capsulah.com/sitemap.xml',
         'Sitemap: https://capsulah.com/sitemap-news.xml',
