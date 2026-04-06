@@ -428,6 +428,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Disallow: /api/',
         'Disallow: /login',
         'Disallow: /register',
+        'Disallow: /og/',
+        'Disallow: /objects/',
         '',
         'Sitemap: https://capsulah.com/sitemap.xml',
         'Sitemap: https://capsulah.com/sitemap-news.xml',
@@ -497,7 +499,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         let imageTag = '';
         if (item.imageUrl) {
-          imageTag = `\n    <image:image>\n      <image:loc>${escapeXml(item.imageUrl)}</image:loc>\n      <image:title>${escapeXml(item.title)}</image:title>\n    </image:image>`;
+          const fullImageUrl = item.imageUrl.startsWith('/') ? `${baseUrl}${item.imageUrl}` : item.imageUrl;
+          imageTag = `\n    <image:image>\n      <image:loc>${escapeXml(fullImageUrl)}</image:loc>\n      <image:title>${escapeXml(item.title)}</image:title>\n    </image:image>`;
         }
 
         const newsTag = [
@@ -586,85 +589,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Social media crawler detection and short URL redirect for news URLs with UUID
   app.get('/news/:id', async (req, res, next) => {
     const userAgent = req.get('User-Agent') || '';
-    const isCrawler = /WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
-    if (isCrawler) {
-      console.log(`[Crawler] /news/${req.params.id} | UA: ${userAgent.substring(0, 80)}`);
-    }
-    
-    // For non-crawlers, redirect to short URL if available
-    if (!isCrawler) {
-      try {
-        const newsItem = await storage.getNewsById(req.params.id);
-        if (newsItem?.shortCode) {
-          return res.redirect(301, `/n/${newsItem.shortCode}`);
-        }
-      } catch (error) {
-        // Continue to SPA if error
-      }
-      return next();
-    }
+    const isCrawler = /Googlebot|bingbot|WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
     
     try {
       const newsItem = await storage.getNewsById(req.params.id);
+      
       if (!newsItem) {
+        if (isCrawler) {
+          return res.status(404).set('Content-Type', 'text/html').send('<html><head><title>404 - غير موجود</title><meta name="robots" content="noindex"></head><body><h1>404 - الصفحة غير موجودة</h1></body></html>');
+        }
         return next();
       }
       
-      const ogTitle = escapeHtml(newsItem.title);
-      const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
-      const description = escapeHtml(rawDescription);
-      const reqHost = req.get('host') || 'capsulah.com';
-      const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
-      const baseUrl = `${proto}://${reqHost}`;
-      const pageUrl = newsItem.shortCode 
-        ? `${baseUrl}/n/${newsItem.shortCode}`
-        : `${baseUrl}/news/${newsItem.id}`;
-      const imageId = newsItem.shortCode || newsItem.id;
-      const ogImageUrl = `${baseUrl}/og/${imageId}`;
+      if (newsItem.shortCode) {
+        if (isCrawler) {
+          const reqHost = req.get('host') || 'capsulah.com';
+          const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
+          const baseUrl = `${proto}://${reqHost}`;
+          const canonicalUrl = `${baseUrl}/n/${newsItem.shortCode}`;
+          const ogTitle = escapeHtml(newsItem.title);
+          const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
+          const description = escapeHtml(rawDescription);
+          const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode}`;
+          const html = buildCrawlerHtml({ ogTitle, description, ogImageUrl, pageUrl: canonicalUrl, publishedAt: newsItem.publishedAt, redirect: false });
+          return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
+        }
+        return res.redirect(301, `/n/${newsItem.shortCode}`);
+      }
       
-      const html = buildCrawlerHtml({ ogTitle, description, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, redirect: false });
+      if (isCrawler) {
+        const reqHost = req.get('host') || 'capsulah.com';
+        const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
+        const baseUrl = `${proto}://${reqHost}`;
+        const pageUrl = `${baseUrl}/news/${newsItem.id}`;
+        const ogTitle = escapeHtml(newsItem.title);
+        const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
+        const description = escapeHtml(rawDescription);
+        const ogImageUrl = `${baseUrl}/og/${newsItem.id}`;
+        const html = buildCrawlerHtml({ ogTitle, description, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, redirect: false });
+        return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
+      }
       
-      res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
+      return next();
     } catch (error) {
-      console.error('Error generating crawler page for /news/:id:', error);
+      console.error('Error in /news/:id handler:', error);
       next();
     }
   });
 
-  // Social media crawler detection for short news URLs
   app.get('/n/:shortCode', async (req, res, next) => {
     const userAgent = req.get('User-Agent') || '';
-    const isCrawler = /WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
-    
-    if (isCrawler) {
-      console.log(`[Crawler] /n/${req.params.shortCode} | UA: ${userAgent.substring(0, 80)}`);
-    }
-    
-    if (!isCrawler) {
-      return next();
-    }
+    const isCrawler = /Googlebot|bingbot|WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
     
     try {
       const newsItem = await storage.getNewsByShortCode(req.params.shortCode);
+      
       if (!newsItem) {
+        if (isCrawler) {
+          return res.status(404).set('Content-Type', 'text/html').send('<html><head><title>404 - غير موجود</title><meta name="robots" content="noindex"></head><body><h1>404 - الصفحة غير موجودة</h1></body></html>');
+        }
         return next();
       }
       
-      const ogTitle = escapeHtml(newsItem.title);
-      const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
-      const description = escapeHtml(rawDescription);
+      if (!isCrawler) {
+        return next();
+      }
+      
       const reqHost = req.get('host') || 'capsulah.com';
       const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
       const baseUrl = `${proto}://${reqHost}`;
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
-      const imageId = newsItem.shortCode || newsItem.id;
-      const ogImageUrl = `${baseUrl}/og/${imageId}`;
+      const ogTitle = escapeHtml(newsItem.title);
+      const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
+      const description = escapeHtml(rawDescription);
+      const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode || newsItem.id}`;
       
       const html = buildCrawlerHtml({ ogTitle, description, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt });
       
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
-      console.error('Error generating crawler page:', error);
+      console.error('Error in /n/:shortCode handler:', error);
       next();
     }
   });
