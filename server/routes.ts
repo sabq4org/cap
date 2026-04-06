@@ -86,8 +86,9 @@ async function downloadAndUploadImage(imageUrl: string): Promise<string | null> 
   }
 }
 
+const OG_MAX_SIZE_LIMIT = 300 * 1024; // 300KB
+
 // Helper function to optimize image for OG (Open Graph) sharing
-// WhatsApp/Facebook requirements: 1200x630, JPEG, <300KB
 async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<Buffer | null> {
   try {
     let imageBuffer: Buffer;
@@ -162,7 +163,7 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
       .jpeg({ quality: 82, progressive: true })
       .toBuffer();
 
-    if (resizedBuffer.length > OG_MAX_SIZE) {
+    if (resizedBuffer.length > OG_MAX_SIZE_LIMIT) {
       resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
         .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
         .toFormat('jpeg')
@@ -170,7 +171,7 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
         .toBuffer();
     }
 
-    if (resizedBuffer.length > OG_MAX_SIZE) {
+    if (resizedBuffer.length > OG_MAX_SIZE_LIMIT) {
       resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
         .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
         .toFormat('jpeg')
