@@ -21,6 +21,9 @@ import {
   imageGenerations,
   infographicTemplates,
   infographicJobs,
+  ads,
+  type Ad,
+  type InsertAd,
   type User,
   type UpsertUser,
   type HealthProfile,
@@ -160,6 +163,13 @@ export interface IStorage {
   updateUserRole(userId: string, role: string): Promise<User | undefined>;
   updateUserStatus(userId: string, isActive: boolean): Promise<User | undefined>;
   updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; email?: string }): Promise<User | undefined>;
+
+  // Ads operations
+  getAds(): Promise<Ad[]>;
+  getActiveAdByPosition(position: string): Promise<Ad | undefined>;
+  createAd(ad: InsertAd): Promise<Ad>;
+  updateAd(id: string, data: Partial<InsertAd>): Promise<Ad | undefined>;
+  deleteAd(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1608,6 +1618,34 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(infographicJobs)
       .orderBy(desc(infographicJobs.createdAt))
       .limit(limit);
+  }
+
+  // Ads operations
+  async getAds(): Promise<Ad[]> {
+    return await db.select().from(ads).orderBy(desc(ads.createdAt));
+  }
+
+  async getActiveAdByPosition(position: string): Promise<Ad | undefined> {
+    const [ad] = await db.select().from(ads)
+      .where(and(eq(ads.position, position), eq(ads.isActive, true)))
+      .orderBy(desc(ads.createdAt))
+      .limit(1);
+    return ad;
+  }
+
+  async createAd(adData: InsertAd): Promise<Ad> {
+    const [ad] = await db.insert(ads).values(adData).returning();
+    return ad;
+  }
+
+  async updateAd(id: string, data: Partial<InsertAd>): Promise<Ad | undefined> {
+    const [ad] = await db.update(ads).set(data).where(eq(ads.id, id)).returning();
+    return ad;
+  }
+
+  async deleteAd(id: string): Promise<boolean> {
+    const result = await db.delete(ads).where(eq(ads.id, id)).returning();
+    return result.length > 0;
   }
 }
 

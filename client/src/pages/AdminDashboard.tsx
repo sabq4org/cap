@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { Ad } from "@shared/schema";
 import { useLocation, Link } from "wouter";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -51,7 +52,7 @@ const categories = [
   { value: "misc", label: "منوعات", color: "bg-gray-500" },
 ];
 
-type ActiveSection = 'dashboard' | 'news' | 'articles' | 'import' | 'categories' | 'users' | 'radar';
+type ActiveSection = 'dashboard' | 'news' | 'articles' | 'import' | 'categories' | 'users' | 'radar' | 'ads';
 type NewsStatusTab = 'published' | 'scheduled' | 'draft' | 'deleted';
 type PublishMode = 'now' | 'schedule';
 
@@ -158,6 +159,7 @@ export default function AdminDashboard() {
     if (location.includes('/admin/articles')) return 'articles';
     if (location.includes('/admin/import')) return 'import';
     if (location.includes('/admin/categories')) return 'categories';
+    if (location.includes('/admin/ads')) return 'ads';
     return 'dashboard';
   };
 
@@ -264,6 +266,9 @@ export default function AdminDashboard() {
         break;
       case 'radar':
         setLocation('/admin/radar');
+        break;
+      case 'ads':
+        setLocation('/admin/ads');
         break;
     }
   };
@@ -1392,6 +1397,7 @@ export default function AdminDashboard() {
             <div className="space-y-0.5">
               <SidebarItem icon={Radar} label="رادار الأخبار" active={activeSection === 'radar'} onClick={() => navigateTo('radar')} />
               <SidebarItem icon={Download} label="استيراد الأخبار" active={activeSection === 'import'} onClick={() => navigateTo('import')} />
+              <SidebarItem icon={ImagePlus} label="الإعلانات" active={activeSection === 'ads'} onClick={() => navigateTo('ads')} />
               <SidebarItem icon={LayoutTemplate} label="توليد إنفوجرافيك" onClick={() => setLocation('/admin/infographic')} />
               <SidebarItem icon={Wand2} label="إعدادات التوليد" onClick={() => setLocation('/admin/generation-settings')} />
             </div>
@@ -3233,6 +3239,291 @@ export default function AdminDashboard() {
     </div>
   );
 
+  const AdsSection = () => {
+    const [showAdForm, setShowAdForm] = useState(false);
+    const [editingAdId, setEditingAdId] = useState<string | null>(null);
+    const [adForm, setAdForm] = useState<{ title: string; imageUrl: string; linkUrl: string; position: string; isActive: boolean }>({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true });
+    const [isUploadingAdImage, setIsUploadingAdImage] = useState(false);
+    const adImageInputRef = useRef<HTMLInputElement>(null);
+
+    const { data: adsList, isLoading: adsLoading } = useQuery<Ad[]>({
+      queryKey: ["/api/admin/ads"],
+      queryFn: async () => {
+        const res = await fetch("/api/admin/ads");
+        if (!res.ok) throw new Error("Failed to fetch ads");
+        return res.json();
+      },
+    });
+
+    const handleAdImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "خطأ", description: "يرجى اختيار ملف صورة صالح", variant: "destructive" });
+        return;
+      }
+      setIsUploadingAdImage(true);
+      try {
+        const res = await fetch("/api/uploads/request-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+        });
+        if (!res.ok) throw new Error("فشل في الحصول على رابط الرفع");
+        const { uploadURL, objectPath } = await res.json();
+        const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+        if (!uploadRes.ok) throw new Error("فشل في رفع الصورة");
+        setAdForm(f => ({ ...f, imageUrl: objectPath }));
+        toast({ title: "تم رفع الصورة", description: "تم رفع صورة الإعلان بنجاح" });
+      } catch {
+        toast({ title: "خطأ في الرفع", description: "حدث خطأ أثناء رفع الصورة", variant: "destructive" });
+      } finally {
+        setIsUploadingAdImage(false);
+        if (adImageInputRef.current) adImageInputRef.current.value = "";
+      }
+    };
+
+    const createAdMutation = useMutation({
+      mutationFn: async (data: typeof adForm) => {
+        const res = await apiRequest("POST", "/api/admin/ads", data);
+        return res.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/ads"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/ads"] });
+        toast({ title: "تم إضافة الإعلان بنجاح" });
+        setShowAdForm(false);
+        setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true });
+      },
+      onError: () => toast({ title: "خطأ", description: "فشل في إضافة الإعلان", variant: "destructive" }),
+    });
+
+    const updateAdMutation = useMutation({
+      mutationFn: async ({ id, data }: { id: string; data: Partial<typeof adForm> }) => {
+        const res = await apiRequest("PATCH", `/api/admin/ads/${id}`, data);
+        return res.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/ads"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/ads"] });
+        toast({ title: "تم تحديث الإعلان بنجاح" });
+        setShowAdForm(false);
+        setEditingAdId(null);
+        setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true });
+      },
+      onError: () => toast({ title: "خطأ", description: "فشل في تحديث الإعلان", variant: "destructive" }),
+    });
+
+    const deleteAdMutation = useMutation({
+      mutationFn: async (id: string) => {
+        const res = await apiRequest("DELETE", `/api/admin/ads/${id}`);
+        return res.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/ads"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/ads"] });
+        toast({ title: "تم حذف الإعلان" });
+      },
+      onError: () => toast({ title: "خطأ", description: "فشل في حذف الإعلان", variant: "destructive" }),
+    });
+
+    const positionLabels: Record<string, string> = {
+      above_featured: "فوق الأخبار البارزة",
+      below_featured: "أسفل الأخبار البارزة",
+      news_sidebar: "الشريط الجانبي للخبر",
+    };
+
+    const startEdit = (ad: Ad) => {
+      setEditingAdId(ad.id);
+      setAdForm({ title: ad.title, imageUrl: ad.imageUrl, linkUrl: ad.linkUrl, position: ad.position, isActive: ad.isActive });
+      setShowAdForm(true);
+    };
+
+    const handleSubmit = () => {
+      if (!adForm.title || !adForm.imageUrl || !adForm.linkUrl || !adForm.position) {
+        toast({ title: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" });
+        return;
+      }
+      if (editingAdId) {
+        updateAdMutation.mutate({ id: editingAdId, data: adForm });
+      } else {
+        createAdMutation.mutate(adForm);
+      }
+    };
+
+    return (
+      <div className="space-y-6" dir="rtl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <ImagePlus className="h-6 w-6 text-primary" />
+              إدارة الإعلانات
+            </h1>
+            <p className="text-muted-foreground">إضافة وإدارة البانرات الإعلانية في مواضع مختلفة بالموقع</p>
+          </div>
+          <Button onClick={() => { setEditingAdId(null); setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true }); setShowAdForm(true); }} className="gap-2" data-testid="button-add-ad">
+            <Plus className="h-4 w-4" />
+            إضافة إعلان
+          </Button>
+        </div>
+
+        {showAdForm && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{editingAdId ? "تعديل الإعلان" : "إضافة إعلان جديد"}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="ad-title">عنوان الإعلان *</Label>
+                  <Input
+                    id="ad-title"
+                    value={adForm.title}
+                    onChange={e => setAdForm(f => ({ ...f, title: e.target.value }))}
+                    placeholder="عنوان وصفي للإعلان"
+                    data-testid="input-ad-title"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ad-position">الموضع *</Label>
+                  <Select value={adForm.position} onValueChange={v => setAdForm(f => ({ ...f, position: v }))}>
+                    <SelectTrigger id="ad-position" data-testid="select-ad-position">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="above_featured">فوق الأخبار البارزة</SelectItem>
+                      <SelectItem value="below_featured">أسفل الأخبار البارزة</SelectItem>
+                      <SelectItem value="news_sidebar">الشريط الجانبي للخبر</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>صورة الإعلان *</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    id="ad-image-url"
+                    value={adForm.imageUrl}
+                    onChange={e => setAdForm(f => ({ ...f, imageUrl: e.target.value }))}
+                    placeholder="https://example.com/banner.jpg أو ارفع صورة"
+                    dir="ltr"
+                    className="flex-1"
+                    data-testid="input-ad-image-url"
+                  />
+                  <input
+                    ref={adImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAdImageUpload}
+                    data-testid="input-ad-image-file"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => adImageInputRef.current?.click()}
+                    disabled={isUploadingAdImage}
+                    data-testid="button-upload-ad-image"
+                  >
+                    {isUploadingAdImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    <span className="mr-1">رفع</span>
+                  </Button>
+                </div>
+                {adForm.imageUrl && (
+                  <div className="mt-2 rounded-lg overflow-hidden border max-w-sm">
+                    <img src={adForm.imageUrl} alt="معاينة" className="w-full h-auto object-cover" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="ad-link-url">رابط الوجهة *</Label>
+                <Input
+                  id="ad-link-url"
+                  value={adForm.linkUrl}
+                  onChange={e => setAdForm(f => ({ ...f, linkUrl: e.target.value }))}
+                  placeholder="https://example.com"
+                  dir="ltr"
+                  data-testid="input-ad-link-url"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="ad-active"
+                  checked={adForm.isActive}
+                  onCheckedChange={v => setAdForm(f => ({ ...f, isActive: v }))}
+                  data-testid="switch-ad-active"
+                />
+                <Label htmlFor="ad-active">مفعّل</Label>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleSubmit} disabled={createAdMutation.isPending || updateAdMutation.isPending} data-testid="button-save-ad">
+                  {(createAdMutation.isPending || updateAdMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Save className="h-4 w-4 ml-1" />}
+                  {editingAdId ? "حفظ التعديلات" : "إضافة الإعلان"}
+                </Button>
+                <Button variant="outline" onClick={() => { setShowAdForm(false); setEditingAdId(null); }} data-testid="button-cancel-ad">
+                  إلغاء
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>قائمة الإعلانات</CardTitle>
+            <CardDescription>إجمالي {adsList?.length ?? 0} إعلان</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {adsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : !adsList || adsList.length === 0 ? (
+              <div className="text-center py-10 text-muted-foreground">
+                <ImagePlus className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p>لا توجد إعلانات. أضف إعلاناً جديداً للبدء.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {adsList.map((ad: Ad) => (
+                  <div key={ad.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card" data-testid={`ad-row-${ad.id}`}>
+                    <div className="w-24 h-16 rounded overflow-hidden bg-muted flex-shrink-0">
+                      <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{ad.title}</p>
+                      <Badge variant="outline" className="text-xs mt-1">{positionLabels[ad.position] ?? ad.position}</Badge>
+                      <p className="text-xs text-muted-foreground mt-1 truncate" dir="ltr">{ad.linkUrl}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Switch
+                        checked={ad.isActive}
+                        onCheckedChange={v => updateAdMutation.mutate({ id: ad.id, data: { isActive: v } })}
+                        data-testid={`switch-ad-active-${ad.id}`}
+                      />
+                      <Button variant="ghost" size="icon" onClick={() => startEdit(ad)} data-testid={`button-edit-ad-${ad.id}`}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:text-red-700"
+                        onClick={() => { if (confirm("هل أنت متأكد من حذف هذا الإعلان؟")) deleteAdMutation.mutate(ad.id); }}
+                        data-testid={`button-delete-ad-${ad.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   const ImportSection = () => (
     <div className="space-y-6">
       <div>
@@ -4453,6 +4744,8 @@ export default function AdminDashboard() {
             <ImportSection />
           ) : activeSection === 'categories' ? (
             <CategoriesSection />
+          ) : activeSection === 'ads' ? (
+            <AdsSection />
           ) : activeSection === 'dashboard' ? (
             <AdminDashboardOverview adminUser={adminUser} onNavigate={navigateTo} />
           ) : (

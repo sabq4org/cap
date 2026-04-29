@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { SiX, SiWhatsapp } from "react-icons/si";
 import { AIImageBadge } from "@/components/AIImageBadge";
+import { AdBanner } from "@/components/AdBanner";
 import type { News } from "@shared/schema";
 import { getNewsImage, getNewsFallbackImage } from "@/lib/newsImages";
 
@@ -595,6 +596,8 @@ export default function NewsDetail() {
                 )}
               </CardContent>
             </Card>
+
+            <AdBanner position="news_sidebar" />
 
             <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20">
               <CardHeader>

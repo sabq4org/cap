@@ -10,7 +10,9 @@ import {
   insertGenerationSettingsSchema, 
   insertImageGenerationSchema, 
   insertInfographicTemplateSchema, 
-  insertInfographicJobSchema 
+  insertInfographicJobSchema,
+  adPositionEnum,
+  type AdPosition,
 } from "@shared/schema";
 import { fetchAllActiveSources, fetchRSSSource, seedDefaultSources, seedDefaultKeywords, classifyPendingItems, cleanupNonHealthItems } from "./radarService";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -3698,6 +3700,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     '/api/', '/n/', '/news', '/admin', '/articles', '/chat',
     '/profile', '/login', '/register', '/objects/', '/assets/',
   ];
+
+  // ── Ads API ──────────────────────────────────────────────────────────────────
+
+  const validAdPositions: string[] = [...adPositionEnum];
+  const isValidAdPosition = (p: string): p is AdPosition => validAdPositions.includes(p);
+
+  // Public: get active ad by position
+  app.get("/api/ads", async (req, res) => {
+    const { position } = req.query;
+    if (!position || typeof position !== "string") {
+      return res.status(400).json({ message: "position query param required" });
+    }
+    if (!isValidAdPosition(position)) {
+      return res.status(400).json({ message: `Invalid position. Must be one of: ${validAdPositions.join(", ")}` });
+    }
+    try {
+      const ad = await storage.getActiveAdByPosition(position);
+      if (!ad) return res.json(null);
+      res.json(ad);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Admin: list all ads
+  app.get("/api/admin/ads", isAdminAuthenticated, async (req, res) => {
+    try {
+      const allAds = await storage.getAds();
+      res.json(allAds);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  const isAllowedUrl = (url: string) => /^https?:\/\//i.test(url) || url.startsWith("/objects/");
+
+  // Admin: create ad
+  app.post("/api/admin/ads", isAdminAuthenticated, async (req, res) => {
+    const { title, imageUrl, linkUrl, position, isActive } = req.body;
+    if (!title || !imageUrl || !linkUrl || !position) {
+      return res.status(400).json({ message: "title, imageUrl, linkUrl, and position are required" });
+    }
+    if (!isValidAdPosition(position)) {
+      return res.status(400).json({ message: `Invalid position. Must be one of: ${validAdPositions.join(", ")}` });
+    }
+    if (!isAllowedUrl(imageUrl)) {
+      return res.status(400).json({ message: "imageUrl must be a valid http/https URL" });
+    }
+    if (!isAllowedUrl(linkUrl)) {
+      return res.status(400).json({ message: "linkUrl must be a valid http/https URL" });
+    }
+    try {
+      const ad = await storage.createAd({ title, imageUrl, linkUrl, position, isActive: isActive ?? true });
+      res.json(ad);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Admin: update ad
+  app.patch("/api/admin/ads/:id", isAdminAuthenticated, async (req, res) => {
+    const { position, imageUrl, linkUrl } = req.body;
+    if (position !== undefined && !isValidAdPosition(position)) {
+      return res.status(400).json({ message: `Invalid position. Must be one of: ${validAdPositions.join(", ")}` });
+    }
+    if (imageUrl !== undefined && !isAllowedUrl(imageUrl)) {
+      return res.status(400).json({ message: "imageUrl must be a valid http/https URL" });
+    }
+    if (linkUrl !== undefined && !isAllowedUrl(linkUrl)) {
+      return res.status(400).json({ message: "linkUrl must be a valid http/https URL" });
+    }
+    try {
+      const ad = await storage.updateAd(req.params.id, req.body);
+      if (!ad) return res.status(404).json({ message: "Ad not found" });
+      res.json(ad);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Admin: delete ad
+  app.delete("/api/admin/ads/:id", isAdminAuthenticated, async (req, res) => {
+    try {
+      const success = await storage.deleteAd(req.params.id);
+      if (!success) return res.status(404).json({ message: "Ad not found" });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   app.get(/^\/\d{4}(\/.*)?$/, async (req, res, next) => {
     try {

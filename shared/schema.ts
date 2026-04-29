@@ -1,6 +1,6 @@
 // Blueprint: javascript_log_in_with_replit, javascript_database
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, real, jsonb, index, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, real, jsonb, index, boolean, check } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -805,3 +805,34 @@ export const adminPermissions = [
   { key: "view_analytics",     label: "عرض الإحصائيات" },
   { key: "manage_users",       label: "إدارة المستخدمين" },
 ] as const;
+
+// ── Ads (Banner Advertisements) ──────────────────────────────────────────────
+export const adPositionEnum = ["above_featured", "below_featured", "news_sidebar"] as const;
+export type AdPosition = typeof adPositionEnum[number];
+
+export const adPositionLabelsAr: Record<AdPosition, string> = {
+  above_featured: "فوق الأخبار البارزة",
+  below_featured: "أسفل الأخبار البارزة",
+  news_sidebar: "الشريط الجانبي للخبر",
+};
+
+export const ads = pgTable("ads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  imageUrl: text("image_url").notNull(),
+  linkUrl: text("link_url").notNull(),
+  position: varchar("position").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  check("ads_position_check", sql`${table.position} IN ('above_featured', 'below_featured', 'news_sidebar')`),
+]);
+
+export const insertAdSchema = createInsertSchema(ads).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  position: z.enum(adPositionEnum),
+});
+export type InsertAd = z.infer<typeof insertAdSchema>;
+export type Ad = typeof ads.$inferSelect;
