@@ -826,6 +826,8 @@ export const ads = pgTable("ads", {
   weight: integer("weight").default(1).notNull(),
   impressions: integer("impressions").default(0).notNull(),
   clicks: integer("clicks").default(0).notNull(),
+  startsAt: timestamp("starts_at"),
+  expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   check("ads_position_check", sql`${table.position} IN ('above_featured', 'below_featured', 'news_sidebar')`),

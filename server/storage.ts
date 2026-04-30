@@ -1634,8 +1634,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getActiveAdByPosition(position: string): Promise<Ad | undefined> {
+    const now = new Date();
     const activeAds = await db.select().from(ads)
-      .where(and(eq(ads.position, position), eq(ads.isActive, true)))
+      .where(and(
+        eq(ads.position, position),
+        eq(ads.isActive, true),
+        or(isNull(ads.startsAt), lte(ads.startsAt, now)),
+        or(isNull(ads.expiresAt), gte(ads.expiresAt, now)),
+      ))
       .orderBy(desc(ads.createdAt));
     if (activeAds.length === 0) return undefined;
     if (activeAds.length === 1) return activeAds[0];

@@ -3242,7 +3242,7 @@ export default function AdminDashboard() {
   const AdsSection = () => {
     const [showAdForm, setShowAdForm] = useState(false);
     const [editingAdId, setEditingAdId] = useState<string | null>(null);
-    const [adForm, setAdForm] = useState<{ title: string; imageUrl: string; linkUrl: string; position: string; isActive: boolean; weight: number }>({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1 });
+    const [adForm, setAdForm] = useState<{ title: string; imageUrl: string; linkUrl: string; position: string; isActive: boolean; weight: number; startsAt: string; expiresAt: string }>({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1, startsAt: "", expiresAt: "" });
     const [isUploadingAdImage, setIsUploadingAdImage] = useState(false);
     const adImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -3322,8 +3322,10 @@ export default function AdminDashboard() {
       }
     };
 
+    type AdPayload = Omit<typeof adForm, 'startsAt' | 'expiresAt'> & { startsAt: string | null; expiresAt: string | null };
+
     const createAdMutation = useMutation({
-      mutationFn: async (data: typeof adForm) => {
+      mutationFn: async (data: AdPayload) => {
         const res = await apiRequest("POST", "/api/admin/ads", data);
         return res.json();
       },
@@ -3332,7 +3334,7 @@ export default function AdminDashboard() {
         queryClient.invalidateQueries({ queryKey: ["/api/ads"] });
         toast({ title: "تم إضافة الإعلان بنجاح" });
         setShowAdForm(false);
-        setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1 });
+        setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1, startsAt: "", expiresAt: "" });
       },
       onError: () => toast({ title: "خطأ", description: "فشل في إضافة الإعلان", variant: "destructive" }),
     });
@@ -3348,7 +3350,7 @@ export default function AdminDashboard() {
         toast({ title: "تم تحديث الإعلان بنجاح" });
         setShowAdForm(false);
         setEditingAdId(null);
-        setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1 });
+        setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1, startsAt: "", expiresAt: "" });
       },
       onError: () => toast({ title: "خطأ", description: "فشل في تحديث الإعلان", variant: "destructive" }),
     });
@@ -3372,9 +3374,24 @@ export default function AdminDashboard() {
       news_sidebar: "الشريط الجانبي للخبر",
     };
 
+    const toDatetimeLocal = (date: Date | string): string => {
+      const d = new Date(date);
+      const offset = d.getTimezoneOffset() * 60000;
+      return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+    };
+
     const startEdit = (ad: Ad) => {
       setEditingAdId(ad.id);
-      setAdForm({ title: ad.title, imageUrl: ad.imageUrl, linkUrl: ad.linkUrl, position: ad.position, isActive: ad.isActive, weight: ad.weight ?? 1 });
+      setAdForm({
+        title: ad.title,
+        imageUrl: ad.imageUrl,
+        linkUrl: ad.linkUrl,
+        position: ad.position,
+        isActive: ad.isActive,
+        weight: ad.weight ?? 1,
+        startsAt: ad.startsAt ? toDatetimeLocal(ad.startsAt) : "",
+        expiresAt: ad.expiresAt ? toDatetimeLocal(ad.expiresAt) : "",
+      });
       setShowAdForm(true);
     };
 
@@ -3383,10 +3400,15 @@ export default function AdminDashboard() {
         toast({ title: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" });
         return;
       }
+      const payload = {
+        ...adForm,
+        startsAt: adForm.startsAt ? new Date(adForm.startsAt).toISOString() : null,
+        expiresAt: adForm.expiresAt ? new Date(adForm.expiresAt).toISOString() : null,
+      };
       if (editingAdId) {
-        updateAdMutation.mutate({ id: editingAdId, data: adForm });
+        updateAdMutation.mutate({ id: editingAdId, data: payload });
       } else {
-        createAdMutation.mutate(adForm);
+        createAdMutation.mutate(payload);
       }
     };
 
@@ -3400,7 +3422,7 @@ export default function AdminDashboard() {
             </h1>
             <p className="text-muted-foreground">إضافة وإدارة البانرات الإعلانية في مواضع مختلفة بالموقع</p>
           </div>
-          <Button onClick={() => { setEditingAdId(null); setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1 }); setShowAdForm(true); }} className="gap-2" data-testid="button-add-ad">
+          <Button onClick={() => { setEditingAdId(null); setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1, startsAt: "", expiresAt: "" }); setShowAdForm(true); }} className="gap-2" data-testid="button-add-ad">
             <Plus className="h-4 w-4" />
             إضافة إعلان
           </Button>
@@ -3486,6 +3508,28 @@ export default function AdminDashboard() {
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="ad-starts-at">تاريخ البدء (اختياري)</Label>
+                  <Input
+                    id="ad-starts-at"
+                    type="datetime-local"
+                    value={adForm.startsAt}
+                    onChange={e => setAdForm(f => ({ ...f, startsAt: e.target.value }))}
+                    data-testid="input-ad-starts-at"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ad-expires-at">تاريخ الانتهاء (اختياري)</Label>
+                  <Input
+                    id="ad-expires-at"
+                    type="datetime-local"
+                    value={adForm.expiresAt}
+                    onChange={e => setAdForm(f => ({ ...f, expiresAt: e.target.value }))}
+                    data-testid="input-ad-expires-at"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center gap-2">
                   <Switch
                     id="ad-active"
@@ -3517,7 +3561,7 @@ export default function AdminDashboard() {
                   {(createAdMutation.isPending || updateAdMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Save className="h-4 w-4 ml-1" />}
                   {editingAdId ? "حفظ التعديلات" : "إضافة الإعلان"}
                 </Button>
-                <Button variant="outline" onClick={() => { setShowAdForm(false); setEditingAdId(null); setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1 }); }} data-testid="button-cancel-ad">
+                <Button variant="outline" onClick={() => { setShowAdForm(false); setEditingAdId(null); setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1, startsAt: "", expiresAt: "" }); }} data-testid="button-cancel-ad">
                   إلغاء
                 </Button>
               </div>
@@ -3589,55 +3633,66 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {adsList.map((ad: Ad) => (
-                  <div key={ad.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card" data-testid={`ad-row-${ad.id}`}>
-                    <div className="w-24 h-16 rounded overflow-hidden bg-muted flex-shrink-0">
-                      <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">{ad.title}</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        <Badge variant="outline" className="text-xs">{positionLabels[ad.position] ?? ad.position}</Badge>
-                        <Badge variant="secondary" className="text-xs" data-testid={`badge-weight-${ad.id}`}>وزن: {ad.weight ?? 1}</Badge>
+                {adsList.map((ad: Ad) => {
+                    const now = new Date();
+                    const isExpired = ad.expiresAt ? new Date(ad.expiresAt) < now : false;
+                    const isScheduled = ad.startsAt ? new Date(ad.startsAt) > now : false;
+                    return (
+                    <div key={ad.id} className={`flex items-center gap-4 p-3 rounded-lg border bg-card ${isExpired ? "opacity-60" : ""}`} data-testid={`ad-row-${ad.id}`}>
+                      <div className="w-24 h-16 rounded overflow-hidden bg-muted flex-shrink-0">
+                        <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1 truncate" dir="ltr">{ad.linkUrl}</p>
-                      <div className="flex items-center gap-3 mt-2">
-                        <span className="text-xs text-muted-foreground" data-testid={`text-impressions-${ad.id}`}>
-                          مشاهدات: <span className="font-semibold text-foreground">{(ad.impressions ?? 0).toLocaleString("ar-EG")}</span>
-                        </span>
-                        <span className="text-xs text-muted-foreground" data-testid={`text-clicks-${ad.id}`}>
-                          نقرات: <span className="font-semibold text-foreground">{(ad.clicks ?? 0).toLocaleString("ar-EG")}</span>
-                        </span>
-                        <span className="text-xs text-muted-foreground" data-testid={`text-ctr-${ad.id}`}>
-                          CTR: <span className="font-semibold text-foreground">
-                            {(ad.impressions ?? 0) > 0
-                              ? `${(((ad.clicks ?? 0) / (ad.impressions ?? 1)) * 100).toFixed(2)}%`
-                              : "—"}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-sm truncate">{ad.title}</p>
+                          {isExpired && <Badge variant="destructive" className="text-xs" data-testid={`badge-expired-${ad.id}`}>منتهي الصلاحية</Badge>}
+                          {isScheduled && !isExpired && <Badge variant="secondary" className="text-xs" data-testid={`badge-scheduled-${ad.id}`}>مجدول</Badge>}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <Badge variant="outline" className="text-xs">{positionLabels[ad.position] ?? ad.position}</Badge>
+                          <Badge variant="secondary" className="text-xs" data-testid={`badge-weight-${ad.id}`}>وزن: {ad.weight ?? 1}</Badge>
+                        </div>
+                        {ad.startsAt && <p className="text-xs text-muted-foreground mt-1" dir="ltr">من: {new Date(ad.startsAt).toLocaleDateString("ar-SA")}</p>}
+                        {ad.expiresAt && <p className="text-xs text-muted-foreground" dir="ltr">حتى: {new Date(ad.expiresAt).toLocaleDateString("ar-SA")}</p>}
+                        <p className="text-xs text-muted-foreground mt-1 truncate" dir="ltr">{ad.linkUrl}</p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="text-xs text-muted-foreground" data-testid={`text-impressions-${ad.id}`}>
+                            مشاهدات: <span className="font-semibold text-foreground">{(ad.impressions ?? 0).toLocaleString("ar-EG")}</span>
                           </span>
-                        </span>
+                          <span className="text-xs text-muted-foreground" data-testid={`text-clicks-${ad.id}`}>
+                            نقرات: <span className="font-semibold text-foreground">{(ad.clicks ?? 0).toLocaleString("ar-EG")}</span>
+                          </span>
+                          <span className="text-xs text-muted-foreground" data-testid={`text-ctr-${ad.id}`}>
+                            CTR: <span className="font-semibold text-foreground">
+                              {(ad.impressions ?? 0) > 0
+                                ? `${(((ad.clicks ?? 0) / (ad.impressions ?? 1)) * 100).toFixed(2)}%`
+                                : "—"}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Switch
+                          checked={ad.isActive}
+                          onCheckedChange={v => updateAdMutation.mutate({ id: ad.id, data: { isActive: v } })}
+                          data-testid={`switch-ad-active-${ad.id}`}
+                        />
+                        <Button variant="ghost" size="icon" onClick={() => startEdit(ad)} data-testid={`button-edit-ad-${ad.id}`}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 hover:text-red-700"
+                          onClick={() => { if (confirm("هل أنت متأكد من حذف هذا الإعلان؟")) deleteAdMutation.mutate(ad.id); }}
+                          data-testid={`button-delete-ad-${ad.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Switch
-                        checked={ad.isActive}
-                        onCheckedChange={v => updateAdMutation.mutate({ id: ad.id, data: { isActive: v } })}
-                        data-testid={`switch-ad-active-${ad.id}`}
-                      />
-                      <Button variant="ghost" size="icon" onClick={() => startEdit(ad)} data-testid={`button-edit-ad-${ad.id}`}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-500 hover:text-red-700"
-                        onClick={() => { if (confirm("هل أنت متأكد من حذف هذا الإعلان؟")) deleteAdMutation.mutate(ad.id); }}
-                        data-testid={`button-delete-ad-${ad.id}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                    );
+                })}
               </div>
             )}
           </CardContent>

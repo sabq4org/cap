@@ -3754,9 +3754,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const isAllowedUrl = (url: string) => /^https?:\/\//i.test(url) || url.startsWith("/objects/");
 
+  const parseAdDate = (value: unknown): Date | null => {
+    if (!value) return null;
+    const d = new Date(value as string);
+    if (isNaN(d.getTime())) return null;
+    return d;
+  };
+
+  const validateAdSchedule = (startsAt: Date | null, expiresAt: Date | null): string | null => {
+    if (startsAt && expiresAt && startsAt >= expiresAt) {
+      return "startsAt must be before expiresAt";
+    }
+    return null;
+  };
+
   // Admin: create ad
   app.post("/api/admin/ads", isAdminAuthenticated, async (req, res) => {
-    const { title, imageUrl, linkUrl, position, isActive, weight } = req.body;
+    const { title, imageUrl, linkUrl, position, isActive, weight, startsAt: rawStartsAt, expiresAt: rawExpiresAt } = req.body;
     if (!title || !imageUrl || !linkUrl || !position) {
       return res.status(400).json({ message: "title, imageUrl, linkUrl, and position are required" });
     }
@@ -3770,8 +3784,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ message: "linkUrl must be a valid http/https URL" });
     }
     const parsedWeight = typeof weight === "number" ? Math.min(10, Math.max(1, Math.round(weight))) : 1;
+    const startsAt = parseAdDate(rawStartsAt);
+    const expiresAt = parseAdDate(rawExpiresAt);
+    const scheduleError = validateAdSchedule(startsAt, expiresAt);
+    if (scheduleError) return res.status(400).json({ message: scheduleError });
     try {
-      const ad = await storage.createAd({ title, imageUrl, linkUrl, position, isActive: isActive ?? true, weight: parsedWeight });
+      const ad = await storage.createAd({
+        title,
+        imageUrl,
+        linkUrl,
+        position,
+        isActive: isActive ?? true,
+        weight: parsedWeight,
+        startsAt,
+        expiresAt,
+      });
       res.json(ad);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -3780,7 +3807,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin: update ad
   app.patch("/api/admin/ads/:id", isAdminAuthenticated, async (req, res) => {
-    const { position, imageUrl, linkUrl, weight } = req.body;
+    const { position, imageUrl, linkUrl, weight, startsAt: rawStartsAt, expiresAt: rawExpiresAt, ...rest } = req.body;
     if (position !== undefined && !isValidAdPosition(position)) {
       return res.status(400).json({ message: `Invalid position. Must be one of: ${validAdPositions.join(", ")}` });
     }
@@ -3796,16 +3823,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "weight must be a number between 1 and 10" });
       }
     }
-    const updateData: Partial<{ title: string; imageUrl: string; linkUrl: string; position: string; isActive: boolean; weight: number }> = {
-      ...(req.body.title !== undefined && { title: req.body.title }),
-      ...(imageUrl !== undefined && { imageUrl }),
-      ...(linkUrl !== undefined && { linkUrl }),
-      ...(position !== undefined && { position }),
-      ...(req.body.isActive !== undefined && { isActive: req.body.isActive }),
-      ...(weight !== undefined && { weight: Math.round(Number(weight)) }),
-    };
+    const updateData: Record<string, unknown> = { ...rest };
+    if (position !== undefined) updateData.position = position;
+    if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
+    if (linkUrl !== undefined) updateData.linkUrl = linkUrl;
+    if (weight !== undefined) updateData.weight = Math.round(Number(weight));
+    if ("startsAt" in req.body) updateData.startsAt = parseAdDate(rawStartsAt);
+    if ("expiresAt" in req.body) updateData.expiresAt = parseAdDate(rawExpiresAt);
+    const startsAt = updateData.startsAt as Date | null | undefined;
+    const expiresAt = updateData.expiresAt as Date | null | undefined;
+    if (startsAt !== undefined && expiresAt !== undefined) {
+      const scheduleError = validateAdSchedule(startsAt, expiresAt);
+      if (scheduleError) return res.status(400).json({ message: scheduleError });
+    }
     try {
-      const ad = await storage.updateAd(req.params.id, updateData);
+      const ad = await storage.updateAd(req.params.id, updateData as any);
       if (!ad) return res.status(404).json({ message: "Ad not found" });
       res.json(ad);
     } catch (err: any) {
