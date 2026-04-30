@@ -3242,7 +3242,7 @@ export default function AdminDashboard() {
   const AdsSection = () => {
     const [showAdForm, setShowAdForm] = useState(false);
     const [editingAdId, setEditingAdId] = useState<string | null>(null);
-    const [adForm, setAdForm] = useState<{ title: string; imageUrl: string; linkUrl: string; position: string; isActive: boolean }>({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true });
+    const [adForm, setAdForm] = useState<{ title: string; imageUrl: string; linkUrl: string; position: string; isActive: boolean; weight: number }>({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1 });
     const [isUploadingAdImage, setIsUploadingAdImage] = useState(false);
     const adImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -3254,6 +3254,45 @@ export default function AdminDashboard() {
         return res.json();
       },
     });
+
+    const { data: currentAdAbove, refetch: refetchAbove } = useQuery<Ad | null>({
+      queryKey: ["/api/ads", "above_featured"],
+      queryFn: async () => {
+        const res = await fetch("/api/ads?position=above_featured");
+        if (!res.ok) return null;
+        return res.json();
+      },
+    });
+
+    const { data: currentAdBelow, refetch: refetchBelow } = useQuery<Ad | null>({
+      queryKey: ["/api/ads", "below_featured"],
+      queryFn: async () => {
+        const res = await fetch("/api/ads?position=below_featured");
+        if (!res.ok) return null;
+        return res.json();
+      },
+    });
+
+    const { data: currentAdSidebar, refetch: refetchSidebar } = useQuery<Ad | null>({
+      queryKey: ["/api/ads", "news_sidebar"],
+      queryFn: async () => {
+        const res = await fetch("/api/ads?position=news_sidebar");
+        if (!res.ok) return null;
+        return res.json();
+      },
+    });
+
+    const currentAdByPosition: Record<string, Ad | null | undefined> = {
+      above_featured: currentAdAbove,
+      below_featured: currentAdBelow,
+      news_sidebar: currentAdSidebar,
+    };
+
+    const refetchCurrentAds = () => {
+      refetchAbove();
+      refetchBelow();
+      refetchSidebar();
+    };
 
     const handleAdImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -3293,7 +3332,7 @@ export default function AdminDashboard() {
         queryClient.invalidateQueries({ queryKey: ["/api/ads"] });
         toast({ title: "تم إضافة الإعلان بنجاح" });
         setShowAdForm(false);
-        setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true });
+        setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1 });
       },
       onError: () => toast({ title: "خطأ", description: "فشل في إضافة الإعلان", variant: "destructive" }),
     });
@@ -3309,7 +3348,7 @@ export default function AdminDashboard() {
         toast({ title: "تم تحديث الإعلان بنجاح" });
         setShowAdForm(false);
         setEditingAdId(null);
-        setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true });
+        setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1 });
       },
       onError: () => toast({ title: "خطأ", description: "فشل في تحديث الإعلان", variant: "destructive" }),
     });
@@ -3335,7 +3374,7 @@ export default function AdminDashboard() {
 
     const startEdit = (ad: Ad) => {
       setEditingAdId(ad.id);
-      setAdForm({ title: ad.title, imageUrl: ad.imageUrl, linkUrl: ad.linkUrl, position: ad.position, isActive: ad.isActive });
+      setAdForm({ title: ad.title, imageUrl: ad.imageUrl, linkUrl: ad.linkUrl, position: ad.position, isActive: ad.isActive, weight: ad.weight ?? 1 });
       setShowAdForm(true);
     };
 
@@ -3361,7 +3400,7 @@ export default function AdminDashboard() {
             </h1>
             <p className="text-muted-foreground">إضافة وإدارة البانرات الإعلانية في مواضع مختلفة بالموقع</p>
           </div>
-          <Button onClick={() => { setEditingAdId(null); setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true }); setShowAdForm(true); }} className="gap-2" data-testid="button-add-ad">
+          <Button onClick={() => { setEditingAdId(null); setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1 }); setShowAdForm(true); }} className="gap-2" data-testid="button-add-ad">
             <Plus className="h-4 w-4" />
             إضافة إعلان
           </Button>
@@ -3446,23 +3485,88 @@ export default function AdminDashboard() {
                   data-testid="input-ad-link-url"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="ad-active"
-                  checked={adForm.isActive}
-                  onCheckedChange={v => setAdForm(f => ({ ...f, isActive: v }))}
-                  data-testid="switch-ad-active"
-                />
-                <Label htmlFor="ad-active">مفعّل</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="ad-active"
+                    checked={adForm.isActive}
+                    onCheckedChange={v => setAdForm(f => ({ ...f, isActive: v }))}
+                    data-testid="switch-ad-active"
+                  />
+                  <Label htmlFor="ad-active">مفعّل</Label>
+                </div>
+                <div>
+                  <Label htmlFor="ad-weight">الأولوية / الوزن (1-10)</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      id="ad-weight"
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={adForm.weight}
+                      onChange={e => setAdForm(f => ({ ...f, weight: Math.min(10, Math.max(1, parseInt(e.target.value) || 1)) }))}
+                      className="w-24"
+                      data-testid="input-ad-weight"
+                    />
+                    <span className="text-xs text-muted-foreground">كلما زاد الوزن زادت احتمالية ظهور هذا الإعلان</span>
+                  </div>
+                </div>
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleSubmit} disabled={createAdMutation.isPending || updateAdMutation.isPending} data-testid="button-save-ad">
                   {(createAdMutation.isPending || updateAdMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Save className="h-4 w-4 ml-1" />}
                   {editingAdId ? "حفظ التعديلات" : "إضافة الإعلان"}
                 </Button>
-                <Button variant="outline" onClick={() => { setShowAdForm(false); setEditingAdId(null); }} data-testid="button-cancel-ad">
+                <Button variant="outline" onClick={() => { setShowAdForm(false); setEditingAdId(null); setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "above_featured", isActive: true, weight: 1 }); }} data-testid="button-cancel-ad">
                   إلغاء
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {adsList && adsList.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">حالة التناوب بالمواضع</CardTitle>
+                  <CardDescription>الإعلان الحالي المعروض في كل موضع</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={refetchCurrentAds} data-testid="button-refresh-current-ads">
+                  تحديث
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {(["above_featured", "below_featured", "news_sidebar"] as const).map(pos => {
+                  const activeInPos = adsList.filter((a: Ad) => a.position === pos && a.isActive);
+                  const totalInPos = adsList.filter((a: Ad) => a.position === pos);
+                  const currentAd = currentAdByPosition[pos];
+                  return (
+                    <div key={pos} className="rounded-lg border p-3" data-testid={`rotation-summary-${pos}`}>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">{positionLabels[pos]}</p>
+                      {currentAd ? (
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-12 h-8 rounded overflow-hidden bg-muted flex-shrink-0">
+                            <img src={currentAd.imageUrl} alt={currentAd.title} className="w-full h-full object-cover" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold truncate" data-testid={`current-ad-title-${pos}`}>{currentAd.title}</p>
+                            <p className="text-xs text-muted-foreground">وزن: {currentAd.weight ?? 1}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mb-2">لا يوجد إعلان نشط</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {activeInPos.length} نشط من {totalInPos.length}
+                        {activeInPos.length > 1 && " — يتناوب عشوائياً"}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -3492,7 +3596,10 @@ export default function AdminDashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm truncate">{ad.title}</p>
-                      <Badge variant="outline" className="text-xs mt-1">{positionLabels[ad.position] ?? ad.position}</Badge>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        <Badge variant="outline" className="text-xs">{positionLabels[ad.position] ?? ad.position}</Badge>
+                        <Badge variant="secondary" className="text-xs" data-testid={`badge-weight-${ad.id}`}>وزن: {ad.weight ?? 1}</Badge>
+                      </div>
                       <p className="text-xs text-muted-foreground mt-1 truncate" dir="ltr">{ad.linkUrl}</p>
                       <div className="flex items-center gap-3 mt-2">
                         <span className="text-xs text-muted-foreground" data-testid={`text-impressions-${ad.id}`}>

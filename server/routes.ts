@@ -3756,7 +3756,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin: create ad
   app.post("/api/admin/ads", isAdminAuthenticated, async (req, res) => {
-    const { title, imageUrl, linkUrl, position, isActive } = req.body;
+    const { title, imageUrl, linkUrl, position, isActive, weight } = req.body;
     if (!title || !imageUrl || !linkUrl || !position) {
       return res.status(400).json({ message: "title, imageUrl, linkUrl, and position are required" });
     }
@@ -3769,8 +3769,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!isAllowedUrl(linkUrl)) {
       return res.status(400).json({ message: "linkUrl must be a valid http/https URL" });
     }
+    const parsedWeight = typeof weight === "number" ? Math.min(10, Math.max(1, Math.round(weight))) : 1;
     try {
-      const ad = await storage.createAd({ title, imageUrl, linkUrl, position, isActive: isActive ?? true });
+      const ad = await storage.createAd({ title, imageUrl, linkUrl, position, isActive: isActive ?? true, weight: parsedWeight });
       res.json(ad);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -3779,7 +3780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin: update ad
   app.patch("/api/admin/ads/:id", isAdminAuthenticated, async (req, res) => {
-    const { position, imageUrl, linkUrl } = req.body;
+    const { position, imageUrl, linkUrl, weight } = req.body;
     if (position !== undefined && !isValidAdPosition(position)) {
       return res.status(400).json({ message: `Invalid position. Must be one of: ${validAdPositions.join(", ")}` });
     }
@@ -3789,8 +3790,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (linkUrl !== undefined && !isAllowedUrl(linkUrl)) {
       return res.status(400).json({ message: "linkUrl must be a valid http/https URL" });
     }
+    if (weight !== undefined) {
+      const parsedW = Number(weight);
+      if (!Number.isFinite(parsedW) || parsedW < 1 || parsedW > 10) {
+        return res.status(400).json({ message: "weight must be a number between 1 and 10" });
+      }
+    }
+    const updateData: Partial<{ title: string; imageUrl: string; linkUrl: string; position: string; isActive: boolean; weight: number }> = {
+      ...(req.body.title !== undefined && { title: req.body.title }),
+      ...(imageUrl !== undefined && { imageUrl }),
+      ...(linkUrl !== undefined && { linkUrl }),
+      ...(position !== undefined && { position }),
+      ...(req.body.isActive !== undefined && { isActive: req.body.isActive }),
+      ...(weight !== undefined && { weight: Math.round(Number(weight)) }),
+    };
     try {
-      const ad = await storage.updateAd(req.params.id, req.body);
+      const ad = await storage.updateAd(req.params.id, updateData);
       if (!ad) return res.status(404).json({ message: "Ad not found" });
       res.json(ad);
     } catch (err: any) {

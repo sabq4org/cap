@@ -1634,11 +1634,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getActiveAdByPosition(position: string): Promise<Ad | undefined> {
-    const [ad] = await db.select().from(ads)
+    const activeAds = await db.select().from(ads)
       .where(and(eq(ads.position, position), eq(ads.isActive, true)))
-      .orderBy(desc(ads.createdAt))
-      .limit(1);
-    return ad;
+      .orderBy(desc(ads.createdAt));
+    if (activeAds.length === 0) return undefined;
+    if (activeAds.length === 1) return activeAds[0];
+    const totalWeight = activeAds.reduce((sum, ad) => sum + (ad.weight ?? 1), 0);
+    let rand = Math.random() * totalWeight;
+    for (const ad of activeAds) {
+      rand -= ad.weight ?? 1;
+      if (rand <= 0) return ad;
+    }
+    return activeAds[activeAds.length - 1];
   }
 
   async createAd(adData: InsertAd): Promise<Ad> {

@@ -823,6 +823,7 @@ export const ads = pgTable("ads", {
   linkUrl: text("link_url").notNull(),
   position: varchar("position").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
+  weight: integer("weight").default(1).notNull(),
   impressions: integer("impressions").default(0).notNull(),
   clicks: integer("clicks").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -837,6 +838,7 @@ export const insertAdSchema = createInsertSchema(ads).omit({
   clicks: true,
 }).extend({
   position: z.enum(adPositionEnum),
+  weight: z.number().int().min(1).max(10).default(1),
 });
 export type InsertAd = z.infer<typeof insertAdSchema>;
 export type Ad = typeof ads.$inferSelect;
