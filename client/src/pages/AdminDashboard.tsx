@@ -3494,6 +3494,21 @@ export default function AdminDashboard() {
                       <p className="font-semibold text-sm truncate">{ad.title}</p>
                       <Badge variant="outline" className="text-xs mt-1">{positionLabels[ad.position] ?? ad.position}</Badge>
                       <p className="text-xs text-muted-foreground mt-1 truncate" dir="ltr">{ad.linkUrl}</p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className="text-xs text-muted-foreground" data-testid={`text-impressions-${ad.id}`}>
+                          مشاهدات: <span className="font-semibold text-foreground">{(ad.impressions ?? 0).toLocaleString("ar-EG")}</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground" data-testid={`text-clicks-${ad.id}`}>
+                          نقرات: <span className="font-semibold text-foreground">{(ad.clicks ?? 0).toLocaleString("ar-EG")}</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground" data-testid={`text-ctr-${ad.id}`}>
+                          CTR: <span className="font-semibold text-foreground">
+                            {(ad.impressions ?? 0) > 0
+                              ? `${(((ad.clicks ?? 0) / (ad.impressions ?? 1)) * 100).toFixed(2)}%`
+                              : "—"}
+                          </span>
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Switch

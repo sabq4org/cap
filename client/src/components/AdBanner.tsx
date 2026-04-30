@@ -22,7 +22,7 @@ export function AdBanner({ position, className = "" }: AdBannerProps) {
   return (
     <div className={`relative w-full ${className}`} data-testid={`ad-banner-${position}`}>
       <a
-        href={ad.linkUrl}
+        href={`/api/ads/${ad.id}/click`}
         target="_blank"
         rel="noopener noreferrer sponsored"
         aria-label={ad.title}

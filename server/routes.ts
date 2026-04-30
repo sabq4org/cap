@@ -3706,7 +3706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const validAdPositions: string[] = [...adPositionEnum];
   const isValidAdPosition = (p: string): p is AdPosition => validAdPositions.includes(p);
 
-  // Public: get active ad by position
+  // Public: get active ad by position (and count impression)
   app.get("/api/ads", async (req, res) => {
     const { position } = req.query;
     if (!position || typeof position !== "string") {
@@ -3718,7 +3718,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const ad = await storage.getActiveAdByPosition(position);
       if (!ad) return res.json(null);
+      storage.incrementAdImpressions(ad.id).catch((err) => {
+        console.warn(`[ads] Failed to increment impressions for ad ${ad.id}:`, err?.message);
+      });
       res.json(ad);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Public: track ad click and redirect to destination
+  app.get("/api/ads/:id/click", async (req, res) => {
+    const { id } = req.params;
+    try {
+      const ad = await storage.getAdById(id);
+      if (!ad) return res.status(404).json({ message: "Ad not found" });
+      storage.incrementAdClicks(id).catch((err) => {
+        console.warn(`[ads] Failed to increment clicks for ad ${id}:`, err?.message);
+      });
+      res.redirect(302, ad.linkUrl);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

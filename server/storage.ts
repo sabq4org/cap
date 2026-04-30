@@ -166,10 +166,13 @@ export interface IStorage {
 
   // Ads operations
   getAds(): Promise<Ad[]>;
+  getAdById(id: string): Promise<Ad | undefined>;
   getActiveAdByPosition(position: string): Promise<Ad | undefined>;
   createAd(ad: InsertAd): Promise<Ad>;
   updateAd(id: string, data: Partial<InsertAd>): Promise<Ad | undefined>;
   deleteAd(id: string): Promise<boolean>;
+  incrementAdImpressions(id: string): Promise<void>;
+  incrementAdClicks(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1625,6 +1628,11 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(ads).orderBy(desc(ads.createdAt));
   }
 
+  async getAdById(id: string): Promise<Ad | undefined> {
+    const [ad] = await db.select().from(ads).where(eq(ads.id, id)).limit(1);
+    return ad;
+  }
+
   async getActiveAdByPosition(position: string): Promise<Ad | undefined> {
     const [ad] = await db.select().from(ads)
       .where(and(eq(ads.position, position), eq(ads.isActive, true)))
@@ -1646,6 +1654,14 @@ export class DatabaseStorage implements IStorage {
   async deleteAd(id: string): Promise<boolean> {
     const result = await db.delete(ads).where(eq(ads.id, id)).returning();
     return result.length > 0;
+  }
+
+  async incrementAdImpressions(id: string): Promise<void> {
+    await db.update(ads).set({ impressions: sql`${ads.impressions} + 1` }).where(eq(ads.id, id));
+  }
+
+  async incrementAdClicks(id: string): Promise<void> {
+    await db.update(ads).set({ clicks: sql`${ads.clicks} + 1` }).where(eq(ads.id, id));
   }
 }
 

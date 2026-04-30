@@ -823,6 +823,8 @@ export const ads = pgTable("ads", {
   linkUrl: text("link_url").notNull(),
   position: varchar("position").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
+  impressions: integer("impressions").default(0).notNull(),
+  clicks: integer("clicks").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   check("ads_position_check", sql`${table.position} IN ('above_featured', 'below_featured', 'news_sidebar')`),
@@ -831,6 +833,8 @@ export const ads = pgTable("ads", {
 export const insertAdSchema = createInsertSchema(ads).omit({
   id: true,
   createdAt: true,
+  impressions: true,
+  clicks: true,
 }).extend({
   position: z.enum(adPositionEnum),
 });
