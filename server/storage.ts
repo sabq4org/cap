@@ -21,9 +21,6 @@ import {
   imageGenerations,
   infographicTemplates,
   infographicJobs,
-  ads,
-  type Ad,
-  type InsertAd,
   type User,
   type UpsertUser,
   type HealthProfile,
@@ -163,16 +160,6 @@ export interface IStorage {
   updateUserRole(userId: string, role: string): Promise<User | undefined>;
   updateUserStatus(userId: string, isActive: boolean): Promise<User | undefined>;
   updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; email?: string }): Promise<User | undefined>;
-
-  // Ads operations
-  getAds(): Promise<Ad[]>;
-  getAdById(id: string): Promise<Ad | undefined>;
-  getActiveAdByPosition(position: string): Promise<Ad | undefined>;
-  createAd(ad: InsertAd): Promise<Ad>;
-  updateAd(id: string, data: Partial<InsertAd>): Promise<Ad | undefined>;
-  deleteAd(id: string): Promise<boolean>;
-  incrementAdImpressions(id: string): Promise<void>;
-  incrementAdClicks(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1621,60 +1608,6 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(infographicJobs)
       .orderBy(desc(infographicJobs.createdAt))
       .limit(limit);
-  }
-
-  // Ads operations
-  async getAds(): Promise<Ad[]> {
-    return await db.select().from(ads).orderBy(desc(ads.createdAt));
-  }
-
-  async getAdById(id: string): Promise<Ad | undefined> {
-    const [ad] = await db.select().from(ads).where(eq(ads.id, id)).limit(1);
-    return ad;
-  }
-
-  async getActiveAdByPosition(position: string): Promise<Ad | undefined> {
-    const now = new Date();
-    const activeAds = await db.select().from(ads)
-      .where(and(
-        eq(ads.position, position),
-        eq(ads.isActive, true),
-        or(isNull(ads.startsAt), lte(ads.startsAt, now)),
-        or(isNull(ads.expiresAt), gte(ads.expiresAt, now)),
-      ))
-      .orderBy(desc(ads.createdAt));
-    if (activeAds.length === 0) return undefined;
-    if (activeAds.length === 1) return activeAds[0];
-    const totalWeight = activeAds.reduce((sum, ad) => sum + (ad.weight ?? 1), 0);
-    let rand = Math.random() * totalWeight;
-    for (const ad of activeAds) {
-      rand -= ad.weight ?? 1;
-      if (rand <= 0) return ad;
-    }
-    return activeAds[activeAds.length - 1];
-  }
-
-  async createAd(adData: InsertAd): Promise<Ad> {
-    const [ad] = await db.insert(ads).values(adData).returning();
-    return ad;
-  }
-
-  async updateAd(id: string, data: Partial<InsertAd>): Promise<Ad | undefined> {
-    const [ad] = await db.update(ads).set(data).where(eq(ads.id, id)).returning();
-    return ad;
-  }
-
-  async deleteAd(id: string): Promise<boolean> {
-    const result = await db.delete(ads).where(eq(ads.id, id)).returning();
-    return result.length > 0;
-  }
-
-  async incrementAdImpressions(id: string): Promise<void> {
-    await db.update(ads).set({ impressions: sql`${ads.impressions} + 1` }).where(eq(ads.id, id));
-  }
-
-  async incrementAdClicks(id: string): Promise<void> {
-    await db.update(ads).set({ clicks: sql`${ads.clicks} + 1` }).where(eq(ads.id, id));
   }
 }
 

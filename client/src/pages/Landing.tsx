@@ -26,7 +26,6 @@ import {
 } from "lucide-react";
 import { isAiGeneratedImage } from "@/components/AIImageBadge";
 import { getNewsImage, getNewsFallbackImage, newsImages } from "@/lib/newsImages";
-import { AdBanner } from "@/components/AdBanner";
 import type { News, Article } from "@shared/schema";
 
 const categoryLabels: Record<string, string> = {
@@ -109,8 +108,6 @@ export default function Landing() {
   return (
     <div className="min-h-screen p-6 bg-background" dir="rtl">
       <div className="container mx-auto max-w-7xl">
-        <AdBanner position="above_featured" className="mb-4" />
-
         {newsLoading ? (
           <Skeleton className="h-[200px] md:h-[300px] w-full rounded-lg" />
         ) : featuredNewsList.length > 0 ? (
@@ -216,8 +213,6 @@ export default function Landing() {
             </div>
           </div>
         ) : null}
-
-        <AdBanner position="below_featured" className="mt-4" />
 
         <div className="mt-8">
           <div className="flex items-center justify-between mb-6">
