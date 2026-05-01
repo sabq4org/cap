@@ -162,6 +162,25 @@ export interface IStorage {
   updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; email?: string }): Promise<User | undefined>;
 }
 
+// Simple TTL in-memory cache
+class TtlCache {
+  private store = new Map<string, { value: any; expiresAt: number }>();
+  get<T>(key: string): T | undefined {
+    const entry = this.store.get(key);
+    if (!entry) return undefined;
+    if (Date.now() > entry.expiresAt) { this.store.delete(key); return undefined; }
+    return entry.value as T;
+  }
+  set(key: string, value: any, ttlMs: number) {
+    this.store.set(key, { value, expiresAt: Date.now() + ttlMs });
+  }
+  del(key: string) { this.store.delete(key); }
+  delPrefix(prefix: string) {
+    for (const k of this.store.keys()) { if (k.startsWith(prefix)) this.store.delete(k); }
+  }
+}
+const newsCache = new TtlCache();
+
 export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
@@ -377,14 +396,18 @@ export class DatabaseStorage implements IStorage {
 
   // News operations
   // Helper to auto-promote scheduled items
+  private _lastPromoteCheck = 0;
   private async autoPromoteScheduledItems(items: News[]): Promise<void> {
-    const now = new Date();
+    const now = Date.now();
+    if (now - this._lastPromoteCheck < 30000) return; // at most once per 30s
+    this._lastPromoteCheck = now;
+    const nowDate = new Date();
+    await db.execute(sql`
+      UPDATE news SET status = 'published', published_at = scheduled_at
+      WHERE status = 'scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= ${nowDate}
+    `);
     for (const item of items) {
-      if (item.status === 'scheduled' && item.scheduledAt && item.scheduledAt <= now) {
-        await db
-          .update(news)
-          .set({ status: 'published', publishedAt: item.scheduledAt })
-          .where(eq(news.id, item.id));
+      if (item.status === 'scheduled' && item.scheduledAt && item.scheduledAt <= nowDate) {
         item.status = 'published';
         item.publishedAt = item.scheduledAt;
       }
@@ -392,6 +415,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNews(category?: string, limit: number = 50): Promise<News[]> {
+    const cacheKey = `news:${category || ''}:${limit}`;
+    const cached = newsCache.get<News[]>(cacheKey);
+    if (cached) return cached;
+
     const now = new Date();
     const conditions = [
       sql`${news.status} != 'deleted'`,
@@ -411,7 +438,7 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
 
     await this.autoPromoteScheduledItems(results);
-
+    newsCache.set(cacheKey, results, 60_000); // 60 seconds TTL
     return results;
   }
 
@@ -654,6 +681,8 @@ export class DatabaseStorage implements IStorage {
       .insert(news)
       .values(newsData as any)
       .returning();
+    newsCache.delPrefix('news:');
+    newsCache.delPrefix('trending:');
     return newsItem;
   }
 
@@ -663,6 +692,8 @@ export class DatabaseStorage implements IStorage {
       .set(newsData as any)
       .where(eq(news.id, id))
       .returning();
+    newsCache.delPrefix('news:');
+    newsCache.delPrefix('trending:');
     return updated;
   }
 
@@ -678,6 +709,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTrendingNews(limit: number = 10): Promise<News[]> {
+    const cacheKey = `trending:${limit}`;
+    const cached = newsCache.get<News[]>(cacheKey);
+    if (cached) return cached;
+
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
     const results = await db.select().from(news)
@@ -687,6 +722,8 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(news.viewCount))
       .limit(limit);
+
+    newsCache.set(cacheKey, results, 300_000); // 5 minutes TTL
     return results;
   }
 
@@ -758,6 +795,8 @@ export class DatabaseStorage implements IStorage {
       .delete(news)
       .where(eq(news.id, id))
       .returning();
+    newsCache.delPrefix('news:');
+    newsCache.delPrefix('trending:');
     return result.length > 0;
   }
 
@@ -767,6 +806,8 @@ export class DatabaseStorage implements IStorage {
       .set({ status: 'deleted', deletedAt: new Date() })
       .where(eq(news.id, id))
       .returning();
+    newsCache.delPrefix('news:');
+    newsCache.delPrefix('trending:');
     return !!result;
   }
 
@@ -1298,13 +1339,26 @@ export class DatabaseStorage implements IStorage {
     rejected: number;
     published: number;
   }> {
-    const allItems = await db.select().from(radarItems);
+    const rows = await db
+      .select({
+        status: radarItems.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(radarItems)
+      .groupBy(radarItems.status);
+
+    const map: Record<string, number> = {};
+    let total = 0;
+    for (const row of rows) {
+      map[row.status] = row.count;
+      total += row.count;
+    }
     return {
-      total: allItems.length,
-      pending: allItems.filter(i => i.status === 'pending').length,
-      approved: allItems.filter(i => i.status === 'approved').length,
-      rejected: allItems.filter(i => i.status === 'rejected').length,
-      published: allItems.filter(i => i.status === 'published').length,
+      total,
+      pending: map['pending'] || 0,
+      approved: map['approved'] || 0,
+      rejected: map['rejected'] || 0,
+      published: map['published'] || 0,
     };
   }
 

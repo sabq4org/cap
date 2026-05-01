@@ -179,6 +179,19 @@ async function fixCategoriesArabic() {
       console.error('[Init] خطأ في تهيئة مشاهدات اليوم (غير حرج):', err);
     }
 
+    // Create performance indexes if they don't exist
+    try {
+      const client = await pool.connect();
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_news_status_published ON news(status, published_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_radar_items_status ON radar_items(status);
+        CREATE INDEX IF NOT EXISTS idx_news_view_count ON news(view_count DESC, published_at DESC);
+      `);
+      client.release();
+    } catch (err) {
+      console.error('[Init] خطأ في إنشاء الفهارس (غير حرج):', err);
+    }
+
     // Seed default radar sources — only adds missing ones
     try {
       const sourcesAdded = await seedDefaultSources();
