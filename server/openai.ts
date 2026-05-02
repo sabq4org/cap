@@ -1415,7 +1415,6 @@ ${archiveContext}
 }
 
 // =====================================================
-// =====================================================
 // Medical Content Capsule AI Functions
 // =====================================================
 
@@ -1706,6 +1705,119 @@ export async function generateWhatsAppNewsletter(
       points: newsItems.slice(0, 4).map((n) => n.title),
     };
   }
+}
+
+// =====================================================
+// Social Content Generation for Articles
+// =====================================================
+
+export interface SocialContentResult {
+  xThread: string[];
+  reelsScript: Array<{ scene: number; duration: string; dialogue: string }>;
+  instagramPoints: { points: string[]; hashtags: string[] };
+}
+
+export async function generateSocialContent(
+  articleTitle: string,
+  articleContent: string
+): Promise<SocialContentResult> {
+  const truncatedContent = articleContent.substring(0, 3000);
+
+  const [xResult, reelsResult, igResult] = await Promise.all([
+    openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `أنت خبير سوشيال ميديا عربي متخصص في المحتوى الصحي. مهمتك توليد ثريد X (تويتر) احترافي بالعربية من مقال طبي.
+
+قواعد الثريد:
+- كل تغريدة يجب ألا تتجاوز 280 حرفاً (عدّ الحروف بدقة)
+- الثريد يبدأ بتغريدة جذابة تثير الفضول
+- كل تغريدة تحمل فكرة واحدة واضحة
+- استخدم الأرقام (1/ 2/ 3/) لترقيم الثريد
+- الأسلوب: إعلامي، مختصر، مفيد
+- عدد التغريدات: 6-8 تغريدات
+- لا تضع hashtags في كل تغريدة، فقط في الأخيرة
+
+أرجع النتيجة بصيغة JSON:
+{"tweets": ["نص التغريدة الأولى", "نص الثانية", ...]}`
+        },
+        {
+          role: "user",
+          content: `المقال: ${articleTitle}\n\n${truncatedContent}`
+        }
+      ],
+      max_completion_tokens: 2048,
+      response_format: { type: "json_object" },
+    }),
+
+    openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `أنت كاتب سكريبت محترف للريلز والتيك توك بالعربية. مهمتك تحويل مقال طبي إلى سكريبت فيديو قصير 30-60 ثانية.
+
+قواعد السكريبت:
+- مقسّم إلى 5-7 مشاهد قصيرة
+- كل مشهد له وقت محدد (ثواني)
+- الحوار طبيعي وعفوي بالعربية
+- الأسلوب: تثقيفي وجذاب ومناسب لجمهور السوشيال ميديا
+- الافتتاح قوي يجذب الانتباه في أول 3 ثوانٍ
+- الخاتمة تدعو للمتابعة أو التفاعل
+
+أرجع النتيجة بصيغة JSON:
+{"scenes": [{"scene": 1, "duration": "0-5 ثوانٍ", "dialogue": "نص الحوار"}, ...]}`
+        },
+        {
+          role: "user",
+          content: `المقال: ${articleTitle}\n\n${truncatedContent}`
+        }
+      ],
+      max_completion_tokens: 2048,
+      response_format: { type: "json_object" },
+    }),
+
+    openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `أنت خبير محتوى إنستغرام عربي متخصص في الصحة. مهمتك استخلاص نقاط إنفوغرافيك من مقال طبي.
+
+قواعد النقاط:
+- 5-7 نقاط مختصرة وجذابة
+- كل نقطة تبدأ بإيموجي مناسب
+- الأسلوب: مرئي وبصري وسهل القراءة
+- الجمل قصيرة ومباشرة (15-25 كلمة لكل نقطة)
+- اقترح 8-10 هاشتاقات طبية عربية وإنجليزية مناسبة
+
+أرجع النتيجة بصيغة JSON:
+{"points": ["نقطة 1", "نقطة 2", ...], "hashtags": ["#الصحة", "#health", ...]}`
+        },
+        {
+          role: "user",
+          content: `المقال: ${articleTitle}\n\n${truncatedContent}`
+        }
+      ],
+      max_completion_tokens: 1024,
+      response_format: { type: "json_object" },
+    }),
+  ]);
+
+  const xData = JSON.parse(xResult.choices[0]?.message?.content || "{}");
+  const reelsData = JSON.parse(reelsResult.choices[0]?.message?.content || "{}");
+  const igData = JSON.parse(igResult.choices[0]?.message?.content || "{}");
+
+  return {
+    xThread: xData.tweets || [],
+    reelsScript: reelsData.scenes || [],
+    instagramPoints: {
+      points: igData.points || [],
+      hashtags: igData.hashtags || [],
+    },
+  };
 }
 
 export default openai;

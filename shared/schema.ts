@@ -207,6 +207,8 @@ export const articles = pgTable("articles", {
   sources: jsonb("sources").$type<Array<{ title: string; url: string }>>().default([]),
   status: varchar("status").notNull().default("draft"), // draft, published
   publishedAt: timestamp("published_at"),
+  socialContentGenerated: boolean("social_content_generated").default(false),
+  socialContentGeneratedAt: timestamp("social_content_generated_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

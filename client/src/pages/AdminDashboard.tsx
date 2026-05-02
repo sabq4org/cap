@@ -11,7 +11,7 @@ import {
   Activity, Utensils, Heart, Settings, ChevronLeft, BarChart3,
   Calendar, Clock, ArrowUpRight, ArrowDownRight, Sparkles, Menu, X,
   Save, Loader2, ChevronRight, Image, Upload, ImagePlus, Download, Globe, Check, AlertCircle, CheckSquare, Square, Star, Shield, Apple, Radar, Wand2, LayoutTemplate, ChevronsLeft, ChevronsRight, ArrowUpDown, Rss, AlertTriangle, MessageCircle,
-  Megaphone, RefreshCw, ToggleLeft, ToggleRight, ExternalLink, Link2, Weight, Timer, RotateCcw, MousePointerClick, FlaskConical
+  Megaphone, RefreshCw, ToggleLeft, ToggleRight, ExternalLink, Link2, Weight, Timer, RotateCcw, MousePointerClick, FlaskConical, Share2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import logoImage from "@assets/LOGO-L_1769253692563.png";
 import { AdminDashboardOverview } from "@/components/admin/AdminDashboardOverview";
+import { SocialContentModal } from "@/components/SocialContentModal";
 
 interface StatCard {
   title: string;
@@ -170,6 +171,7 @@ export default function AdminDashboard() {
   const [scheduledDateTime, setScheduledDateTime] = useState("");
   const [selectedNewsIds, setSelectedNewsIds] = useState<Set<string>>(new Set());
   const [showPreview, setShowPreview] = useState(false);
+  const [socialModalArticle, setSocialModalArticle] = useState<{ id: string; title: string } | null>(null);
   const { toast } = useToast();
 
   // Category form state
@@ -3114,24 +3116,36 @@ export default function AdminDashboard() {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 shrink-0">
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleEditArticle(article)}
-                    data-testid={`button-edit-article-${index}`}
+                    variant={article.socialContentGenerated ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setSocialModalArticle({ id: article.id, title: article.title })}
+                    data-testid={`button-social-article-${index}`}
+                    className={`gap-1.5 text-xs ${article.socialContentGenerated ? "text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40" : ""}`}
                   >
-                    <Edit className="h-4 w-4" />
+                    <Share2 className="h-3.5 w-3.5" />
+                    انشر على السوشيال ميديا
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteArticle(article.id)}
-                    className="text-destructive hover:text-destructive"
-                    data-testid={`button-delete-article-${index}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEditArticle(article)}
+                      data-testid={`button-edit-article-${index}`}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteArticle(article.id)}
+                      className="text-destructive hover:text-destructive"
+                      data-testid={`button-delete-article-${index}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -4825,6 +4839,15 @@ export default function AdminDashboard() {
           </Button>
         </Link>
       </header>
+
+      {socialModalArticle && (
+        <SocialContentModal
+          open={!!socialModalArticle}
+          onClose={() => setSocialModalArticle(null)}
+          articleId={socialModalArticle.id}
+          articleTitle={socialModalArticle.title}
+        />
+      )}
 
       <div className="flex w-full max-w-full">
         {/* Desktop Sidebar */}

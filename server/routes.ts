@@ -5,7 +5,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupLocalAuth, registerLocalAuthRoutes } from "./localAuth";
-import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, generateInfographicImage, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle, generateEditorialInsights, generateArchiveChatResponse, type ArchiveSearchResult, factCheckMedicalContent, simplifyMedicalText, extractNewsFromPdf, debunkMedicalRumor } from "./openai";
+import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, generateInfographicImage, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle, generateEditorialInsights, generateArchiveChatResponse, type ArchiveSearchResult, factCheckMedicalContent, simplifyMedicalText, extractNewsFromPdf, debunkMedicalRumor, generateSocialContent } from "./openai";
 import multer from "multer";
 import { PDFParse } from "pdf-parse";
 import { 
@@ -921,6 +921,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting article:", error);
       res.status(500).json({ message: "Failed to delete article" });
+    }
+  });
+
+  // Social content generation for articles
+  app.post('/api/articles/:id/social-content', isAdminAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const article = await storage.getArticleById(id);
+      if (!article) {
+        return res.status(404).json({ message: "Article not found" });
+      }
+      const result = await generateSocialContent(article.title, article.content);
+      // Mark article as having social content generated
+      await storage.updateArticle(id, {
+        socialContentGenerated: true,
+        socialContentGeneratedAt: new Date(),
+      });
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating social content:", error);
+      res.status(500).json({ message: "Failed to generate social content" });
     }
   });
 
