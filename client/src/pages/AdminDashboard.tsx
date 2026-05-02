@@ -113,6 +113,40 @@ function fmtDateEnglish(isoStr: string | null | undefined): string {
   if (!isoStr) return '—';
   return new Date(isoStr).toLocaleDateString('en-GB', { timeZone: SAUDI_TZ, year: 'numeric', month: 'short', day: 'numeric' });
 }
+
+/**
+ * Returns a human-readable Arabic relative-time label for a scheduled date.
+ * Future  → "يبدأ خلال 3 أيام" / "يبدأ خلال ساعتين" / "يبدأ خلال دقيقة"
+ * Past    → "انتهى منذ 2 يوم"  / "انتهى منذ 5 ساعات" / "انتهى منذ دقيقة"
+ */
+function relativeScheduledTime(isoStr: string | null | undefined): string {
+  if (!isoStr) return '';
+  const diffMs = new Date(isoStr).getTime() - Date.now();
+  const abs = Math.abs(diffMs);
+  const isFuture = diffMs > 0;
+
+  let amount: number;
+  let unit: Intl.RelativeTimeFormatUnit;
+
+  if (abs < 60_000) {
+    amount = Math.round(abs / 1_000);
+    unit = 'second';
+  } else if (abs < 3_600_000) {
+    amount = Math.round(abs / 60_000);
+    unit = 'minute';
+  } else if (abs < 86_400_000) {
+    amount = Math.round(abs / 3_600_000);
+    unit = 'hour';
+  } else {
+    amount = Math.round(abs / 86_400_000);
+    unit = 'day';
+  }
+
+  const rtf = new Intl.RelativeTimeFormat('ar', { numeric: 'auto' });
+  const relative = rtf.format(isFuture ? amount : -amount, unit);
+
+  return isFuture ? `يبدأ ${relative}` : `انتهى ${relative}`;
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
@@ -2389,9 +2423,13 @@ export default function AdminDashboard() {
                             )}
                           </div>
                           {item.status === 'scheduled' && item.scheduledAt && (
-                            <p className="text-[11px] text-blue-600 dark:text-blue-400 flex items-center gap-1 mt-0.5">
-                              <Clock className="h-3 w-3" />
-                              مجدول: {fmtSaudiDateOnly(item.scheduledAt)} {fmtSaudiTimeOnly(item.scheduledAt)}
+                            <p
+                              className={`text-[11px] flex items-center gap-1 mt-0.5 md:hidden ${new Date(item.scheduledAt).getTime() > Date.now() ? 'text-blue-600 dark:text-blue-400' : 'text-amber-600 dark:text-amber-400'}`}
+                              title={`${fmtSaudiDateOnly(item.scheduledAt)} ${fmtSaudiTimeOnly(item.scheduledAt)}`}
+                              data-testid={`text-scheduled-relative-${item.id}`}
+                            >
+                              <Clock className="h-3 w-3 shrink-0" />
+                              {relativeScheduledTime(item.scheduledAt)}
                             </p>
                           )}
                           {item.createdBy && (
@@ -2410,7 +2448,18 @@ export default function AdminDashboard() {
 
                     {/* Status */}
                     <td className="p-3 text-center hidden md:table-cell">
-                      {statusBadge(item.status)}
+                      <div className="flex flex-col items-center gap-1">
+                        {statusBadge(item.status)}
+                        {item.status === 'scheduled' && item.scheduledAt && (
+                          <span
+                            className={`text-[10px] font-medium leading-tight ${new Date(item.scheduledAt).getTime() > Date.now() ? 'text-blue-600 dark:text-blue-400' : 'text-amber-600 dark:text-amber-400'}`}
+                            title={`${fmtSaudiDateOnly(item.scheduledAt)} ${fmtSaudiTimeOnly(item.scheduledAt)}`}
+                            data-testid={`text-scheduled-countdown-${item.id}`}
+                          >
+                            {relativeScheduledTime(item.scheduledAt)}
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Source */}
