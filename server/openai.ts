@@ -1413,4 +1413,152 @@ ${archiveContext}
   }
 }
 
+// =====================================================
+// Medical Content Capsule AI Functions
+// =====================================================
+
+export interface FactCheckResult {
+  verdict: "موثوق" | "مشكوك فيه" | "مضلل";
+  credibilityScore: number;
+  explanation: string;
+  notes: Array<{ claim: string; assessment: string }>;
+}
+
+export async function factCheckMedicalContent(text: string): Promise<FactCheckResult> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `أنت مدقق طبي متخصص ذو خبرة واسعة في تقييم المحتوى الطبي والصحي.
+مهمتك: تقييم دقة المحتوى الطبي المقدم مقارنةً بالإجماع العلمي الطبي الراسخ وتوصيات منظمة الصحة العالمية.
+
+أرجع نتيجتك بصيغة JSON فقط:
+{
+  "verdict": "موثوق" أو "مشكوك فيه" أو "مضلل",
+  "credibilityScore": رقم من 0 إلى 100,
+  "explanation": "شرح موجز للحكم بالعربية (جملتان إلى ثلاث)",
+  "notes": [
+    {"claim": "الادعاء أو المعلومة المحددة", "assessment": "تقييم دقة هذه المعلومة بالعربية"}
+  ]
+}
+
+معايير التقييم:
+- موثوق (80-100): يتوافق مع الإجماع العلمي الطبي الحديث
+- مشكوك فيه (40-79): يحتوي على معلومات غير دقيقة أو مبالغ فيها أو تحتاج تحققاً
+- مضلل (0-39): يتناقض مع الحقائق الطبية الراسخة أو ينشر معلومات خاطئة`,
+        },
+        {
+          role: "user",
+          content: `قيّم دقة هذا المحتوى الطبي:\n\n${text}`,
+        },
+      ],
+      max_completion_tokens: 2048,
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(content);
+    return {
+      verdict: parsed.verdict || "مشكوك فيه",
+      credibilityScore: parsed.credibilityScore ?? 50,
+      explanation: parsed.explanation || "تعذر تقييم المحتوى.",
+      notes: parsed.notes || [],
+    };
+  } catch (error: any) {
+    console.error("[factCheckMedicalContent] Error:", error?.message);
+    throw error;
+  }
+}
+
+export async function simplifyMedicalText(text: string): Promise<string> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `أنت متخصص في تبسيط المصطلحات الطبية للجمهور العام.
+مهمتك: إعادة صياغة النص الطبي التالي بلغة عربية سهلة وواضحة يفهمها أي شخص، مع الحفاظ على المعنى الكامل والدقيق.
+
+قواعد:
+- استبدل كل مصطلح طبي معقد بتفسير مبسط
+- استخدم جملاً قصيرة وواضحة
+- تجنب الأرقام العلمية المعقدة وفسّرها بشكل عملي
+- أضف أمثلة من الحياة اليومية عند الحاجة
+- أرجع النص المبسط مباشرةً دون تعليقات إضافية`,
+        },
+        {
+          role: "user",
+          content: `بسّط هذا النص الطبي:\n\n${text}`,
+        },
+      ],
+      max_completion_tokens: 4096,
+    });
+
+    return response.choices[0]?.message?.content || "تعذر تبسيط النص.";
+  } catch (error: any) {
+    console.error("[simplifyMedicalText] Error:", error?.message);
+    throw error;
+  }
+}
+
+export interface PdfNewsResult {
+  headline: string;
+  summary: string;
+  keyStats: string[];
+  advice: string;
+  fullDraft: string;
+}
+
+export async function extractNewsFromPdf(pdfText: string): Promise<PdfNewsResult> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `أنت محرر صحفي متخصص في تحويل الدراسات الطبية العلمية إلى أخبار صحية سهلة القراءة.
+مهمتك: قراءة نص الدراسة الطبية وتحويله إلى خبر صحفي عربي جاهز للنشر.
+
+أرجع نتيجتك بصيغة JSON فقط:
+{
+  "headline": "عنوان إخباري جذاب وواضح (8-12 كلمة)",
+  "summary": "ملخص من فقرة واحدة يوضح النتائج الرئيسية (100-150 كلمة)",
+  "keyStats": ["إحصاء أو رقم رئيسي 1", "إحصاء أو رقم رئيسي 2", "..."],
+  "advice": "النصيحة العملية أو التوصية للقارئ بناءً على نتائج الدراسة (2-3 جمل)",
+  "fullDraft": "مسودة الخبر الكاملة جاهزة للنشر بأسلوب صحفي احترافي بالعربية (4-6 فقرات)"
+}
+
+تذكر:
+- اكتب بأسلوب صحفي عربي احترافي
+- استخدم لغة مبسطة يفهمها القارئ العام
+- اذكر أبرز الأرقام والإحصاءات من الدراسة
+- أضف سياقاً يساعد القارئ على فهم أهمية النتائج`,
+        },
+        {
+          role: "user",
+          content: `حوّل هذه الدراسة الطبية إلى خبر صحفي:\n\n${pdfText.substring(0, 8000)}`,
+        },
+      ],
+      max_completion_tokens: 4096,
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(content);
+    return {
+      headline: parsed.headline || "",
+      summary: parsed.summary || "",
+      keyStats: parsed.keyStats || [],
+      advice: parsed.advice || "",
+      fullDraft: parsed.fullDraft || "",
+    };
+  } catch (error: any) {
+    console.error("[extractNewsFromPdf] Error:", error?.message);
+    throw error;
+  }
+}
+
 export default openai;

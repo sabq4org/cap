@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import {
   LayoutDashboard, Users, Newspaper, BookOpen, MessageSquare,
-  Activity, Utensils, Settings, BarChart3, Download, Radar, Wand2, LayoutTemplate, LogOut
+  Activity, Utensils, Settings, BarChart3, Download, Radar, Wand2, LayoutTemplate, LogOut, FlaskConical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -118,6 +118,12 @@ export default function AdminSidebar({ activeRoute }: AdminSidebarProps) {
             label="إعدادات التوليد" 
             active={activeRoute === '/admin/generation-settings'} 
             onClick={() => navigateTo('/admin/generation-settings')} 
+          />
+          <SidebarItem 
+            icon={FlaskConical} 
+            label="كبسولة المحتوى" 
+            active={activeRoute === '/admin/capsule'} 
+            onClick={() => navigateTo('/admin/capsule')} 
           />
           <SidebarItem icon={MessageSquare} label="المحادثات" count="89" />
           <SidebarItem icon={Activity} label="التتبع الصحي" />

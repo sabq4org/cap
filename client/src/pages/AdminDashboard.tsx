@@ -203,6 +203,19 @@ export default function AdminDashboard() {
       setShowNewsForm(true);
       setEditingNewsId(null);
       resetForm();
+      const prefill = localStorage.getItem("capsule_prefill_news");
+      if (prefill) {
+        try {
+          const data = JSON.parse(prefill);
+          setFormData(prev => ({
+            ...prev,
+            title: data.title || "",
+            content: data.content || "",
+            summary: data.summary || "",
+          }));
+          localStorage.removeItem("capsule_prefill_news");
+        } catch { }
+      }
     } else if (location.includes('/admin/news/edit/')) {
       const id = location.split('/admin/news/edit/')[1];
       if (id) {

@@ -5,7 +5,9 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupLocalAuth, registerLocalAuthRoutes } from "./localAuth";
-import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, generateInfographicImage, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle, generateEditorialInsights, generateArchiveChatResponse, type ArchiveSearchResult } from "./openai";
+import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, generateInfographicImage, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle, generateEditorialInsights, generateArchiveChatResponse, type ArchiveSearchResult, factCheckMedicalContent, simplifyMedicalText, extractNewsFromPdf } from "./openai";
+import multer from "multer";
+import { PDFParse } from "pdf-parse";
 import { 
   insertGenerationSettingsSchema, 
   insertImageGenerationSchema, 
@@ -1270,6 +1272,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch chart data" });
     }
   });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Medical Content Capsule Routes
+  // ───────────────────────────────────────────────────────────────────────────
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+  app.post("/api/admin/capsule/fact-check", isAdminAuthenticated, async (req, res) => {
+    try {
+      const schema = z.object({ text: z.string().min(10).max(10000) });
+      const { text } = schema.parse(req.body);
+      const result = await factCheckMedicalContent(text);
+      res.json({ success: true, result });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "النص مطلوب (10 أحرف على الأقل)" });
+      }
+      console.error("[capsule/fact-check]", error?.message);
+      res.status(500).json({ success: false, error: "فشل في تدقيق المحتوى" });
+    }
+  });
+
+  app.post("/api/admin/capsule/simplify", isAdminAuthenticated, async (req, res) => {
+    try {
+      const schema = z.object({ text: z.string().min(10).max(10000) });
+      const { text } = schema.parse(req.body);
+      const simplified = await simplifyMedicalText(text);
+      res.json({ success: true, simplified });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "النص مطلوب (10 أحرف على الأقل)" });
+      }
+      console.error("[capsule/simplify]", error?.message);
+      res.status(500).json({ success: false, error: "فشل في تبسيط النص" });
+    }
+  });
+
+  app.post("/api/admin/capsule/extract-pdf", isAdminAuthenticated, upload.single("pdf"), async (req, res) => {
+    let parser: any = null;
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: "يرجى رفع ملف PDF" });
+      }
+      if (req.file.mimetype !== "application/pdf") {
+        return res.status(400).json({ success: false, error: "يجب أن يكون الملف بصيغة PDF" });
+      }
+      parser = new PDFParse({ data: req.file.buffer });
+      const pdfData = await parser.getText();
+      const pdfText = (pdfData.text as string)?.trim();
+      if (!pdfText || pdfText.length < 50) {
+        return res.status(400).json({ success: false, error: "تعذر استخراج النص من الملف. تأكد أن PDF يحتوي على نص قابل للنسخ." });
+      }
+      const result = await extractNewsFromPdf(pdfText);
+      res.json({ success: true, result });
+    } catch (error: any) {
+      console.error("[capsule/extract-pdf]", error?.message);
+      res.status(500).json({ success: false, error: "فشل في معالجة الملف" });
+    } finally {
+      if (parser) {
+        try { await parser.destroy(); } catch {}
+      }
+    }
+  });
+  // ───────────────────────────────────────────────────────────────────────────
 
   app.get('/api/admin/ai-insights', isAdminAuthenticated, async (req, res) => {
     try {
