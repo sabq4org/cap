@@ -4082,19 +4082,35 @@ export default function AdminDashboard() {
             <p className="text-xs md:text-sm text-muted-foreground">أدخل تفاصيل المقال الطبي</p>
           </div>
         </div>
-        <Button 
-          onClick={handleSubmitArticle}
-          disabled={createArticleMutation.isPending || updateArticleMutation.isPending}
-          className="gap-2 w-full sm:w-auto"
-          data-testid="button-save-article"
-        >
-          {(createArticleMutation.isPending || updateArticleMutation.isPending) ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          {editingArticleId ? "تحديث المقال" : "حفظ المقال"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button 
+            onClick={handleSubmitArticle}
+            disabled={createArticleMutation.isPending || updateArticleMutation.isPending}
+            className="gap-2 flex-1 sm:flex-none"
+            data-testid="button-save-article"
+          >
+            {(createArticleMutation.isPending || updateArticleMutation.isPending) ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {editingArticleId ? "تحديث المقال" : "حفظ المقال"}
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2 flex-1 sm:flex-none"
+            disabled={!editingArticleId}
+            onClick={() => {
+              if (editingArticleId) {
+                setSocialModalArticle({ id: editingArticleId, title: articleFormData.title });
+              }
+            }}
+            data-testid="button-generate-social-content"
+          >
+            <Share2 className="h-4 w-4" />
+            توليد محتوى السوشيال
+          </Button>
+        </div>
       </div>
 
       {/* Form */}
