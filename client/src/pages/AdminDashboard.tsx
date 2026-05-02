@@ -30,6 +30,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import logoImage from "@assets/LOGO-L_1769253692563.png";
 import { AdminDashboardOverview } from "@/components/admin/AdminDashboardOverview";
 import { SocialContentModal } from "@/components/SocialContentModal";
+import type { SocialContent } from "@shared/schema";
 
 interface StatCard {
   title: string;
@@ -171,7 +172,7 @@ export default function AdminDashboard() {
   const [scheduledDateTime, setScheduledDateTime] = useState("");
   const [selectedNewsIds, setSelectedNewsIds] = useState<Set<string>>(new Set());
   const [showPreview, setShowPreview] = useState(false);
-  const [socialModalArticle, setSocialModalArticle] = useState<{ id: string; title: string } | null>(null);
+  const [socialModalArticle, setSocialModalArticle] = useState<{ id: string; title: string; socialContentData?: SocialContent | null } | null>(null);
   const { toast } = useToast();
 
   // Category form state
@@ -3092,7 +3093,7 @@ export default function AdminDashboard() {
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <Badge 
                       variant={article.status === 'published' ? 'default' : 'secondary'}
                       className="text-xs"
@@ -3102,6 +3103,12 @@ export default function AdminDashboard() {
                     <Badge variant="outline" className="text-xs">
                       {categories.find((c: any) => c.value === article.category)?.label || article.category}
                     </Badge>
+                    {article.socialContentData && (
+                      <Badge className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300" data-testid={`badge-generated-${index}`}>
+                        <Share2 className="h-2.5 w-2.5 ml-1" />
+                        محتوى محفوظ
+                      </Badge>
+                    )}
                   </div>
                   <h3 className="font-bold text-lg mb-1 truncate">{article.title}</h3>
                   <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{article.excerpt}</p>
@@ -3120,7 +3127,7 @@ export default function AdminDashboard() {
                   <Button
                     variant={article.socialContentGenerated ? "secondary" : "outline"}
                     size="sm"
-                    onClick={() => setSocialModalArticle({ id: article.id, title: article.title })}
+                    onClick={() => setSocialModalArticle({ id: article.id, title: article.title, socialContentData: article.socialContentData })}
                     data-testid={`button-social-article-${index}`}
                     className={`gap-1.5 text-xs ${article.socialContentGenerated ? "text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40" : ""}`}
                   >
@@ -4862,6 +4869,7 @@ export default function AdminDashboard() {
           onClose={() => setSocialModalArticle(null)}
           articleId={socialModalArticle.id}
           articleTitle={socialModalArticle.title}
+          storedContent={socialModalArticle.socialContentData}
         />
       )}
 

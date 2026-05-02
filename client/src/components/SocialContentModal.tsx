@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -7,21 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Copy, Check, Loader2, Share2, Video, Image } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-
-interface SocialContent {
-  xThread: string[];
-  reelsScript: Array<{ scene: number; duration: string; dialogue: string }>;
-  instagramPoints: { points: string[]; hashtags: string[] };
-}
+import type { SocialContent } from "@shared/schema";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   articleId: string;
   articleTitle: string;
+  storedContent?: SocialContent | null;
 }
 
-export function SocialContentModal({ open, onClose, articleId, articleTitle }: Props) {
+export function SocialContentModal({ open, onClose, articleId, articleTitle, storedContent }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [content, setContent] = useState<SocialContent | null>(null);
@@ -31,6 +27,28 @@ export function SocialContentModal({ open, onClose, articleId, articleTitle }: P
   const [scenes, setScenes] = useState<Array<{ scene: number; duration: string; dialogue: string }>>([]);
   const [igPoints, setIgPoints] = useState<string[]>([]);
   const [igHashtags, setIgHashtags] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (open && storedContent) {
+      setContent(storedContent);
+      setXTweets(storedContent.xThread || []);
+      setScenes(storedContent.reelsScript || []);
+      setIgPoints(storedContent.instagramPoints?.points || []);
+      setIgHashtags(storedContent.instagramPoints?.hashtags || []);
+    } else if (open && !storedContent) {
+      setContent(null);
+      setXTweets([]);
+      setScenes([]);
+      setIgPoints([]);
+      setIgHashtags([]);
+    } else if (!open) {
+      setContent(null);
+      setXTweets([]);
+      setScenes([]);
+      setIgPoints([]);
+      setIgHashtags([]);
+    }
+  }, [open, storedContent]);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -104,16 +122,23 @@ export function SocialContentModal({ open, onClose, articleId, articleTitle }: P
 
         {content && !loading && (
           <div className="flex-1 overflow-hidden flex flex-col gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerate}
-              className="self-end"
-              data-testid="button-regenerate-social"
-            >
-              <Loader2 className="h-3.5 w-3.5 ml-1" />
-              إعادة التوليد
-            </Button>
+            <div className="flex items-center justify-between">
+              {storedContent && content === storedContent && (
+                <Badge variant="secondary" className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300" data-testid="badge-stored-content">
+                  محتوى محفوظ مسبقاً
+                </Badge>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerate}
+                className="self-end mr-auto"
+                data-testid="button-regenerate-social"
+              >
+                <Loader2 className="h-3.5 w-3.5 ml-1" />
+                إعادة التوليد
+              </Button>
+            </div>
             <Tabs defaultValue="x" className="flex-1 overflow-hidden flex flex-col">
               <TabsList className="grid grid-cols-3 w-full">
                 <TabsTrigger value="x" data-testid="tab-x-thread">

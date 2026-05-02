@@ -933,10 +933,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Article not found" });
       }
       const result = await generateSocialContent(article.title, article.content);
-      // Mark article as having social content generated
+      // Mark article as having social content generated and save the content
       await storage.updateArticle(id, {
         socialContentGenerated: true,
         socialContentGeneratedAt: new Date(),
+        socialContentData: result,
       });
       res.json(result);
     } catch (error) {

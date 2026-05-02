@@ -209,9 +209,20 @@ export const articles = pgTable("articles", {
   publishedAt: timestamp("published_at"),
   socialContentGenerated: boolean("social_content_generated").default(false),
   socialContentGeneratedAt: timestamp("social_content_generated_at"),
+  socialContentData: jsonb("social_content_data").$type<{
+    xThread: string[];
+    reelsScript: Array<{ scene: number; duration: string; dialogue: string }>;
+    instagramPoints: { points: string[]; hashtags: string[] };
+  }>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export type SocialContent = {
+  xThread: string[];
+  reelsScript: Array<{ scene: number; duration: string; dialogue: string }>;
+  instagramPoints: { points: string[]; hashtags: string[] };
+};
 
 export const insertArticleSchema = createInsertSchema(articles).omit({
   id: true,
