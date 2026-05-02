@@ -36,6 +36,24 @@ function verdictConfig(verdict: string) {
   }
 }
 
+const WARN_THRESHOLD = 5000;
+const MAX_CHARS = 10000;
+
+function LengthWarningBanner({ charCount }: { charCount: number }) {
+  if (charCount <= WARN_THRESHOLD) return null;
+  return (
+    <div
+      className="flex items-start gap-2.5 rounded-lg border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-700 px-4 py-3 text-sm text-yellow-800 dark:text-yellow-300"
+      data-testid="banner-length-warning"
+    >
+      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-yellow-600 dark:text-yellow-400" />
+      <span>
+        النص طويل جداً ({charCount.toLocaleString("ar-EG")} حرف). سيتم معالجة النص كاملاً لكن النصوص التي تتجاوز 5,000 حرف قد تستغرق وقتاً أطول وتؤثر على جودة النتائج.
+      </span>
+    </div>
+  );
+}
+
 function FactCheckerTab() {
   const [text, setText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -79,7 +97,10 @@ function FactCheckerTab() {
           className="min-h-[200px] text-base leading-relaxed"
           dir="rtl"
         />
-        <p className="text-xs text-muted-foreground text-left">{text.length} / 10,000 حرف</p>
+        <p className={`text-xs text-left ${text.length > WARN_THRESHOLD ? "text-yellow-600 font-medium" : "text-muted-foreground"}`} data-testid="text-char-count-fact-check">
+          {text.length.toLocaleString("ar-EG")} / {MAX_CHARS.toLocaleString("ar-EG")} حرف
+        </p>
+        <LengthWarningBanner charCount={text.length} />
       </div>
 
       <Button
@@ -202,7 +223,10 @@ function SimplifyTab() {
           className="min-h-[200px] text-base leading-relaxed"
           dir="rtl"
         />
-        <p className="text-xs text-muted-foreground text-left">{text.length} / 10,000 حرف</p>
+        <p className={`text-xs text-left ${text.length > WARN_THRESHOLD ? "text-yellow-600 font-medium" : "text-muted-foreground"}`} data-testid="text-char-count-simplify">
+          {text.length.toLocaleString("ar-EG")} / {MAX_CHARS.toLocaleString("ar-EG")} حرف
+        </p>
+        <LengthWarningBanner charCount={text.length} />
       </div>
 
       <Button
@@ -271,6 +295,8 @@ function PdfCapsuleTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<PdfResult | null>(null);
   const [draftText, setDraftText] = useState("");
+  const [extractedChars, setExtractedChars] = useState<number | null>(null);
+  const [sentChars, setSentChars] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -285,6 +311,8 @@ function PdfCapsuleTab() {
       setFile(f);
       setResult(null);
       setDraftText("");
+      setExtractedChars(null);
+      setSentChars(null);
     }
   };
 
@@ -307,6 +335,8 @@ function PdfCapsuleTab() {
       if (data.success) {
         setResult(data.result);
         setDraftText(data.result.fullDraft || "");
+        if (data.extractedChars != null) setExtractedChars(data.extractedChars);
+        if (data.sentChars != null) setSentChars(data.sentChars);
       } else {
         toast({ title: "خطأ", description: data.error || "فشل استخراج الخبر", variant: "destructive" });
       }
@@ -378,6 +408,20 @@ function PdfCapsuleTab() {
             <span className="text-muted-foreground">يقرأ الذكاء الاصطناعي الدراسة ويحوّلها إلى خبر صحفي...</span>
           </CardContent>
         </Card>
+      )}
+
+      {result && extractedChars != null && sentChars != null && (
+        <div
+          className={`flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm ${extractedChars > sentChars ? "border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300" : "border-green-300 bg-green-50 dark:bg-green-950/30 dark:border-green-700 text-green-800 dark:text-green-300"}`}
+          data-testid="banner-pdf-char-info"
+        >
+          <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${extractedChars > sentChars ? "text-yellow-600 dark:text-yellow-400" : "text-green-600 dark:text-green-400"}`} />
+          <span>
+            {extractedChars > sentChars
+              ? `تم استخراج ${extractedChars.toLocaleString("ar-EG")} حرف من الملف، وأُرسل ${sentChars.toLocaleString("ar-EG")} حرف فقط إلى الذكاء الاصطناعي (تم اقتطاع النص الزائد).`
+              : `تم استخراج ${extractedChars.toLocaleString("ar-EG")} حرف من الملف وإرسالها كاملةً إلى الذكاء الاصطناعي.`}
+          </span>
+        </div>
       )}
 
       {result && (

@@ -1287,10 +1287,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, result });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ success: false, error: "النص مطلوب (10 أحرف على الأقل)" });
+        const isTooLong = error.issues.some((i) => i.code === "too_big");
+        return res.status(400).json({
+          success: false,
+          error: isTooLong
+            ? "النص يتجاوز الحد المسموح به (10,000 حرف). يرجى تقصير النص وإعادة المحاولة."
+            : "النص مطلوب (10 أحرف على الأقل)",
+        });
       }
       console.error("[capsule/fact-check]", error?.message);
-      res.status(500).json({ success: false, error: "فشل في تدقيق المحتوى" });
+      const isLengthError = error?.message && (
+        error.message.includes("context_length_exceeded") ||
+        error.message.includes("maximum context") ||
+        error.message.includes("too long") ||
+        error.message.includes("token")
+      );
+      if (isLengthError) {
+        return res.status(422).json({ success: false, error: "النص طويل جداً ويتجاوز حد المعالجة. يرجى تقصير النص وإعادة المحاولة." });
+      }
+      res.status(500).json({ success: false, error: "فشل في تدقيق المحتوى. يرجى المحاولة مرة أخرى." });
     }
   });
 
@@ -1302,10 +1317,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, simplified });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ success: false, error: "النص مطلوب (10 أحرف على الأقل)" });
+        const isTooLong = error.issues.some((i) => i.code === "too_big");
+        return res.status(400).json({
+          success: false,
+          error: isTooLong
+            ? "النص يتجاوز الحد المسموح به (10,000 حرف). يرجى تقصير النص وإعادة المحاولة."
+            : "النص مطلوب (10 أحرف على الأقل)",
+        });
       }
       console.error("[capsule/simplify]", error?.message);
-      res.status(500).json({ success: false, error: "فشل في تبسيط النص" });
+      const isLengthError = error?.message && (
+        error.message.includes("context_length_exceeded") ||
+        error.message.includes("maximum context") ||
+        error.message.includes("too long") ||
+        error.message.includes("token")
+      );
+      if (isLengthError) {
+        return res.status(422).json({ success: false, error: "النص طويل جداً ويتجاوز حد المعالجة. يرجى تقصير النص وإعادة المحاولة." });
+      }
+      res.status(500).json({ success: false, error: "فشل في تبسيط النص. يرجى المحاولة مرة أخرى." });
     }
   });
 
@@ -1324,8 +1354,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!pdfText || pdfText.length < 50) {
         return res.status(400).json({ success: false, error: "تعذر استخراج النص من الملف. تأكد أن PDF يحتوي على نص قابل للنسخ." });
       }
+      const extractedChars = pdfText.length;
+      const sentChars = Math.min(pdfText.length, 8000);
       const result = await extractNewsFromPdf(pdfText);
-      res.json({ success: true, result });
+      res.json({ success: true, result, extractedChars, sentChars });
     } catch (error: any) {
       console.error("[capsule/extract-pdf]", error?.message);
       res.status(500).json({ success: false, error: "فشل في معالجة الملف" });
