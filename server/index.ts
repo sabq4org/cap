@@ -5,6 +5,7 @@ import { seedProductionIfEmpty } from "./seedProduction";
 import { storage } from "./storage";
 import { pool } from "./db";
 import { seedDefaultSources, seedDefaultKeywords } from "./radarService";
+import { startTrendRefreshScheduler } from "./trendService";
 
 const app = express();
 
@@ -257,6 +258,14 @@ async function fixCategoriesArabic() {
 
     runAdExpiry();
     setInterval(runAdExpiry, 5 * 60 * 1000);
+
+    // Start health trend radar scheduler (refreshes every 6 hours)
+    try {
+      startTrendRefreshScheduler();
+      log("[Init] ✅ رادار الترند الصحي يعمل (تحديث كل 6 ساعات)");
+    } catch (err) {
+      console.error("[Init] خطأ في تشغيل رادار الترند (غير حرج):", err);
+    }
   } catch (err) {
     console.error('[Startup] فشل حرج في بدء تشغيل الخادم:', err);
     process.exit(1);

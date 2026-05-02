@@ -15,6 +15,7 @@ import {
   insertInfographicJobSchema 
 } from "@shared/schema";
 import { fetchAllActiveSources, fetchRSSSource, seedDefaultSources, seedDefaultKeywords, classifyPendingItems, cleanupNonHealthItems } from "./radarService";
+import { refreshHealthTrends } from "./trendService";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import {
   insertHealthProfileSchema,
@@ -4050,6 +4051,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   // ──────────────────────────────────────────────────────────────────────────
+
+  // ==========================================
+  // Health Trend Radar API endpoints
+  // ==========================================
+
+  app.get("/api/admin/trends", isAdminAuthenticated, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const trends = await storage.getHealthTrends(limit);
+      res.json(trends);
+    } catch (err: unknown) {
+      res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
+  app.get("/api/admin/trends/alerts", isAdminAuthenticated, async (req, res) => {
+    try {
+      const unreadOnly = req.query.unread === "true";
+      const alerts = await storage.getTrendAlerts(unreadOnly);
+      const unreadCount = await storage.getUnreadTrendAlertsCount();
+      res.json({ alerts, unreadCount });
+    } catch (err: unknown) {
+      res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
+  app.patch("/api/admin/trends/alerts/:id/read", isAdminAuthenticated, async (req, res) => {
+    try {
+      await storage.markTrendAlertRead(req.params.id);
+      res.json({ success: true });
+    } catch (err: unknown) {
+      res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
+  app.post("/api/admin/trends/alerts/read-all", isAdminAuthenticated, async (req, res) => {
+    try {
+      await storage.markAllTrendAlertsRead();
+      res.json({ success: true });
+    } catch (err: unknown) {
+      res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
+  app.post("/api/admin/trends/refresh", isAdminAuthenticated, async (req, res) => {
+    try {
+      const region = (req.body.region as string) || "SA";
+      const result = await refreshHealthTrends(region);
+      res.json(result);
+    } catch (err: unknown) {
+      res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
+  app.get("/api/admin/trends/weekly-report", isAdminAuthenticated, async (req, res) => {
+    try {
+      const { generateWeeklyTrendReport } = await import("./trendService");
+      const region = (req.query.region as string) || "SA";
+      const report = await generateWeeklyTrendReport(region);
+      res.json(report);
+    } catch (err: unknown) {
+      res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
+  // ==========================================
 
   const httpServer = createServer(app);
 

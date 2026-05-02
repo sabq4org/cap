@@ -537,6 +537,7 @@ export default function AdminRadar() {
             <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">الأدوات</p>
             <div className="space-y-0.5">
               <SidebarItem icon={Radar} label="رادار الأخبار" active count={stats?.pending} onClick={() => navigateTo("/admin/radar")} />
+              <SidebarItem icon={TrendingUp} label="رادار الترند الصحي" onClick={() => navigateTo("/admin/trends")} />
               <SidebarItem icon={Download} label="استيراد الأخبار" onClick={() => navigateTo("/admin/import")} />
               <SidebarItem icon={LayoutTemplate} label="توليد إنفوجرافيك" onClick={() => navigateTo("/admin/infographic")} />
               <SidebarItem icon={Wand2} label="إعدادات التوليد" onClick={() => navigateTo("/admin/generation-settings")} />

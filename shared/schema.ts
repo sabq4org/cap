@@ -818,6 +818,61 @@ export const insertAdSchema = createInsertSchema(ads).omit({ id: true, createdAt
 export type InsertAd = z.infer<typeof insertAdSchema>;
 export type Ad = typeof ads.$inferSelect;
 
+// ==========================================
+// Health Trend Radar System Tables
+// ==========================================
+
+export const trendStrengthEnum = ["low", "medium", "high", "very_high"] as const;
+export type TrendStrength = typeof trendStrengthEnum[number];
+
+export const healthTrends = pgTable("health_trends", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  keyword: varchar("keyword").notNull(),
+  keywordAr: varchar("keyword_ar"),
+  category: varchar("category"), // diabetes, heart, mental, nutrition, etc.
+  trendScore: integer("trend_score").notNull().default(0), // 0-100
+  trendStrength: varchar("trend_strength").notNull().default("low"), // low, medium, high, very_high
+  searchVolume: integer("search_volume"), // approximate search volume
+  weeklyChange: integer("weekly_change"), // % change vs last week
+  region: varchar("region").notNull().default("SA"), // SA, AE, KW, etc.
+  articleSuggestions: jsonb("article_suggestions").$type<string[]>().default([]),
+  aiContext: text("ai_context"), // AI-generated context about why this is trending
+  recordedAt: timestamp("recorded_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_health_trends_recorded").on(table.recordedAt),
+  index("idx_health_trends_score").on(table.trendScore),
+]);
+
+export const insertHealthTrendSchema = createInsertSchema(healthTrends).omit({
+  id: true,
+  recordedAt: true,
+  updatedAt: true,
+});
+export type InsertHealthTrend = z.infer<typeof insertHealthTrendSchema>;
+export type HealthTrend = typeof healthTrends.$inferSelect;
+
+export const trendAlerts = pgTable("trend_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trendId: varchar("trend_id").references(() => healthTrends.id, { onDelete: "cascade" }),
+  keyword: varchar("keyword").notNull(),
+  keywordAr: varchar("keyword_ar"),
+  message: text("message").notNull(),
+  spikePercent: integer("spike_percent"), // how much it spiked
+  isRead: boolean("is_read").default(false),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTrendAlertSchema = createInsertSchema(trendAlerts).omit({
+  id: true,
+  createdAt: true,
+  isRead: true,
+  readAt: true,
+});
+export type InsertTrendAlert = z.infer<typeof insertTrendAlertSchema>;
+export type TrendAlert = typeof trendAlerts.$inferSelect;
+
 export const adminPermissions = [
   { key: "publish_news",       label: "نشر المحتوى" },
   { key: "edit_news",          label: "تعديل المحتوى" },

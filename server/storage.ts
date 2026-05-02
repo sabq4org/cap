@@ -25,6 +25,8 @@ import {
   ads,
   type Ad,
   type InsertAd,
+  healthTrends,
+  trendAlerts,
   type User,
   type UpsertUser,
   type HealthProfile,
@@ -70,6 +72,10 @@ import {
   type ViewReferrerStat,
   type Advertisement,
   type InsertAdvertisement,
+  type HealthTrend,
+  type InsertHealthTrend,
+  type TrendAlert,
+  type InsertTrendAlert,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike, inArray, ne } from "drizzle-orm";
@@ -187,6 +193,17 @@ export interface IStorage {
   createAd(ad: InsertAd): Promise<Ad>;
   updateAd(id: string, data: Partial<InsertAd>): Promise<Ad | undefined>;
   deleteAd(id: string): Promise<boolean>;
+
+  // Health Trend Radar operations
+  getHealthTrends(limit?: number): Promise<HealthTrend[]>;
+  getHealthTrendById(id: string): Promise<HealthTrend | undefined>;
+  upsertHealthTrend(trend: InsertHealthTrend): Promise<HealthTrend>;
+  deleteOldTrends(olderThanHours?: number): Promise<number>;
+  getTrendAlerts(unreadOnly?: boolean): Promise<TrendAlert[]>;
+  createTrendAlert(alert: InsertTrendAlert): Promise<TrendAlert>;
+  markTrendAlertRead(id: string): Promise<void>;
+  markAllTrendAlertsRead(): Promise<void>;
+  getUnreadTrendAlertsCount(): Promise<number>;
 }
 
 // Simple TTL in-memory cache
@@ -1888,6 +1905,75 @@ export class DatabaseStorage implements IStorage {
   async deleteAd(id: string): Promise<boolean> {
     const result = await db.delete(ads).where(eq(ads.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // Health Trend Radar operations
+  async getHealthTrends(limit: number = 10): Promise<HealthTrend[]> {
+    return await db.select().from(healthTrends)
+      .orderBy(desc(healthTrends.trendScore))
+      .limit(limit);
+  }
+
+  async getHealthTrendById(id: string): Promise<HealthTrend | undefined> {
+    const [trend] = await db.select().from(healthTrends).where(eq(healthTrends.id, id));
+    return trend;
+  }
+
+  async upsertHealthTrend(trend: InsertHealthTrend): Promise<HealthTrend> {
+    const [existing] = await db.select().from(healthTrends)
+      .where(and(eq(healthTrends.keyword, trend.keyword), eq(healthTrends.region, trend.region || "SA")));
+    if (existing) {
+      const [updated] = await db.update(healthTrends)
+        .set({ ...trend, updatedAt: new Date() })
+        .where(eq(healthTrends.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(healthTrends).values(trend).returning();
+    return created;
+  }
+
+  async deleteOldTrends(olderThanHours: number = 168): Promise<number> {
+    const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+    const result = await db.delete(healthTrends)
+      .where(lte(healthTrends.updatedAt, cutoff));
+    return 0;
+  }
+
+  async getTrendAlerts(unreadOnly: boolean = false): Promise<TrendAlert[]> {
+    if (unreadOnly) {
+      return await db.select().from(trendAlerts)
+        .where(eq(trendAlerts.isRead, false))
+        .orderBy(desc(trendAlerts.createdAt))
+        .limit(50);
+    }
+    return await db.select().from(trendAlerts)
+      .orderBy(desc(trendAlerts.createdAt))
+      .limit(50);
+  }
+
+  async createTrendAlert(alert: InsertTrendAlert): Promise<TrendAlert> {
+    const [created] = await db.insert(trendAlerts).values(alert).returning();
+    return created;
+  }
+
+  async markTrendAlertRead(id: string): Promise<void> {
+    await db.update(trendAlerts)
+      .set({ isRead: true, readAt: new Date() })
+      .where(eq(trendAlerts.id, id));
+  }
+
+  async markAllTrendAlertsRead(): Promise<void> {
+    await db.update(trendAlerts)
+      .set({ isRead: true, readAt: new Date() })
+      .where(eq(trendAlerts.isRead, false));
+  }
+
+  async getUnreadTrendAlertsCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(trendAlerts)
+      .where(eq(trendAlerts.isRead, false));
+    return Number(result[0]?.count || 0);
   }
 }
 

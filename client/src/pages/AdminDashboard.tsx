@@ -205,6 +205,7 @@ export default function AdminDashboard() {
       setShowNewsForm(true);
       setEditingNewsId(null);
       resetForm();
+      // Pre-fill from localStorage (AdminCapsule feature)
       const prefill = localStorage.getItem("capsule_prefill_news");
       if (prefill) {
         try {
@@ -217,6 +218,26 @@ export default function AdminDashboard() {
           }));
           localStorage.removeItem("capsule_prefill_news");
         } catch { }
+      }
+
+      // Pre-fill from trend radar URL params (e.g. /admin/news/new?title=...&keywords=...)
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const preTitle = params.get("title");
+        const preKeywords = params.get("keywords");
+        if (preTitle || preKeywords) {
+          const decoded = preTitle ? decodeURIComponent(preTitle) : "";
+          const kwList = preKeywords
+            ? decodeURIComponent(preKeywords).split(",").map((k) => k.trim()).filter(Boolean)
+            : [];
+          setFormData((prev) => ({
+            ...prev,
+            title: decoded || prev.title,
+            keywords: kwList.length > 0 ? kwList : prev.keywords,
+          }));
+        }
+      } catch {
+        // URL parsing is best-effort; silently ignore errors
       }
     } else if (location.includes('/admin/news/edit/')) {
       const id = location.split('/admin/news/edit/')[1];
@@ -1443,6 +1464,7 @@ export default function AdminDashboard() {
             <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">الأدوات</p>
             <div className="space-y-0.5">
               <SidebarItem icon={Radar} label="رادار الأخبار" active={activeSection === 'radar'} onClick={() => navigateTo('radar')} />
+              <SidebarItem icon={TrendingUp} label="رادار الترند الصحي" onClick={() => setLocation('/admin/trends')} />
               <SidebarItem icon={Download} label="استيراد الأخبار" active={activeSection === 'import'} onClick={() => navigateTo('import')} />
               <SidebarItem icon={LayoutTemplate} label="توليد إنفوجرافيك" onClick={() => setLocation('/admin/infographic')} />
               <SidebarItem icon={Wand2} label="إعدادات التوليد" onClick={() => setLocation('/admin/generation-settings')} />

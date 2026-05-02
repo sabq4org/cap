@@ -26,6 +26,7 @@ import AdminRadar from "@/pages/AdminRadar";
 import AdminInfographic from "@/pages/AdminInfographic";
 import AdminGenerationSettings from "@/pages/AdminGenerationSettings";
 import AdminCapsule from "@/pages/AdminCapsule";
+import AdminTrends from "@/pages/AdminTrends";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import NotFound from "@/pages/not-found";
@@ -82,6 +83,7 @@ function AdminRouter() {
       <Route path="/admin/infographic" component={AdminInfographic} />
       <Route path="/admin/generation-settings" component={AdminGenerationSettings} />
       <Route path="/admin/capsule" component={AdminCapsule} />
+      <Route path="/admin/trends" component={AdminTrends} />
     </Switch>
   );
 }
