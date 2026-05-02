@@ -89,6 +89,7 @@ function AdminRouter() {
       <Route path="/admin/capsule" component={AdminCapsule} />
       <Route path="/admin/trends" component={AdminTrends} />
       <Route path="/admin/rumors" component={AdminRumors} />
+      <Route path="/admin/ads" component={AdminDashboard} />
     </Switch>
   );
 }

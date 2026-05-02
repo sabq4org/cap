@@ -187,7 +187,8 @@ export interface IStorage {
   // Advertisement operations
   getAdvertisements(): Promise<Advertisement[]>;
   getAdvertisementById(id: string): Promise<Advertisement | undefined>;
-  getActiveAdByPosition(position: string): Promise<Ad | null>;
+  getActiveAdByPosition(position: string): Promise<Advertisement | undefined>;
+  getActiveAdsByPosition(position: string): Promise<Advertisement[]>;
   createAdvertisement(data: InsertAdvertisement): Promise<Advertisement>;
   updateAdvertisement(id: string, data: Partial<InsertAdvertisement>): Promise<Advertisement | undefined>;
   deleteAdvertisement(id: string): Promise<boolean>;
@@ -1863,6 +1864,18 @@ export class DatabaseStorage implements IStorage {
       if (random <= 0) return ad;
     }
     return activeAds[activeAds.length - 1];
+  }
+
+  async getActiveAdsByPosition(position: string): Promise<Advertisement[]> {
+    const now = new Date();
+    return await db.select().from(advertisements).where(
+      and(
+        eq(advertisements.position, position),
+        eq(advertisements.isActive, true),
+        or(isNull(advertisements.startsAt), lte(advertisements.startsAt, now)),
+        or(isNull(advertisements.expiresAt), gte(advertisements.expiresAt, now))
+      )
+    ).orderBy(desc(advertisements.createdAt));
   }
 
   async createAdvertisement(data: InsertAdvertisement): Promise<Advertisement> {

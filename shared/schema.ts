@@ -896,6 +896,7 @@ export const advertisements = pgTable("advertisements", {
   isActive: boolean("is_active").default(true).notNull(),
   startsAt: timestamp("starts_at"),
   expiresAt: timestamp("expires_at"),
+  rotationInterval: integer("rotation_interval").default(15).notNull(),
   clickCount: integer("click_count").default(0).notNull(),
   impressionCount: integer("impression_count").default(0).notNull(),
   notes: text("notes"),

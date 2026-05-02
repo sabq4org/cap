@@ -4207,16 +4207,15 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   // Advertisement Routes
   // ==========================================
 
-  // Public: get active ad for a given position (also tracks daily impression)
+  // Public: get all active ads for a given position (supports timer-based rotation)
   app.get('/api/ads/active/:position', async (req, res) => {
     try {
-      const ad = await storage.getActiveAdByPosition(req.params.position);
-      if (!ad) return res.json(null);
-      storage.incrementAdDailyStat(ad.id, 'impressions').catch(() => {});
-      res.json(ad);
+      const ads = await storage.getActiveAdsByPosition(req.params.position);
+      ads.forEach(ad => storage.incrementAdDailyStat(ad.id, 'impressions').catch(() => {}));
+      res.json(ads);
     } catch (error) {
-      console.error("Error fetching active ad:", error);
-      res.status(500).json({ message: "Failed to fetch ad" });
+      console.error("Error fetching active ads:", error);
+      res.status(500).json({ message: "Failed to fetch ads" });
     }
   });
 
