@@ -1340,6 +1340,167 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── SSRF helpers ────────────────────────────────────────────────────────────
+  function isPrivateIp(ip: string): boolean {
+    // IPv6 loopback / link-local / unique-local
+    if (ip === "::1") return true;
+    const lower = ip.toLowerCase();
+    if (lower.startsWith("fe80:") || lower.startsWith("fc") || lower.startsWith("fd")) return true;
+    // IPv4-mapped IPv6 (::ffff:x.x.x.x)
+    const v4mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    const v4 = v4mapped ? v4mapped[1] : ip;
+    const parts = v4.split(".").map(Number);
+    if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) return false;
+    const [a, b] = parts;
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 198 && (b === 18 || b === 19)) ||
+      a === 240 ||
+      (a === 255 && b === 255 && parts[2] === 255 && parts[3] === 255)
+    );
+  }
+
+  async function assertUrlSafe(urlStr: string): Promise<void> {
+    const parsed = new URL(urlStr);
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      throw Object.assign(new Error("SSRF_PROTOCOL"), { ssrf: true });
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    const blockedHosts = ["localhost", "0.0.0.0", "metadata.google.internal", "169.254.169.254"];
+    if (
+      blockedHosts.includes(hostname) ||
+      hostname.endsWith(".local") ||
+      hostname.endsWith(".internal") ||
+      hostname.endsWith(".localhost") ||
+      hostname.endsWith(".corp")
+    ) {
+      throw Object.assign(new Error("SSRF_BLOCKED"), { ssrf: true });
+    }
+    const dns = await import("node:dns/promises");
+    const { address } = await dns.lookup(hostname);
+    if (isPrivateIp(address)) {
+      throw Object.assign(new Error("SSRF_BLOCKED"), { ssrf: true });
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+
+  app.post("/api/admin/capsule/fetch-url", isAdminAuthenticated, async (req, res) => {
+    try {
+      const schema = z.object({ url: z.string().url() });
+      const { url } = schema.parse(req.body);
+
+      // SSRF guard: validate the initial URL before any outbound request
+      await assertUrlSafe(url);
+
+      // Follow redirects manually so each hop is validated before it is fetched
+      const MAX_REDIRECTS = 5;
+      let currentUrl = url;
+      let response!: Response;
+      for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+        response = await fetch(currentUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (compatible; HealthBot/1.0)",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          },
+          signal: AbortSignal.timeout(15000),
+          redirect: "manual",
+        });
+
+        if (response.status >= 300 && response.status < 400) {
+          const location = response.headers.get("location");
+          if (!location) break;
+          const nextUrl = new URL(location, currentUrl).toString();
+          await assertUrlSafe(nextUrl); // validate before following
+          currentUrl = nextUrl;
+          continue;
+        }
+
+        break;
+      }
+
+      if (!response.ok) {
+        return res.status(400).json({ success: false, error: "تعذر تحميل الصفحة. تأكد من صحة الرابط." });
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
+        return res.status(400).json({ success: false, error: "الرابط لا يشير إلى صفحة ويب قابلة للقراءة." });
+      }
+
+      const html = await response.text();
+      const cheerio = await import("cheerio");
+      const $ = cheerio.load(html);
+
+      // Remove non-content elements
+      $("script, style, nav, header, footer, aside, noscript, iframe, [role='navigation'], [role='banner'], [role='contentinfo'], .ad, .ads, .advertisement, .sidebar, .menu, .cookie").remove();
+
+      // Try to find the main article content
+      const candidateSelectors = [
+        "article",
+        "[role='main']",
+        "main",
+        ".article-body",
+        ".article-content",
+        ".post-content",
+        ".entry-content",
+        ".content-body",
+        "#article-body",
+        "#main-content",
+        ".story-body",
+      ];
+
+      let text = "";
+      for (const selector of candidateSelectors) {
+        const el = $(selector).first();
+        if (el.length) {
+          text = el.text();
+          break;
+        }
+      }
+
+      // Fallback to body
+      if (!text || text.trim().length < 100) {
+        text = $("body").text();
+      }
+
+      // Clean up whitespace
+      text = text
+        .replace(/\t/g, " ")
+        .replace(/[ \t]+/g, " ")
+        .replace(/(\s*\n\s*){3,}/g, "\n\n")
+        .trim();
+
+      if (text.length < 50) {
+        return res.status(400).json({ success: false, error: "لم يتم العثور على محتوى كافٍ في هذه الصفحة." });
+      }
+
+      // Truncate to 10000 chars to stay within AI limits
+      if (text.length > 10000) {
+        text = text.slice(0, 10000);
+      }
+
+      res.json({ success: true, text });
+    } catch (error: any) {
+      if (error?.ssrf) {
+        return res.status(400).json({ success: false, error: "الرابط غير مسموح به. أدخل رابطاً لصفحة عامة على الإنترنت." });
+      }
+      if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+        return res.status(400).json({ success: false, error: "انتهت مهلة تحميل الصفحة. حاول مرة أخرى." });
+      }
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "رابط غير صالح. أدخل رابطاً كاملاً يبدأ بـ https://" });
+      }
+      console.error("[capsule/fetch-url]", error?.message);
+      res.status(500).json({ success: false, error: "فشل في استخراج محتوى الصفحة" });
+    }
+  });
+
   app.post("/api/admin/capsule/extract-pdf", isAdminAuthenticated, upload.single("pdf"), async (req, res) => {
     let parser: any = null;
     try {

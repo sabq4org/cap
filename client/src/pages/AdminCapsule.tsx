@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,9 +11,86 @@ import { useToast } from "@/hooks/use-toast";
 import AdminSidebar from "@/components/AdminSidebar";
 import {
   ShieldCheck, FileText, BookOpen, Loader2, Upload, CheckCircle2,
-  AlertTriangle, XCircle, BarChart2, FileUp, Save, ChevronRight
+  AlertTriangle, XCircle, BarChart2, FileUp, Save, ChevronRight, Link
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+
+// ─── Shared URL Fetcher ───────────────────────────────────────────────────────
+
+interface UrlFetcherProps {
+  onTextFetched: (text: string) => void;
+}
+
+function UrlFetcher({ onTextFetched }: UrlFetcherProps) {
+  const [url, setUrl] = useState("");
+  const [isFetching, setIsFetching] = useState(false);
+  const { toast } = useToast();
+
+  const handleFetch = async () => {
+    const trimmed = url.trim();
+    if (!trimmed) {
+      toast({ title: "أدخل رابطاً", description: "الرجاء إدخال رابط المقال قبل المتابعة", variant: "destructive" });
+      return;
+    }
+    if (!/^https?:\/\//i.test(trimmed)) {
+      toast({ title: "رابط غير صالح", description: "يجب أن يبدأ الرابط بـ https:// أو http://", variant: "destructive" });
+      return;
+    }
+    setIsFetching(true);
+    try {
+      const res = await fetch("/api/admin/capsule/fetch-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: trimmed }),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.success) {
+        onTextFetched(data.text);
+        toast({ title: "تم استخراج النص", description: "راجع النص المستخرج قبل المتابعة" });
+        setUrl("");
+      } else {
+        toast({ title: "خطأ في الاستخراج", description: data.error || "فشل استخراج النص من الرابط", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "خطأ في الاتصال", description: "تعذر الوصول إلى الخادم", variant: "destructive" });
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-muted/30 p-4 space-y-3">
+      <p className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+        <Link className="h-4 w-4" />
+        استخرج من رابط
+      </p>
+      <div className="flex gap-2">
+        <Input
+          data-testid="input-article-url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleFetch()}
+          placeholder="https://..."
+          dir="ltr"
+          className="flex-1 text-sm"
+          disabled={isFetching}
+        />
+        <Button
+          data-testid="button-fetch-url"
+          onClick={handleFetch}
+          disabled={isFetching || !url.trim()}
+          variant="secondary"
+          className="gap-2 shrink-0"
+        >
+          {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link className="h-4 w-4" />}
+          {isFetching ? "جاري الاستخراج..." : "استخرج"}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">أدخل رابط المقال الطبي وسيتم استخراج نصه تلقائياً في حقل الإدخال أدناه</p>
+    </div>
+  );
+}
 
 // ─── Fact Check ──────────────────────────────────────────────────────────────
 
@@ -86,6 +164,8 @@ function FactCheckerTab() {
 
   return (
     <div className="space-y-5">
+      <UrlFetcher onTextFetched={(fetched) => { setText(fetched); setResult(null); }} />
+
       <div className="space-y-2">
         <Label htmlFor="fact-check-input" className="text-base font-semibold">الخبر أو المحتوى الطبي للتدقيق</Label>
         <Textarea
@@ -212,6 +292,8 @@ function SimplifyTab() {
 
   return (
     <div className="space-y-5">
+      <UrlFetcher onTextFetched={(fetched) => { setText(fetched); setSimplified(null); }} />
+
       <div className="space-y-2">
         <Label htmlFor="simplify-input" className="text-base font-semibold">النص الطبي المعقد</Label>
         <Textarea
