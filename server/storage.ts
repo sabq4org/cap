@@ -27,6 +27,8 @@ import {
   type InsertAd,
   healthTrends,
   trendAlerts,
+  adStats,
+  type AdStat,
   type User,
   type UpsertUser,
   type HealthProfile,
@@ -188,6 +190,8 @@ export interface IStorage {
   deleteAdvertisement(id: string): Promise<boolean>;
   deactivateExpiredAds(): Promise<number>;
   resetAdStats(id: string): Promise<Advertisement | undefined>;
+  incrementAdDailyStat(adId: string, field: 'impressions' | 'clicks'): Promise<void>;
+  getAdStats(adId: string, days: number): Promise<AdStat[]>;
 
   // Ads operations
   getAds(position?: string): Promise<Ad[]>;
@@ -1983,6 +1987,34 @@ export class DatabaseStorage implements IStorage {
       .from(trendAlerts)
       .where(eq(trendAlerts.isRead, false));
     return Number(result[0]?.count || 0);
+  }
+
+  async incrementAdDailyStat(adId: string, field: 'impressions' | 'clicks'): Promise<void> {
+    const today = new Date().toISOString().slice(0, 10);
+    if (field === 'impressions') {
+      await db.insert(adStats)
+        .values({ adId, date: today, impressions: 1, clicks: 0 })
+        .onConflictDoUpdate({
+          target: [adStats.adId, adStats.date],
+          set: { impressions: sql`${adStats.impressions} + 1` },
+        });
+    } else {
+      await db.insert(adStats)
+        .values({ adId, date: today, impressions: 0, clicks: 1 })
+        .onConflictDoUpdate({
+          target: [adStats.adId, adStats.date],
+          set: { clicks: sql`${adStats.clicks} + 1` },
+        });
+    }
+  }
+
+  async getAdStats(adId: string, days: number): Promise<AdStat[]> {
+    const since = new Date();
+    since.setDate(since.getDate() - days + 1);
+    const sinceStr = since.toISOString().slice(0, 10);
+    return await db.select().from(adStats)
+      .where(and(eq(adStats.adId, adId), sql`${adStats.date} >= ${sinceStr}`))
+      .orderBy(asc(adStats.date));
   }
 }
 

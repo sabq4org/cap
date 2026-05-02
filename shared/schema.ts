@@ -1,6 +1,6 @@
 // Blueprint: javascript_log_in_with_replit, javascript_database
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, real, jsonb, index, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, real, jsonb, index, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -908,3 +908,23 @@ export const insertAdvertisementSchema = createInsertSchema(advertisements).omit
 });
 export type InsertAdvertisement = z.infer<typeof insertAdvertisementSchema>;
 export type Advertisement = typeof advertisements.$inferSelect;
+
+// ── Ad Daily Stats ────────────────────────────────────────────────────────────
+export const adStats = pgTable("ad_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adId: varchar("ad_id").notNull().references(() => advertisements.id, { onDelete: "cascade" }),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  impressions: integer("impressions").default(0).notNull(),
+  clicks: integer("clicks").default(0).notNull(),
+}, (table) => [
+  uniqueIndex("uq_ad_stats_ad_date").on(table.adId, table.date),
+]);
+
+export const adStatsRelations = relations(adStats, ({ one }) => ({
+  ad: one(advertisements, {
+    fields: [adStats.adId],
+    references: [advertisements.id],
+  }),
+}));
+
+export type AdStat = typeof adStats.$inferSelect;

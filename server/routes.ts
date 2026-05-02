@@ -3995,15 +3995,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Advertisement Routes
   // ==========================================
 
-  // Public: get active ad for a given position
+  // Public: get active ad for a given position (also tracks daily impression)
   app.get('/api/ads/active/:position', async (req, res) => {
     try {
       const ad = await storage.getActiveAdByPosition(req.params.position);
       if (!ad) return res.json(null);
+      storage.incrementAdDailyStat(ad.id, 'impressions').catch(() => {});
       res.json(ad);
     } catch (error) {
       console.error("Error fetching active ad:", error);
       res.status(500).json({ message: "Failed to fetch ad" });
+    }
+  });
+
+  // Public: record ad click
+  app.post('/api/ads/:id/click', async (req, res) => {
+    try {
+      storage.incrementAdDailyStat(req.params.id, 'clicks').catch(() => {});
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to record click" });
     }
   });
 
@@ -4080,6 +4091,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error resetting ad stats:", error);
       res.status(500).json({ message: "Failed to reset ad stats" });
+    }
+  });
+
+  // Admin: get daily stats for a specific ad
+  app.get('/api/admin/ads/:id/stats', isAdminAuthenticated, async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const stats = await storage.getAdStats(req.params.id, days);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching ad stats:", error);
+      res.status(500).json({ message: "Failed to fetch ad stats" });
     }
   });
 
