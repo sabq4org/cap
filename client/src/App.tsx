@@ -33,6 +33,8 @@ import Register from "@/pages/Register";
 import AskCapsule from "@/pages/AskCapsule";
 import RumorStatus from "@/pages/RumorStatus";
 import AdminRumors from "@/pages/AdminRumors";
+import AdminPodcast from "@/pages/AdminPodcast";
+import Podcast from "@/pages/Podcast";
 import NotFound from "@/pages/not-found";
 import WhatsAppSubscribe from "@/pages/WhatsAppSubscribe";
 import ArchiveChatbot from "@/components/ArchiveChatbot";
@@ -63,6 +65,7 @@ function Router() {
       <Route path="/ask-capsule" component={AskCapsule} />
       <Route path="/whatsapp" component={WhatsAppSubscribe} />
       <Route path="/ask-capsule/status/:id" component={RumorStatus} />
+      <Route path="/podcast" component={Podcast} />
       <Route path="/about" component={About} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/login">{isAuthenticated ? <Landing /> : <Login />}</Route>
@@ -96,6 +99,7 @@ function AdminRouter() {
       <Route path="/admin/rumors" component={AdminRumors} />
       <Route path="/admin/ads" component={AdminDashboard} />
       <Route path="/admin/whatsapp" component={AdminWhatsApp} />
+      <Route path="/admin/podcast" component={AdminPodcast} />
     </Switch>
   );
 }

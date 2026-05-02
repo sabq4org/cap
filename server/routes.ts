@@ -3987,6 +3987,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // Podcast API Routes
+  // ==========================================
+
+  // Public: list podcast episodes
+  app.get('/api/podcast/episodes', async (req, res) => {
+    try {
+      const episodes = await storage.getPodcastEpisodes(50);
+      res.json(episodes);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Public: get single episode
+  app.get('/api/podcast/episodes/:id', async (req, res) => {
+    try {
+      const episode = await storage.getPodcastEpisode(req.params.id);
+      if (!episode) return res.status(404).json({ message: 'الحلقة غير موجودة' });
+      res.json(episode);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin: trigger podcast generation
+  app.post('/api/admin/podcast/generate', isAdminAuthenticated, async (req, res) => {
+    try {
+      const { generatePodcastEpisode } = await import('./podcastService');
+      const today = new Date().toISOString().split('T')[0];
+      const title = req.body.title || `كبسولة الصوتية - ${today}`;
+
+      const episode = await storage.createPodcastEpisode({
+        title,
+        scriptText: '',
+        audioUrl: null,
+        sourceArticleIds: [],
+        episodeDate: today,
+        status: 'pending',
+        newsCount: 0,
+        errorMessage: null,
+        durationSeconds: null,
+      });
+
+      // Run generation in background
+      generatePodcastEpisode(episode.id).catch(console.error);
+
+      res.json({ message: 'جاري توليد الحلقة...', episode });
+    } catch (error: any) {
+      console.error('[podcast] generate error:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin: regenerate an existing episode
+  app.post('/api/admin/podcast/episodes/:id/regenerate', isAdminAuthenticated, async (req, res) => {
+    try {
+      const { generatePodcastEpisode } = await import('./podcastService');
+      const episode = await storage.getPodcastEpisode(req.params.id);
+      if (!episode) return res.status(404).json({ message: 'الحلقة غير موجودة' });
+
+      await storage.updatePodcastEpisode(episode.id, {
+        status: 'pending',
+        audioUrl: null,
+        errorMessage: null,
+      });
+
+      generatePodcastEpisode(episode.id).catch(console.error);
+
+      res.json({ message: 'جاري إعادة توليد الحلقة...' });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin: delete episode
+  app.delete('/api/admin/podcast/episodes/:id', isAdminAuthenticated, async (req, res) => {
+    try {
+      const deleted = await storage.deletePodcastEpisode(req.params.id);
+      if (!deleted) return res.status(404).json({ message: 'الحلقة غير موجودة' });
+      res.json({ message: 'تم حذف الحلقة بنجاح' });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Serve podcast audio files
+  app.get('/objects/podcasts/:filename', async (req, res) => {
+    try {
+      const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
+      if (!privateObjectDir) return res.status(500).json({ message: 'Storage not configured' });
+
+      const pathParts = privateObjectDir.startsWith('/') ? privateObjectDir.slice(1).split('/') : privateObjectDir.split('/');
+      const bucketName = pathParts[0];
+      const basePath = pathParts.slice(1).join('/');
+      const objectName = basePath ? `${basePath}/podcasts/${req.params.filename}` : `podcasts/${req.params.filename}`;
+
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      const [exists] = await file.exists();
+      if (!exists) return res.status(404).json({ message: 'File not found' });
+
+      const [data] = await file.download();
+      res.set({
+        'Content-Type': 'audio/wav',
+        'Content-Length': data.length,
+        'Cache-Control': 'public, max-age=86400',
+        'Accept-Ranges': 'bytes',
+      });
+      res.send(data);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  // ──────────────────────────────────────────────────────────────────────────
+
   // ─── Admin image upload endpoint ──────────────────────────────────────────
   app.post('/api/admin/upload-image', isAdminAuthenticated, async (req, res) => {
     try {

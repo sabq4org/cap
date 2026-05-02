@@ -875,6 +875,33 @@ export const insertTrendAlertSchema = createInsertSchema(trendAlerts).omit({
 export type InsertTrendAlert = z.infer<typeof insertTrendAlertSchema>;
 export type TrendAlert = typeof trendAlerts.$inferSelect;
 
+// =====================================================
+// Podcast Episodes
+// =====================================================
+
+export const podcastEpisodes = pgTable("podcast_episodes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  scriptText: text("script_text").notNull(),
+  audioUrl: text("audio_url"),
+  sourceArticleIds: jsonb("source_article_ids").$type<string[]>().default([]),
+  episodeDate: varchar("episode_date", { length: 10 }).notNull(), // YYYY-MM-DD
+  status: varchar("status").notNull().default("pending"), // pending, generating, ready, failed
+  errorMessage: text("error_message"),
+  durationSeconds: integer("duration_seconds"),
+  newsCount: integer("news_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPodcastEpisodeSchema = createInsertSchema(podcastEpisodes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPodcastEpisode = z.infer<typeof insertPodcastEpisodeSchema>;
+export type PodcastEpisode = typeof podcastEpisodes.$inferSelect;
+
 export const adminPermissions = [
   { key: "publish_news",       label: "نشر المحتوى" },
   { key: "edit_news",          label: "تعديل المحتوى" },

@@ -33,6 +33,7 @@ import {
   whatsappSubscribers,
   whatsappNewsletters,
   whatsappSettings,
+  podcastEpisodes,
   type User,
   type UpsertUser,
   type HealthProfile,
@@ -72,6 +73,8 @@ import {
   type InsertInfographicTemplate,
   type InfographicJob,
   type InsertInfographicJob,
+  type PodcastEpisode,
+  type InsertPodcastEpisode,
   viewCountryStats,
   type ViewCountryStat,
   viewReferrerStats,
@@ -255,6 +258,12 @@ export interface IStorage {
   getWhatsappSettings(): Promise<WhatsappSettings | undefined>;
   upsertWhatsappSettings(data: Partial<WhatsappSettings>): Promise<WhatsappSettings>;
 
+  // Podcast operations
+  getPodcastEpisodes(limit?: number): Promise<PodcastEpisode[]>;
+  getPodcastEpisode(id: string): Promise<PodcastEpisode | undefined>;
+  createPodcastEpisode(data: InsertPodcastEpisode): Promise<PodcastEpisode>;
+  updatePodcastEpisode(id: string, data: Partial<InsertPodcastEpisode> & { updatedAt?: Date; errorMessage?: string | null }): Promise<PodcastEpisode | undefined>;
+  deletePodcastEpisode(id: string): Promise<boolean>;
 }
 
 // Simple TTL in-memory cache
@@ -2238,6 +2247,62 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(capsuleLogs)
       .orderBy(desc(capsuleLogs.createdAt))
       .limit(limit);
+  }
+
+  // ==========================================
+  // Podcast Operations
+  // ==========================================
+
+  async getPodcastEpisodes(limit: number = 50): Promise<PodcastEpisode[]> {
+    return await db.select().from(podcastEpisodes)
+      .orderBy(desc(podcastEpisodes.createdAt))
+      .limit(limit);
+  }
+
+  async getPodcastEpisode(id: string): Promise<PodcastEpisode | undefined> {
+    const [episode] = await db.select().from(podcastEpisodes).where(eq(podcastEpisodes.id, id));
+    return episode;
+  }
+
+  async createPodcastEpisode(data: InsertPodcastEpisode): Promise<PodcastEpisode> {
+    const [episode] = await db.insert(podcastEpisodes).values({
+      title: data.title,
+      scriptText: data.scriptText,
+      audioUrl: data.audioUrl ?? null,
+      sourceArticleIds: data.sourceArticleIds ?? [],
+      episodeDate: data.episodeDate,
+      status: data.status ?? "pending",
+      errorMessage: data.errorMessage ?? null,
+      durationSeconds: data.durationSeconds ?? null,
+      newsCount: data.newsCount ?? 0,
+    }).returning();
+    return episode;
+  }
+
+  async updatePodcastEpisode(id: string, data: Partial<InsertPodcastEpisode> & { updatedAt?: Date; errorMessage?: string | null }): Promise<PodcastEpisode | undefined> {
+    const updatePayload: Partial<typeof podcastEpisodes.$inferInsert> & { updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+    if (data.title !== undefined) updatePayload.title = data.title;
+    if (data.scriptText !== undefined) updatePayload.scriptText = data.scriptText;
+    if (data.audioUrl !== undefined) updatePayload.audioUrl = data.audioUrl;
+    if (data.sourceArticleIds !== undefined) updatePayload.sourceArticleIds = data.sourceArticleIds;
+    if (data.episodeDate !== undefined) updatePayload.episodeDate = data.episodeDate;
+    if (data.status !== undefined) updatePayload.status = data.status;
+    if ("errorMessage" in data) updatePayload.errorMessage = data.errorMessage;
+    if (data.durationSeconds !== undefined) updatePayload.durationSeconds = data.durationSeconds;
+    if (data.newsCount !== undefined) updatePayload.newsCount = data.newsCount;
+
+    const [updated] = await db.update(podcastEpisodes)
+      .set(updatePayload)
+      .where(eq(podcastEpisodes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePodcastEpisode(id: string): Promise<boolean> {
+    const result = await db.delete(podcastEpisodes).where(eq(podcastEpisodes.id, id)).returning();
+    return result.length > 0;
   }
 }
 

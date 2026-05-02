@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Heart, User, Home, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown, LayoutDashboard, ShieldCheck, Search, FlaskConical } from "lucide-react";
+import { Menu, X, Heart, User, Home, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown, LayoutDashboard, ShieldCheck, Search, FlaskConical, Headphones } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -60,6 +60,7 @@ export default function Header() {
   const navItems = isAuthenticated ? [
     { label: "الرئيسية", path: "/", icon: Home, activePaths: ["/"] },
     { label: "الأخبار", path: "/news", icon: Newspaper, activePaths: ["/news"] },
+    { label: "الكبسولة الصوتية", path: "/podcast", icon: Headphones, activePaths: ["/podcast"] },
     { label: "بوابتي الصحية", path: "/portal", icon: LayoutDashboard, activePaths: ["/portal"] },
     { label: "المساعد الصحي", path: "/assistant", icon: Heart, activePaths: ["/assistant"] },
     { label: "التغذية", path: "/nutrition", icon: Apple, activePaths: ["/nutrition"] },
@@ -67,6 +68,7 @@ export default function Header() {
   ] : [
     { label: "الرئيسية", path: "/", icon: Home, activePaths: ["/"] },
     { label: "الأخبار", path: "/news", icon: Newspaper, activePaths: ["/news"] },
+    { label: "الكبسولة الصوتية", path: "/podcast", icon: Headphones, activePaths: ["/podcast"] },
   ];
 
   return (
