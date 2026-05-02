@@ -3807,11 +3807,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const query = message.trim();
-      const archiveData = await storage.searchArchive(query, 8);
+
+      // Extract 2-4 meaningful Arabic/English key terms from the user's question
+      const CHAT_STOP_WORDS = new Set([
+        'من','في','على','مع','عن','إلى','الى','هل','ما','ماذا','كيف','لماذا','متى','أين','اين',
+        'هذا','هذه','ذلك','تلك','هو','هي','هم','هن','انا','نحن','انت','انتم',
+        'كان','يكون','كانت','لا','نعم','قد','لقد','حتى','بعد','قبل','أو','او',
+        'و','ف','ب','ل','ك','أن','ان','إن','إذ','إذا','اذا','لأن','لكن',
+        'آخر','اخر','أحدث','احدث','اخبار','خبر','مقال','مقالات','معلومات',
+        'تحدث','يتحدث','تخص','حول','عن','بشأن','بخصوص','لي','لنا','لهم',
+        'أريد','اريد','أبحث','ابحث','اعطني','أخبرني','اخبرني','لخص','لخصي',
+      ]);
+
+      const keyTerms = [...new Set(
+        query
+          .replace(/[؟?!،,\.。\-_()[\]{}]/g, ' ')
+          .split(/\s+/)
+          .map(t => t.trim())
+          .filter(t => t.length >= 2 && !CHAT_STOP_WORDS.has(t))
+      )].slice(0, 4);
+
+      // Run searches in parallel: one per key term + one for the full query
+      const searchTargets = keyTerms.length > 0 ? [...keyTerms, query] : [query];
+      const searchResults = await Promise.all(
+        searchTargets.map(term => storage.searchArchive(term, 5))
+      );
+
+      // Merge and deduplicate by ID, keeping the highest relevance score per item
+      const seenNews = new Map<string, typeof searchResults[0]['news'][0]>();
+      const seenArticles = new Map<string, typeof searchResults[0]['articles'][0]>();
+
+      for (const result of searchResults) {
+        for (const n of result.news) {
+          const existing = seenNews.get(n.id);
+          if (!existing || n.relevanceScore > existing.relevanceScore) {
+            seenNews.set(n.id, n);
+          }
+        }
+        for (const a of result.articles) {
+          const existing = seenArticles.get(a.id);
+          if (!existing || a.relevanceScore > existing.relevanceScore) {
+            seenArticles.set(a.id, a);
+          }
+        }
+      }
+
+      // Sort merged results by relevance score and take top results
+      const mergedNews = [...seenNews.values()]
+        .sort((a, b) => b.relevanceScore - a.relevanceScore)
+        .slice(0, 6);
+      const mergedArticles = [...seenArticles.values()]
+        .sort((a, b) => b.relevanceScore - a.relevanceScore)
+        .slice(0, 4);
+
       const baseUrl = process.env.BASE_URL || 'https://capsulah.com';
 
       const archiveResults: ArchiveSearchResult[] = [
-        ...archiveData.news.map((n) => ({
+        ...mergedNews.map((n) => ({
           id: n.id,
           type: "news" as const,
           title: n.title,
@@ -3820,7 +3872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           category: n.category,
           publishedAt: n.publishedAt,
         })),
-        ...archiveData.articles.map((a) => ({
+        ...mergedArticles.map((a) => ({
           id: a.id,
           type: "article" as const,
           title: a.title,
