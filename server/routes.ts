@@ -1295,6 +1295,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const schema = z.object({ text: z.string().min(10).max(10000) });
       const { text } = schema.parse(req.body);
       const result = await factCheckMedicalContent(text);
+      const userId = (req as any).user?.id || (req as any).userId || null;
+      storage.createCapsuleLog({
+        tool: "fact-check",
+        inputSnippet: text.slice(0, 500),
+        result,
+        createdBy: userId,
+      }).catch((err: unknown) => {
+        console.error("[capsule/fact-check] failed to save log:", err instanceof Error ? err.message : err);
+      });
       res.json({ success: true, result });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -1325,6 +1334,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const schema = z.object({ text: z.string().min(10).max(10000) });
       const { text } = schema.parse(req.body);
       const simplified = await simplifyMedicalText(text);
+      const userId = (req as any).user?.id || (req as any).userId || null;
+      storage.createCapsuleLog({
+        tool: "simplify",
+        inputSnippet: text.slice(0, 500),
+        result: { simplified },
+        createdBy: userId,
+      }).catch((err: unknown) => {
+        console.error("[capsule/simplify] failed to save log:", err instanceof Error ? err.message : err);
+      });
       res.json({ success: true, simplified });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -1529,6 +1547,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const extractedChars = pdfText.length;
       const sentChars = Math.min(pdfText.length, 8000);
       const result = await extractNewsFromPdf(pdfText);
+      const userId = (req as any).user?.id || (req as any).userId || null;
+      storage.createCapsuleLog({
+        tool: "pdf-capsule",
+        inputSnippet: (req.file.originalname || "ملف PDF").slice(0, 500),
+        result,
+        createdBy: userId,
+      }).catch((err: unknown) => {
+        console.error("[capsule/extract-pdf] failed to save log:", err instanceof Error ? err.message : err);
+      });
       res.json({ success: true, result, extractedChars, sentChars });
     } catch (error: any) {
       console.error("[capsule/extract-pdf]", error?.message);
@@ -1537,6 +1564,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (parser) {
         try { await parser.destroy(); } catch {}
       }
+    }
+  });
+
+  app.get("/api/admin/capsule/history", isAdminAuthenticated, async (req, res) => {
+    try {
+      const limit = Math.min(Number(req.query.limit) || 50, 100);
+      const logs = await storage.getCapsuleLogs(limit);
+      res.json({ success: true, logs });
+    } catch (error: any) {
+      console.error("[capsule/history]", error?.message);
+      res.status(500).json({ success: false, error: "فشل في جلب السجل" });
     }
   });
   // ───────────────────────────────────────────────────────────────────────────

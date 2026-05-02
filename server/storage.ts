@@ -89,6 +89,9 @@ import {
   type WhatsappNewsletter,
   type InsertWhatsappNewsletter,
   type WhatsappSettings,
+  capsuleLogs,
+  type CapsuleLog,
+  type InsertCapsuleLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike, inArray, ne } from "drizzle-orm";
@@ -210,6 +213,10 @@ export interface IStorage {
   createAd(ad: InsertAd): Promise<Ad>;
   updateAd(id: string, data: Partial<InsertAd>): Promise<Ad | undefined>;
   deleteAd(id: string): Promise<boolean>;
+
+  // Capsule log operations
+  createCapsuleLog(log: InsertCapsuleLog): Promise<CapsuleLog>;
+  getCapsuleLogs(limit?: number): Promise<CapsuleLog[]>;
 
   // Health Trend Radar operations
   getHealthTrends(limit?: number): Promise<HealthTrend[]>;
@@ -2220,6 +2227,17 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(adStats)
       .where(and(eq(adStats.adId, adId), sql`${adStats.date} >= ${sinceStr}`))
       .orderBy(asc(adStats.date));
+  }
+
+  async createCapsuleLog(log: InsertCapsuleLog): Promise<CapsuleLog> {
+    const [created] = await db.insert(capsuleLogs).values(log).returning();
+    return created;
+  }
+
+  async getCapsuleLogs(limit: number = 50): Promise<CapsuleLog[]> {
+    return await db.select().from(capsuleLogs)
+      .orderBy(desc(capsuleLogs.createdAt))
+      .limit(limit);
   }
 }
 

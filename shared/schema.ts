@@ -886,6 +886,51 @@ export const adminPermissions = [
   { key: "manage_users",       label: "إدارة المستخدمين" },
 ] as const;
 
+// ── Capsule Logs ─────────────────────────────────────────────────────────────
+
+export type CapsuleLogFactCheckResult = {
+  verdict: "موثوق" | "مشكوك فيه" | "مضلل";
+  credibilityScore: number;
+  explanation: string;
+  notes: Array<{ claim: string; assessment: string }>;
+};
+
+export type CapsuleLogSimplifyResult = {
+  simplified: string;
+};
+
+export type CapsuleLogPdfResult = {
+  headline: string;
+  summary: string;
+  keyStats: string[];
+  advice: string;
+  fullDraft: string;
+};
+
+export type CapsuleLogResult =
+  | CapsuleLogFactCheckResult
+  | CapsuleLogSimplifyResult
+  | CapsuleLogPdfResult;
+
+export const capsuleLogs = pgTable("capsule_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tool: varchar("tool").notNull(), // "fact-check" | "simplify" | "pdf-capsule"
+  inputSnippet: text("input_snippet").notNull(),
+  result: jsonb("result").$type<CapsuleLogResult>().notNull(),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_capsule_logs_created_at").on(table.createdAt),
+  index("idx_capsule_logs_tool").on(table.tool),
+]);
+
+export const insertCapsuleLogSchema = createInsertSchema(capsuleLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCapsuleLog = z.infer<typeof insertCapsuleLogSchema>;
+export type CapsuleLog = typeof capsuleLogs.$inferSelect;
+
 // ── Advertisements ────────────────────────────────────────────────────────────
 export const advertisements = pgTable("advertisements", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

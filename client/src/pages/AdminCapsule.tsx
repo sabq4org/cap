@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -7,13 +8,36 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import AdminSidebar from "@/components/AdminSidebar";
 import {
   ShieldCheck, FileText, BookOpen, Loader2, Upload, CheckCircle2,
-  AlertTriangle, XCircle, BarChart2, FileUp, Save, ChevronRight, Link
+  AlertTriangle, XCircle, BarChart2, FileUp, Save, ChevronRight, Link,
+  History, ChevronDown, Clock
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type {
+  CapsuleLog,
+  CapsuleLogFactCheckResult,
+  CapsuleLogSimplifyResult,
+  CapsuleLogPdfResult,
+  CapsuleLogResult,
+} from "@shared/schema";
+
+// ─── Type guards ──────────────────────────────────────────────────────────────
+
+function isFactCheckResult(r: CapsuleLogResult): r is CapsuleLogFactCheckResult {
+  return "verdict" in r;
+}
+
+function isSimplifyResult(r: CapsuleLogResult): r is CapsuleLogSimplifyResult {
+  return "simplified" in r;
+}
+
+function isPdfResult(r: CapsuleLogResult): r is CapsuleLogPdfResult {
+  return "headline" in r;
+}
 
 // ─── Shared URL Fetcher ───────────────────────────────────────────────────────
 
@@ -150,6 +174,7 @@ function FactCheckerTab() {
       const data = await res.json();
       if (data.success) {
         setResult(data.result);
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/capsule/history"] });
       } else {
         toast({ title: "خطأ", description: data.error || "فشل التدقيق", variant: "destructive" });
       }
@@ -280,6 +305,7 @@ function SimplifyTab() {
       const data = await res.json();
       if (data.success) {
         setSimplified(data.simplified);
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/capsule/history"] });
       } else {
         toast({ title: "خطأ", description: data.error || "فشل التبسيط", variant: "destructive" });
       }
@@ -419,6 +445,7 @@ function PdfCapsuleTab() {
         setDraftText(data.result.fullDraft || "");
         if (data.extractedChars != null) setExtractedChars(data.extractedChars);
         if (data.sentChars != null) setSentChars(data.sentChars);
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/capsule/history"] });
       } else {
         toast({ title: "خطأ", description: data.error || "فشل استخراج الخبر", variant: "destructive" });
       }
@@ -591,6 +618,178 @@ function PdfCapsuleTab() {
   );
 }
 
+// ─── History Tab ──────────────────────────────────────────────────────────────
+
+const toolLabels: Record<string, string> = {
+  "fact-check": "المدقق الطبي",
+  "simplify": "مبسّط المصطلحات",
+  "pdf-capsule": "من دراسة إلى خبر",
+};
+
+const toolIcons: Record<string, typeof ShieldCheck> = {
+  "fact-check": ShieldCheck,
+  "simplify": BookOpen,
+  "pdf-capsule": FileText,
+};
+
+function HistoryItemResult({ result }: { result: CapsuleLogResult }) {
+  if (isFactCheckResult(result)) {
+    const cfg = verdictConfig(result.verdict);
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-muted-foreground">النتيجة</p>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">درجة الموثوقية</span>
+            <span className="font-bold">{result.credibilityScore}%</span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-1.5">
+            <div className={`h-1.5 rounded-full ${cfg.bar}`} style={{ width: `${result.credibilityScore}%` }} />
+          </div>
+        </div>
+        {result.explanation && (
+          <p className="text-sm leading-relaxed bg-background border rounded p-3" dir="rtl">{result.explanation}</p>
+        )}
+        {result.notes.length > 0 && (
+          <div className="space-y-1.5">
+            {result.notes.map((note, idx) => (
+              <div key={idx} className="border rounded p-2.5 space-y-1 bg-background text-sm" dir="rtl">
+                <p className="font-medium">{note.claim}</p>
+                <p className="text-muted-foreground">{note.assessment}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (isSimplifyResult(result)) {
+    return (
+      <div className="space-y-1">
+        <p className="text-xs font-semibold text-muted-foreground">النص المبسط</p>
+        <p className="text-sm leading-relaxed bg-background border rounded p-3 whitespace-pre-wrap" dir="rtl">
+          {result.simplified}
+        </p>
+      </div>
+    );
+  }
+
+  if (isPdfResult(result)) {
+    return (
+      <div className="space-y-2">
+        {result.headline && (
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground">العنوان</p>
+            <p className="text-sm font-bold leading-relaxed" dir="rtl">{result.headline}</p>
+          </div>
+        )}
+        {result.summary && (
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground">الملخص</p>
+            <p className="text-sm leading-relaxed bg-background border rounded p-3" dir="rtl">{result.summary}</p>
+          </div>
+        )}
+        {result.advice && (
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground">النصيحة العملية</p>
+            <p className="text-sm leading-relaxed" dir="rtl">{result.advice}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function HistoryItem({ log }: { log: CapsuleLog }) {
+  const [open, setOpen] = useState(false);
+  const Icon = toolIcons[log.tool] ?? History;
+  const result = log.result;
+  const date = new Date(log.createdAt!);
+  const dateStr = date.toLocaleDateString("ar-SA", { year: "numeric", month: "short", day: "numeric" });
+  const timeStr = date.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <div
+          className="flex items-start justify-between gap-3 p-4 border rounded-lg cursor-pointer hover:bg-muted/40 transition-colors"
+          data-testid={`history-item-${log.id}`}
+        >
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="mt-0.5 shrink-0">
+              <Icon className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="secondary" className="text-xs shrink-0">
+                  {toolLabels[log.tool] ?? log.tool}
+                </Badge>
+                {isFactCheckResult(result) && (
+                  <Badge className={`text-xs border ${verdictConfig(result.verdict).color}`}>
+                    {result.verdict}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-foreground truncate" dir="rtl">{log.inputSnippet}</p>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {dateStr} · {timeStr}
+              </p>
+            </div>
+          </div>
+          <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 mt-1 transition-transform ${open ? "rotate-180" : ""}`} />
+        </div>
+      </CollapsibleTrigger>
+
+      <CollapsibleContent>
+        <div className="border border-t-0 rounded-b-lg p-4 bg-muted/20 space-y-3" data-testid={`history-content-${log.id}`}>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground">المدخل</p>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap" dir="rtl">{log.inputSnippet}</p>
+          </div>
+          <HistoryItemResult result={result} />
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function HistoryTab() {
+  const { data, isLoading } = useQuery<{ success: boolean; logs: CapsuleLog[] }>({
+    queryKey: ["/api/admin/capsule/history"],
+  });
+
+  const logs = data?.logs ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (logs.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center gap-3" data-testid="history-empty">
+        <History className="h-10 w-10 text-muted-foreground/40" />
+        <p className="text-muted-foreground">لا يوجد سجل بعد. ابدأ باستخدام أحد الأدوات أعلاه.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2" data-testid="history-list">
+      {logs.map((log) => (
+        <HistoryItem key={log.id} log={log} />
+      ))}
+    </div>
+  );
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function AdminCapsule() {
@@ -617,6 +816,10 @@ export default function AdminCapsule() {
               <TabsTrigger value="pdf-capsule" className="gap-2 py-2.5 px-4" data-testid="tab-pdf-capsule">
                 <FileText className="h-4 w-4" />
                 من دراسة إلى خبر
+              </TabsTrigger>
+              <TabsTrigger value="history" className="gap-2 py-2.5 px-4" data-testid="tab-history">
+                <History className="h-4 w-4" />
+                السجل
               </TabsTrigger>
             </TabsList>
 
@@ -667,6 +870,23 @@ export default function AdminCapsule() {
                 </CardHeader>
                 <CardContent>
                   <PdfCapsuleTab />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="history" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" />
+                    السجل
+                  </CardTitle>
+                  <CardDescription>
+                    سجل استخدامات أدوات كبسولة المحتوى الطبي — اضغط على أي عنصر لعرض النتيجة كاملة
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <HistoryTab />
                 </CardContent>
               </Card>
             </TabsContent>
