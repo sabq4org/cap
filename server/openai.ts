@@ -1634,59 +1634,6 @@ export interface NewsletterContent {
   readMoreUrl?: string;
 }
 
-// ── Archive Chatbot ────────────────────────────────────────────────────────────
-
-export interface ArchiveSearchResult {
-  id: string;
-  type: "news" | "article";
-  title: string;
-  excerpt: string;
-  url: string;
-  category?: string | null;
-  publishedAt?: Date | string | null;
-}
-
-export async function generateArchiveChatResponse(
-  query: string,
-  archiveResults: ArchiveSearchResult[]
-): Promise<{ answer: string; sources: ArchiveSearchResult[] }> {
-  const sourcesText = archiveResults
-    .slice(0, 6)
-    .map((r, i) => `[${i + 1}] ${r.title}\n${r.excerpt.substring(0, 300)}\nرابط: ${r.url}`)
-    .join("\n\n");
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `أنت مساعد بحث متخصص في الأرشيف الصحي لمنصة كبسولة الصحية. مهمتك:
-1. الإجابة على سؤال المستخدم بناءً على المقالات والأخبار المتاحة في الأرشيف
-2. الاستشهاد بالمصادر المرقمة عند الإجابة [1], [2], إلخ
-3. إذا لم تجد إجابة في الأرشيف، أخبر المستخدم بذلك بوضوح
-4. الإجابة باللغة العربية دائماً
-5. الإجابة يجب أن تكون مختصرة ومفيدة (200-400 كلمة كحد أقصى)`,
-        },
-        {
-          role: "user",
-          content: `السؤال: ${query}\n\nنتائج الأرشيف المتاحة:\n${sourcesText}`,
-        },
-      ],
-      max_tokens: 1000,
-    });
-
-    const answer = response.choices[0]?.message?.content || "عذراً، لم أتمكن من الإجابة على سؤالك.";
-    return { answer, sources: archiveResults.slice(0, 6) };
-  } catch (error: any) {
-    console.error("[generateArchiveChatResponse] Error:", error.message);
-    return {
-      answer: "عذراً، حدث خطأ أثناء معالجة سؤالك. يرجى المحاولة مرة أخرى.",
-      sources: [],
-    };
-  }
-}
-
 /**
  * Generate a WhatsApp-formatted morning newsletter from recent news items.
  * Takes top news headlines + summaries and produces a short, readable Arabic summary.

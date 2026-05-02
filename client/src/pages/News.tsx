@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Newspaper, Search, Clock, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertTriangle, XCircle, CheckCircle } from "lucide-react";
+import { Newspaper, Search, Clock, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertTriangle, XCircle, CheckCircle, MessageCircle } from "lucide-react";
 import { AIImageBadge } from "@/components/AIImageBadge";
 import type { News as NewsType } from "@shared/schema";
 import { getNewsImage } from "@/lib/newsImages";
@@ -191,6 +191,33 @@ export default function News() {
             ))}
           </div>
         </div>
+
+        {/* WhatsApp Subscribe Widget */}
+        <Link href="/whatsapp">
+          <div
+            className="mb-6 rounded-xl bg-gradient-to-l from-green-700 via-emerald-700 to-teal-600 text-white px-4 py-3.5 flex items-center justify-between gap-3 cursor-pointer hover:opacity-95 transition-opacity"
+            data-testid="widget-whatsapp-subscribe"
+            dir="rtl"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
+                <MessageCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-bold text-sm leading-tight">اشترك في كبسولة الصباح</p>
+                <p className="text-xs text-white/80">نشرة صحية يومية على واتساب — مجاناً</p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0 bg-white text-green-700 hover:bg-green-50 font-semibold text-xs px-3"
+              data-testid="button-whatsapp-subscribe-widget"
+              asChild
+            >
+              <span>اشترك</span>
+            </Button>
+          </div>
+        </Link>
 
         {isLoading ? (
           <div className="grid gap-4 grid-cols-2 md:grid-cols-4">

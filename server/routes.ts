@@ -4662,6 +4662,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
         if (existing && existing.expiresAt && new Date(existing.expiresAt) < new Date()) {
           return res.status(400).json({
             message: "لا يمكن تفعيل إعلان منتهي الصلاحية. يرجى تعديل تاريخ الانتهاء أولاً.",
+          });
         }
         // Also validate the new expiresAt if provided
         if (updates.expiresAt && new Date(updates.expiresAt) < new Date()) {
