@@ -33,6 +33,16 @@ import {
 import { objectStorageClient } from "./replit_integrations/object_storage";
 import { randomUUID } from "crypto";
 import sharp from "sharp";
+import rateLimit from "express-rate-limit";
+
+const rumorSubmissionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "لقد تجاوزت الحد المسموح به من الطلبات. يُسمح بـ 5 طلبات فقط في الساعة. يرجى المحاولة لاحقاً." },
+  statusCode: 429,
+});
 
 function escapeXml(str: string): string {
   return str
@@ -4092,7 +4102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =====================================================
 
   // POST /api/rumors — public endpoint to submit a rumor
-  app.post("/api/rumors", async (req, res) => {
+  app.post("/api/rumors", rumorSubmissionLimiter, async (req, res) => {
     try {
       const parsed = insertRumorSubmissionSchema.safeParse(req.body);
       if (!parsed.success) {

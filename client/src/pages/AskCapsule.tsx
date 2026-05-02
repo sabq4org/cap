@@ -176,10 +176,13 @@ export default function AskCapsule() {
       form.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/rumors/published"] });
     },
-    onError: () => {
+    onError: (error: Error) => {
+      const isRateLimit = error.message?.startsWith("429");
       toast({
-        title: "خطأ",
-        description: "حدث خطأ أثناء إرسال الشائعة. يرجى المحاولة مرة أخرى.",
+        title: isRateLimit ? "تم تجاوز الحد المسموح به" : "خطأ",
+        description: isRateLimit
+          ? "لقد تجاوزت الحد المسموح به من الطلبات. يُسمح بـ 5 طلبات فقط في الساعة. يرجى المحاولة لاحقاً."
+          : "حدث خطأ أثناء إرسال الشائعة. يرجى المحاولة مرة أخرى.",
         variant: "destructive",
       });
     },
