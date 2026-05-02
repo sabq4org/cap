@@ -49,3 +49,7 @@ NODE_ENV = "production"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-162bae9a-36ab-455b-b53c-d6e4364d52a4"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
