@@ -187,6 +187,7 @@ export interface IStorage {
   updateAdvertisement(id: string, data: Partial<InsertAdvertisement>): Promise<Advertisement | undefined>;
   deleteAdvertisement(id: string): Promise<boolean>;
   deactivateExpiredAds(): Promise<number>;
+  resetAdStats(id: string): Promise<Advertisement | undefined>;
 
   // Ads operations
   getAds(position?: string): Promise<Ad[]>;
@@ -1865,6 +1866,14 @@ export class DatabaseStorage implements IStorage {
   async deleteAdvertisement(id: string): Promise<boolean> {
     await db.delete(advertisements).where(eq(advertisements.id, id));
     return true;
+  }
+
+  async resetAdStats(id: string): Promise<Advertisement | undefined> {
+    const [updated] = await db.update(advertisements)
+      .set({ clickCount: 0, impressionCount: 0, updatedAt: new Date() })
+      .where(eq(advertisements.id, id))
+      .returning();
+    return updated;
   }
 
   async deactivateExpiredAds(): Promise<number> {

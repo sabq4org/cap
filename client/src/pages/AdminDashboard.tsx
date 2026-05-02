@@ -11,7 +11,7 @@ import {
   Activity, Utensils, Heart, Settings, ChevronLeft, BarChart3,
   Calendar, Clock, ArrowUpRight, ArrowDownRight, Sparkles, Menu, X,
   Save, Loader2, ChevronRight, Image, Upload, ImagePlus, Download, Globe, Check, AlertCircle, CheckSquare, Square, Star, Shield, Apple, Radar, Wand2, LayoutTemplate, ChevronsLeft, ChevronsRight, ArrowUpDown, Rss, AlertTriangle,
-  Megaphone, RefreshCw, ToggleLeft, ToggleRight, ExternalLink, Link2, Weight
+  Megaphone, RefreshCw, ToggleLeft, ToggleRight, ExternalLink, Link2, Weight, RotateCcw, MousePointerClick
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -1483,6 +1483,7 @@ export default function AdminDashboard() {
           <div>
             <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">الإدارة</p>
             <div className="space-y-0.5">
+              <SidebarItem icon={Megaphone} label="الإعلانات" active={activeSection === 'ads'} onClick={() => navigateTo('ads')} />
               <SidebarItem icon={Shield} label="الحسابات الإدارية" onClick={() => setLocation('/admin/accounts')} />
               <SidebarItem icon={Users} label="المستخدمين" onClick={() => navigateTo('users')} />
             </div>
@@ -3330,6 +3331,114 @@ export default function AdminDashboard() {
     </div>
   );
 
+  const AdsSection = () => {
+    const { toast } = useToast();
+    const { data: ads, isLoading: adsLoading } = useQuery<any[]>({
+      queryKey: ['/api/admin/ads'],
+    });
+
+    const resetStatsMutation = useMutation({
+      mutationFn: (id: string) => apiRequest('PATCH', `/api/admin/ads/${id}/reset-stats`),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/ads'] });
+        toast({ title: "تم إعادة تعيين الإحصاءات بنجاح" });
+      },
+      onError: () => {
+        toast({ title: "حدث خطأ أثناء إعادة تعيين الإحصاءات", variant: "destructive" });
+      },
+    });
+
+    const handleResetStats = (id: string, title: string) => {
+      if (!confirm(`هل أنت متأكد من إعادة تعيين إحصاءات الإعلان "${title}" إلى الصفر؟`)) return;
+      resetStatsMutation.mutate(id);
+    };
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Megaphone className="h-6 w-6 text-primary" />
+            إدارة الإعلانات
+          </h1>
+          <p className="text-muted-foreground">عرض وإدارة إحصاءات الإعلانات</p>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>الإعلانات</CardTitle>
+            <CardDescription>قائمة جميع الإعلانات مع إحصاءات الظهور والنقرات</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {adsLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : !ads || ads.length === 0 ? (
+              <p className="text-center text-muted-foreground py-10">لا توجد إعلانات</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-right">
+                      <th className="pb-3 pr-2 font-semibold text-muted-foreground">الإعلان</th>
+                      <th className="pb-3 px-2 font-semibold text-muted-foreground">الموضع</th>
+                      <th className="pb-3 px-2 font-semibold text-muted-foreground">الحالة</th>
+                      <th className="pb-3 px-2 font-semibold text-muted-foreground">
+                        <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />الظهور</span>
+                      </th>
+                      <th className="pb-3 px-2 font-semibold text-muted-foreground">
+                        <span className="flex items-center gap-1"><MousePointerClick className="h-3.5 w-3.5" />النقرات</span>
+                      </th>
+                      <th className="pb-3 pl-2 font-semibold text-muted-foreground">الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {ads.map((ad: any) => (
+                      <tr key={ad.id} className="hover:bg-muted/30 transition-colors" data-testid={`row-ad-${ad.id}`}>
+                        <td className="py-3 pr-2">
+                          <span className="font-medium" data-testid={`text-ad-title-${ad.id}`}>{ad.title}</span>
+                        </td>
+                        <td className="py-3 px-2 text-muted-foreground">{ad.position}</td>
+                        <td className="py-3 px-2">
+                          <Badge variant={ad.isActive ? "default" : "secondary"} data-testid={`status-ad-${ad.id}`}>
+                            {ad.isActive ? "نشط" : "غير نشط"}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-2">
+                          <span className="font-mono" data-testid={`text-impressions-${ad.id}`}>{ad.impressionCount ?? 0}</span>
+                        </td>
+                        <td className="py-3 px-2">
+                          <span className="font-mono" data-testid={`text-clicks-${ad.id}`}>{ad.clickCount ?? 0}</span>
+                        </td>
+                        <td className="py-3 pl-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 text-xs"
+                            onClick={() => handleResetStats(ad.id, ad.title)}
+                            disabled={resetStatsMutation.isPending}
+                            data-testid={`button-reset-stats-${ad.id}`}
+                          >
+                            {resetStatsMutation.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            )}
+                            إعادة تعيين الإحصاءات
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   const ImportSection = () => (
     <div className="space-y-6">
       <div>
@@ -4550,6 +4659,8 @@ export default function AdminDashboard() {
             <ImportSection />
           ) : activeSection === 'categories' ? (
             <CategoriesSection />
+          ) : activeSection === 'ads' ? (
+            <AdsSection />
           ) : activeSection === 'dashboard' ? (
             <AdminDashboardOverview adminUser={adminUser} onNavigate={navigateTo} />
           ) : activeSection === 'ads' ? (

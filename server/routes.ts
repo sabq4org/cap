@@ -4019,6 +4019,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: reset impression and click counters for an ad
+  app.patch('/api/admin/ads/:id/reset-stats', isAdminAuthenticated, async (req, res) => {
+    try {
+      const updated = await storage.resetAdStats(req.params.id);
+      if (!updated) return res.status(404).json({ message: "Ad not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error resetting ad stats:", error);
+      res.status(500).json({ message: "Failed to reset ad stats" });
+    }
+  });
+
   // Admin: manually trigger expired-ad cleanup
   app.post('/api/admin/ads/deactivate-expired', isAdminAuthenticated, async (req, res) => {
     try {

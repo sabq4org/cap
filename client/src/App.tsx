@@ -79,6 +79,7 @@ function AdminRouter() {
       <Route path="/admin/categories" component={AdminDashboard} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/accounts" component={AdminAccounts} />
+      <Route path="/admin/ads" component={AdminDashboard} />
       <Route path="/admin/radar" component={AdminRadar} />
       <Route path="/admin/infographic" component={AdminInfographic} />
       <Route path="/admin/generation-settings" component={AdminGenerationSettings} />
