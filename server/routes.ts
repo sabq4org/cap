@@ -3839,6 +3839,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   // ──────────────────────────────────────────────────────────────────────────
 
+  // ─── Ads (Advertisement Banners) ──────────────────────────────────────────
+
+  // Public: get the currently selected ad for a position (weighted random)
+  app.get("/api/ads", async (req, res) => {
+    try {
+      const position = req.query.position as string;
+      if (!position) {
+        return res.status(400).json({ message: "position is required" });
+      }
+      const ad = await storage.getActiveAdByPosition(position);
+      if (!ad) return res.json(null);
+      res.json(ad);
+    } catch (err) {
+      console.error("GET /api/ads error:", err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Admin: list all ads
+  app.get("/api/admin/ads", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    try {
+      const position = req.query.position as string | undefined;
+      const adsList = await storage.getAds(position);
+      res.json(adsList);
+    } catch (err) {
+      console.error("GET /api/admin/ads error:", err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Admin: create ad
+  app.post("/api/admin/ads", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    try {
+      const { insertAdSchema } = await import("@shared/schema");
+      const parsed = insertAdSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+      const ad = await storage.createAd(parsed.data);
+      res.status(201).json(ad);
+    } catch (err) {
+      console.error("POST /api/admin/ads error:", err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Admin: update ad
+  app.patch("/api/admin/ads/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    try {
+      const { id } = req.params;
+      const updated = await storage.updateAd(id, req.body);
+      if (!updated) return res.status(404).json({ message: "Ad not found" });
+      res.json(updated);
+    } catch (err) {
+      console.error("PATCH /api/admin/ads/:id error:", err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Admin: delete ad
+  app.delete("/api/admin/ads/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteAd(id);
+      if (!deleted) return res.status(404).json({ message: "Ad not found" });
+      res.json({ message: "Deleted" });
+    } catch (err) {
+      console.error("DELETE /api/admin/ads/:id error:", err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // ─── Legacy WordPress URL redirect ────────────────────────────────────────
   // Catches old capsulah.com WordPress permalinks (e.g. /2025/03/article-slug/)
   // and performs a 301 permanent redirect to the correct new URL.

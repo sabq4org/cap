@@ -146,6 +146,7 @@ Preferred communication style: Simple, everyday language.
   - `articles` - Medical content with review status and sources
   - `chat_sessions` - Conversation grouping for AI assistant
   - `chat_messages` - Individual messages with role (user/assistant)
+  - `ads` - Advertisement banners with position, weight, active status (3 positions: above_featured, below_featured, news_sidebar)
 
 **Data Modeling Strategy**:
 - JSONB columns for flexible arrays (conditions, medications, tags, sources)

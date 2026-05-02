@@ -22,6 +22,9 @@ import {
   infographicTemplates,
   infographicJobs,
   advertisements,
+  ads,
+  type Ad,
+  type InsertAd,
   type User,
   type UpsertUser,
   type HealthProfile,
@@ -173,11 +176,17 @@ export interface IStorage {
   // Advertisement operations
   getAdvertisements(): Promise<Advertisement[]>;
   getAdvertisementById(id: string): Promise<Advertisement | undefined>;
-  getActiveAdByPosition(position: string): Promise<Advertisement | undefined>;
+  getActiveAdByPosition(position: string): Promise<Ad | null>;
   createAdvertisement(data: InsertAdvertisement): Promise<Advertisement>;
   updateAdvertisement(id: string, data: Partial<InsertAdvertisement>): Promise<Advertisement | undefined>;
   deleteAdvertisement(id: string): Promise<boolean>;
   deactivateExpiredAds(): Promise<number>;
+
+  // Ads operations
+  getAds(position?: string): Promise<Ad[]>;
+  createAd(ad: InsertAd): Promise<Ad>;
+  updateAd(id: string, data: Partial<InsertAd>): Promise<Ad | undefined>;
+  deleteAd(id: string): Promise<boolean>;
 }
 
 // Simple TTL in-memory cache
@@ -1811,17 +1820,16 @@ export class DatabaseStorage implements IStorage {
     return ad;
   }
 
-  async getActiveAdByPosition(position: string): Promise<Advertisement | undefined> {
-    const now = new Date();
-    const [ad] = await db.select().from(advertisements).where(
-      and(
-        eq(advertisements.position, position),
-        eq(advertisements.isActive, true),
-        or(isNull(advertisements.startsAt), lte(advertisements.startsAt, now)),
-        or(isNull(advertisements.expiresAt), gte(advertisements.expiresAt, now))
-      )
-    ).orderBy(desc(advertisements.createdAt)).limit(1);
-    return ad;
+  async getActiveAdByPosition(position: string): Promise<Ad | null> {
+    const activeAds = await db.select().from(ads).where(and(eq(ads.position, position), eq(ads.isActive, true)));
+    if (!activeAds.length) return null;
+    const totalWeight = activeAds.reduce((sum, ad) => sum + ad.weight, 0);
+    let random = Math.random() * totalWeight;
+    for (const ad of activeAds) {
+      random -= ad.weight;
+      if (random <= 0) return ad;
+    }
+    return activeAds[activeAds.length - 1];
   }
 
   async createAdvertisement(data: InsertAdvertisement): Promise<Advertisement> {
@@ -1854,6 +1862,32 @@ export class DatabaseStorage implements IStorage {
       )
       .returning({ id: advertisements.id });
     return result.length;
+  }
+
+  // ==========================================
+  // Ads Operations (weighted rotation)
+  // ==========================================
+
+  async getAds(position?: string): Promise<Ad[]> {
+    if (position) {
+      return await db.select().from(ads).where(eq(ads.position, position)).orderBy(desc(ads.createdAt));
+    }
+    return await db.select().from(ads).orderBy(desc(ads.createdAt));
+  }
+
+  async createAd(adData: InsertAd): Promise<Ad> {
+    const [ad] = await db.insert(ads).values(adData).returning();
+    return ad;
+  }
+
+  async updateAd(id: string, data: Partial<InsertAd>): Promise<Ad | undefined> {
+    const [updated] = await db.update(ads).set(data).where(eq(ads.id, id)).returning();
+    return updated;
+  }
+
+  async deleteAd(id: string): Promise<boolean> {
+    const result = await db.delete(ads).where(eq(ads.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 }
 

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import AdBanner from "@/components/AdBanner";
 import { useRoute, Link } from "wouter";
 import DOMPurify from "dompurify";
 import { SEO } from "@/components/SEO";
@@ -567,6 +568,7 @@ export default function NewsDetail() {
           </div>
 
           <aside className="lg:col-span-1 space-y-6">
+            <AdBanner position="news_sidebar" />
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">أخبار ذات صلة</CardTitle>
