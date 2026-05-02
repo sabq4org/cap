@@ -805,3 +805,26 @@ export const adminPermissions = [
   { key: "view_analytics",     label: "عرض الإحصائيات" },
   { key: "manage_users",       label: "إدارة المستخدمين" },
 ] as const;
+
+// ── Advertisements ────────────────────────────────────────────────────────────
+export const advertisements = pgTable("advertisements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  imageUrl: varchar("image_url"),
+  linkUrl: varchar("link_url"),
+  position: varchar("position").notNull().default("sidebar"),
+  isActive: boolean("is_active").default(true).notNull(),
+  startsAt: timestamp("starts_at"),
+  expiresAt: timestamp("expires_at"),
+  clickCount: integer("click_count").default(0).notNull(),
+  impressionCount: integer("impression_count").default(0).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAdvertisementSchema = createInsertSchema(advertisements).omit({
+  id: true, createdAt: true, updatedAt: true, clickCount: true, impressionCount: true,
+});
+export type InsertAdvertisement = z.infer<typeof insertAdvertisementSchema>;
+export type Advertisement = typeof advertisements.$inferSelect;

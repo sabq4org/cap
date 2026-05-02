@@ -242,6 +242,21 @@ async function fixCategoriesArabic() {
 
     runScheduler();
     setInterval(runScheduler, 60 * 1000);
+
+    // Background scheduler: deactivate expired ads every 5 minutes
+    const runAdExpiry = async () => {
+      try {
+        const deactivated = await storage.deactivateExpiredAds();
+        if (deactivated > 0) {
+          log(`[Scheduler] تم إيقاف ${deactivated} إعلان منتهي الصلاحية تلقائياً`);
+        }
+      } catch (err) {
+        console.error("[Scheduler] خطأ في إيقاف الإعلانات المنتهية:", err);
+      }
+    };
+
+    runAdExpiry();
+    setInterval(runAdExpiry, 5 * 60 * 1000);
   } catch (err) {
     console.error('[Startup] فشل حرج في بدء تشغيل الخادم:', err);
     process.exit(1);

@@ -21,6 +21,7 @@ import {
   imageGenerations,
   infographicTemplates,
   infographicJobs,
+  advertisements,
   type User,
   type UpsertUser,
   type HealthProfile,
@@ -64,6 +65,8 @@ import {
   type ViewCountryStat,
   viewReferrerStats,
   type ViewReferrerStat,
+  type Advertisement,
+  type InsertAdvertisement,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike, inArray, ne } from "drizzle-orm";
@@ -160,6 +163,15 @@ export interface IStorage {
   updateUserRole(userId: string, role: string): Promise<User | undefined>;
   updateUserStatus(userId: string, isActive: boolean): Promise<User | undefined>;
   updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; email?: string }): Promise<User | undefined>;
+
+  // Advertisement operations
+  getAdvertisements(): Promise<Advertisement[]>;
+  getAdvertisementById(id: string): Promise<Advertisement | undefined>;
+  getActiveAdByPosition(position: string): Promise<Advertisement | undefined>;
+  createAdvertisement(data: InsertAdvertisement): Promise<Advertisement>;
+  updateAdvertisement(id: string, data: Partial<InsertAdvertisement>): Promise<Advertisement | undefined>;
+  deleteAdvertisement(id: string): Promise<boolean>;
+  deactivateExpiredAds(): Promise<number>;
 }
 
 // Simple TTL in-memory cache
@@ -1662,6 +1674,64 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(infographicJobs)
       .orderBy(desc(infographicJobs.createdAt))
       .limit(limit);
+  }
+
+  // ==========================================
+  // Advertisement Operations
+  // ==========================================
+
+  async getAdvertisements(): Promise<Advertisement[]> {
+    return await db.select().from(advertisements).orderBy(desc(advertisements.createdAt));
+  }
+
+  async getAdvertisementById(id: string): Promise<Advertisement | undefined> {
+    const [ad] = await db.select().from(advertisements).where(eq(advertisements.id, id));
+    return ad;
+  }
+
+  async getActiveAdByPosition(position: string): Promise<Advertisement | undefined> {
+    const now = new Date();
+    const [ad] = await db.select().from(advertisements).where(
+      and(
+        eq(advertisements.position, position),
+        eq(advertisements.isActive, true),
+        or(isNull(advertisements.startsAt), lte(advertisements.startsAt, now)),
+        or(isNull(advertisements.expiresAt), gte(advertisements.expiresAt, now))
+      )
+    ).orderBy(desc(advertisements.createdAt)).limit(1);
+    return ad;
+  }
+
+  async createAdvertisement(data: InsertAdvertisement): Promise<Advertisement> {
+    const [ad] = await db.insert(advertisements).values(data).returning();
+    return ad;
+  }
+
+  async updateAdvertisement(id: string, data: Partial<InsertAdvertisement>): Promise<Advertisement | undefined> {
+    const [updated] = await db.update(advertisements)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(advertisements.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAdvertisement(id: string): Promise<boolean> {
+    await db.delete(advertisements).where(eq(advertisements.id, id));
+    return true;
+  }
+
+  async deactivateExpiredAds(): Promise<number> {
+    const now = new Date();
+    const result = await db.update(advertisements)
+      .set({ isActive: false, updatedAt: now })
+      .where(
+        and(
+          eq(advertisements.isActive, true),
+          sql`${advertisements.expiresAt} IS NOT NULL AND ${advertisements.expiresAt} < ${now}`
+        )
+      )
+      .returning({ id: advertisements.id });
+    return result.length;
   }
 }
 

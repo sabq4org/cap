@@ -3714,6 +3714,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // Advertisement Routes
+  // ==========================================
+
+  // Public: get active ad for a given position
+  app.get('/api/ads/active/:position', async (req, res) => {
+    try {
+      const ad = await storage.getActiveAdByPosition(req.params.position);
+      if (!ad) return res.json(null);
+      res.json(ad);
+    } catch (error) {
+      console.error("Error fetching active ad:", error);
+      res.status(500).json({ message: "Failed to fetch ad" });
+    }
+  });
+
+  // Admin: list all ads
+  app.get('/api/admin/ads', isAdminAuthenticated, async (req, res) => {
+    try {
+      const ads = await storage.getAdvertisements();
+      res.json(ads);
+    } catch (error) {
+      console.error("Error fetching ads:", error);
+      res.status(500).json({ message: "Failed to fetch ads" });
+    }
+  });
+
+  // Admin: create ad
+  app.post('/api/admin/ads', isAdminAuthenticated, async (req, res) => {
+    try {
+      const ad = await storage.createAdvertisement(req.body);
+      res.status(201).json(ad);
+    } catch (error) {
+      console.error("Error creating ad:", error);
+      res.status(500).json({ message: "Failed to create ad" });
+    }
+  });
+
+  // Admin: update ad
+  app.patch('/api/admin/ads/:id', isAdminAuthenticated, async (req, res) => {
+    try {
+      const id = req.params.id;
+      const updates = req.body;
+
+      // If the request tries to activate an ad, check that it hasn't expired
+      if (updates.isActive === true) {
+        const existing = await storage.getAdvertisementById(id);
+        if (existing && existing.expiresAt && new Date(existing.expiresAt) < new Date()) {
+          return res.status(400).json({
+            message: "لا يمكن تفعيل إعلان منتهي الصلاحية. يرجى تعديل تاريخ الانتهاء أولاً.",
+          });
+        }
+        // Also validate the new expiresAt if provided
+        if (updates.expiresAt && new Date(updates.expiresAt) < new Date()) {
+          return res.status(400).json({
+            message: "لا يمكن تفعيل إعلان بتاريخ انتهاء في الماضي.",
+          });
+        }
+      }
+
+      const updated = await storage.updateAdvertisement(id, updates);
+      if (!updated) return res.status(404).json({ message: "Ad not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating ad:", error);
+      res.status(500).json({ message: "Failed to update ad" });
+    }
+  });
+
+  // Admin: delete ad
+  app.delete('/api/admin/ads/:id', isAdminAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteAdvertisement(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting ad:", error);
+      res.status(500).json({ message: "Failed to delete ad" });
+    }
+  });
+
+  // Admin: manually trigger expired-ad cleanup
+  app.post('/api/admin/ads/deactivate-expired', isAdminAuthenticated, async (req, res) => {
+    try {
+      const count = await storage.deactivateExpiredAds();
+      res.json({ deactivated: count });
+    } catch (error) {
+      console.error("Error deactivating expired ads:", error);
+      res.status(500).json({ message: "Failed to deactivate expired ads" });
+    }
+  });
+
   // Also catch /:slug patterns (non-year) that match known WordPress slugs
   app.get('/:slug', async (req, res, next) => {
     const { slug } = req.params;
