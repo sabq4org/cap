@@ -31,6 +31,7 @@ import AdminWhatsApp from "@/pages/AdminWhatsApp";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import AskCapsule from "@/pages/AskCapsule";
+import RumorStatus from "@/pages/RumorStatus";
 import AdminRumors from "@/pages/AdminRumors";
 import NotFound from "@/pages/not-found";
 import WhatsAppSubscribe from "@/pages/WhatsAppSubscribe";
@@ -61,6 +62,7 @@ function Router() {
       <Route path="/keyword/:keyword" component={KeywordPage} />
       <Route path="/ask-capsule" component={AskCapsule} />
       <Route path="/whatsapp" component={WhatsAppSubscribe} />
+      <Route path="/ask-capsule/status/:id" component={RumorStatus} />
       <Route path="/about" component={About} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/login">{isAuthenticated ? <Landing /> : <Login />}</Route>

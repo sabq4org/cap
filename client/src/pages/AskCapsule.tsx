@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -147,8 +146,7 @@ function RumorCard({ rumor }: { rumor: RumorSubmission }) {
 
 export default function AskCapsule() {
   const { toast } = useToast();
-  const [submitted, setSubmitted] = useState(false);
-
+  const [, navigate] = useLocation();
   const form = useForm<SubmitForm>({
     resolver: zodResolver(submitSchema),
     defaultValues: {
@@ -169,12 +167,16 @@ export default function AskCapsule() {
         sourcePlatform: data.sourcePlatform,
       };
       if (data.sourceUrl) payload.sourceUrl = data.sourceUrl;
-      return apiRequest("POST", "/api/rumors", payload);
+      const res = await apiRequest("POST", "/api/rumors", payload);
+      return res.json();
     },
-    onSuccess: () => {
-      setSubmitted(true);
+    onSuccess: (data: { id: string }) => {
       form.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/rumors/published"] });
+      const stored = JSON.parse(localStorage.getItem("capsulah_rumor_ids") || "[]");
+      stored.unshift(data.id);
+      localStorage.setItem("capsulah_rumor_ids", JSON.stringify(stored.slice(0, 20)));
+      navigate(`/ask-capsule/status/${data.id}`);
     },
     onError: (error: Error) => {
       const isRateLimit = error.message?.startsWith("429");
@@ -219,24 +221,7 @@ export default function AskCapsule() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {submitted ? (
-                  <div className="text-center py-6">
-                    <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                    <h3 className="font-bold text-lg mb-2">تم الاستلام!</h3>
-                    <p className="text-muted-foreground text-sm mb-4">
-                      شائعتك وصلتنا وجاري تحليلها الآن بالذكاء الاصطناعي. سيراجع فريقنا الرد وينشره قريباً.
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSubmitted(false)}
-                      data-testid="button-submit-another"
-                    >
-                      أرسل شائعة أخرى
-                    </Button>
-                  </div>
-                ) : (
-                  <Form {...form}>
+                <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                       <FormField
                         control={form.control}
@@ -317,7 +302,6 @@ export default function AskCapsule() {
                       </Button>
                     </form>
                   </Form>
-                )}
               </CardContent>
             </Card>
           </div>

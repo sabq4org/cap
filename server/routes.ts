@@ -4178,6 +4178,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/rumors/:id — public status page for a specific submission (limited fields)
+  app.get("/api/rumors/:id", async (req, res) => {
+    try {
+      const rumor = await storage.getRumorSubmissionById(req.params.id);
+      if (!rumor) return res.status(404).json({ message: "الشائعة غير موجودة" });
+      const { editorNotes, ...publicFields } = rumor;
+      res.json(publicFields);
+    } catch (error: any) {
+      console.error("[GET /api/rumors/:id] Error:", error);
+      res.status(500).json({ message: "خطأ في جلب البيانات" });
+    }
+  });
+
   // POST /api/rumors/:id/view — increment view count
   app.post("/api/rumors/:id/view", async (req, res) => {
     try {
