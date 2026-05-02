@@ -20,6 +20,13 @@ interface Message {
 
 const SESSION_STORAGE_KEY = "capsulah_archive_chat_messages";
 
+const SUGGESTED_QUESTIONS = [
+  "ما آخر أخبار الصحة السعودية؟",
+  "لخّص لي مقالاً عن السكري",
+  "ما أعراض ارتفاع ضغط الدم؟",
+  "ما فوائد التغذية الصحية للقلب؟",
+];
+
 function loadSessionMessages(): Message[] {
   try {
     const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
@@ -65,9 +72,11 @@ export default function ArchiveChatbot() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = async () => {
-    const text = input.trim();
+  const sendMessage = async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
     if (!text || isLoading) return;
+
+    setInput("");
 
     const userMsg: Message = {
       id: `u-${Date.now()}`,
@@ -78,7 +87,6 @@ export default function ArchiveChatbot() {
     const withUser = [...messages, userMsg];
     setMessages(withUser);
     saveSessionMessages(withUser);
-    setInput("");
     setIsLoading(true);
 
     try {
@@ -238,6 +246,22 @@ export default function ArchiveChatbot() {
                 </div>
               </div>
             ))}
+
+            {messages.length === 1 && messages[0].id === "welcome" && (
+              <div className="flex flex-col gap-2 mt-1">
+                {SUGGESTED_QUESTIONS.map((q, i) => (
+                  <button
+                    key={i}
+                    data-testid={`button-suggestion-${i}`}
+                    onClick={() => sendMessage(q)}
+                    disabled={isLoading}
+                    className="text-right text-sm px-3 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {isLoading && (
               <div className="flex justify-end">
