@@ -29,6 +29,8 @@ import AdminCapsule from "@/pages/AdminCapsule";
 import AdminTrends from "@/pages/AdminTrends";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import AskCapsule from "@/pages/AskCapsule";
+import AdminRumors from "@/pages/AdminRumors";
 import NotFound from "@/pages/not-found";
 import ArchiveChatbot from "@/components/ArchiveChatbot";
 
@@ -55,6 +57,7 @@ function Router() {
       <Route path="/news/:id" component={NewsDetail} />
       <Route path="/n/:shortCode" component={NewsDetail} />
       <Route path="/keyword/:keyword" component={KeywordPage} />
+      <Route path="/ask-capsule" component={AskCapsule} />
       <Route path="/about" component={About} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/login">{isAuthenticated ? <Landing /> : <Login />}</Route>
@@ -85,6 +88,7 @@ function AdminRouter() {
       <Route path="/admin/generation-settings" component={AdminGenerationSettings} />
       <Route path="/admin/capsule" component={AdminCapsule} />
       <Route path="/admin/trends" component={AdminTrends} />
+      <Route path="/admin/rumors" component={AdminRumors} />
     </Switch>
   );
 }

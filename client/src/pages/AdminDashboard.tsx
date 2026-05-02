@@ -11,7 +11,7 @@ import {
   Activity, Utensils, Heart, Settings, ChevronLeft, BarChart3,
   Calendar, Clock, ArrowUpRight, ArrowDownRight, Sparkles, Menu, X,
   Save, Loader2, ChevronRight, Image, Upload, ImagePlus, Download, Globe, Check, AlertCircle, CheckSquare, Square, Star, Shield, Apple, Radar, Wand2, LayoutTemplate, ChevronsLeft, ChevronsRight, ArrowUpDown, Rss, AlertTriangle,
-  Megaphone, RefreshCw, ToggleLeft, ToggleRight, ExternalLink, Link2, Weight, RotateCcw, MousePointerClick
+  Megaphone, RefreshCw, ToggleLeft, ToggleRight, ExternalLink, Link2, Weight, RotateCcw, MousePointerClick, FlaskConical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -1468,6 +1468,7 @@ export default function AdminDashboard() {
               <SidebarItem icon={Download} label="استيراد الأخبار" active={activeSection === 'import'} onClick={() => navigateTo('import')} />
               <SidebarItem icon={LayoutTemplate} label="توليد إنفوجرافيك" onClick={() => setLocation('/admin/infographic')} />
               <SidebarItem icon={Wand2} label="إعدادات التوليد" onClick={() => setLocation('/admin/generation-settings')} />
+              <SidebarItem icon={FlaskConical} label="مفنّد الشائعات" onClick={() => setLocation('/admin/rumors')} />
             </div>
           </div>
 

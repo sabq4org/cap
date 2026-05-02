@@ -20,6 +20,7 @@ const categories = [
   { value: "health-events", label: "فعاليات صحية" },
   { value: "quality-life", label: "جودة حياة" },
   { value: "nutrition", label: "تغذية" },
+  { value: "debunk", label: "تفنيد" },
   { value: "misc", label: "منوعات" }
 ];
 
@@ -32,6 +33,7 @@ const categoryColors: Record<string, string> = {
   "health-events": "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200",
   "quality-life": "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200",
   "nutrition": "bg-lime-100 dark:bg-lime-900/30 text-lime-800 dark:text-lime-200",
+  "debunk": "bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-200",
   "misc": "bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-200"
 };
 

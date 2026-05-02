@@ -17,7 +17,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
-  Radar, Rss, Globe, RefreshCw, Search, XCircle, Play, Plus,
+  Radar, Rss, Globe, RefreshCw, Search, XCircle, Play, Plus, FlaskConical,
   ExternalLink, Trash2, Zap, Brain, CheckCircle, AlertTriangle,
   LayoutDashboard, Newspaper, BookOpen, Download, Settings,
   Users, Shield, LogOut, Menu, ChevronRight, ChevronLeft,
@@ -541,6 +541,7 @@ export default function AdminRadar() {
               <SidebarItem icon={Download} label="استيراد الأخبار" onClick={() => navigateTo("/admin/import")} />
               <SidebarItem icon={LayoutTemplate} label="توليد إنفوجرافيك" onClick={() => navigateTo("/admin/infographic")} />
               <SidebarItem icon={Wand2} label="إعدادات التوليد" onClick={() => navigateTo("/admin/generation-settings")} />
+              <SidebarItem icon={FlaskConical} label="مفنّد الشائعات" onClick={() => navigateTo("/admin/rumors")} />
             </div>
           </div>
           <div>

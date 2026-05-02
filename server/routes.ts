@@ -5,7 +5,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupLocalAuth, registerLocalAuthRoutes } from "./localAuth";
-import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, generateInfographicImage, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle, generateEditorialInsights, generateArchiveChatResponse, type ArchiveSearchResult, factCheckMedicalContent, simplifyMedicalText, extractNewsFromPdf } from "./openai";
+import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, generateInfographicImage, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle, generateEditorialInsights, generateArchiveChatResponse, type ArchiveSearchResult, factCheckMedicalContent, simplifyMedicalText, extractNewsFromPdf, debunkMedicalRumor } from "./openai";
 import multer from "multer";
 import { PDFParse } from "pdf-parse";
 import { 
@@ -28,6 +28,7 @@ import {
   insertRadarSourceSchema,
   insertRadarKeywordSchema,
   insertRadarAlertSchema,
+  insertRumorSubmissionSchema,
 } from "@shared/schema";
 import { objectStorageClient } from "./replit_integrations/object_storage";
 import { randomUUID } from "crypto";
@@ -3923,6 +3924,185 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   // ──────────────────────────────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // =====================================================
+  // Rumor Submissions API (اسأل كبسولة)
+  // =====================================================
+
+  // POST /api/rumors — public endpoint to submit a rumor
+  app.post("/api/rumors", async (req, res) => {
+    try {
+      const parsed = insertRumorSubmissionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "بيانات غير صالحة", errors: parsed.error.errors });
+      }
+
+      const rumor = await storage.createRumorSubmission(parsed.data);
+
+      // Call AI immediately in the background, update status
+      debunkMedicalRumor(rumor.rumorText).then(async (aiResponse) => {
+        await storage.updateRumorSubmission(rumor.id, {
+          status: "ai_responded",
+          aiResponse,
+        });
+      }).catch((err) => {
+        console.error("[Rumor] AI debunk error:", err);
+      });
+
+      res.status(201).json({ message: "تم استلام الشائعة وجاري التحليل", id: rumor.id });
+    } catch (error: any) {
+      console.error("[POST /api/rumors] Error:", error);
+      res.status(500).json({ message: "حدث خطأ أثناء معالجة الطلب" });
+    }
+  });
+
+  // GET /api/rumors/published — public list of published debunks
+  app.get("/api/rumors/published", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const rumors = await storage.getPublishedRumors(limit);
+      res.json(rumors);
+    } catch (error: any) {
+      console.error("[GET /api/rumors/published] Error:", error);
+      res.status(500).json({ message: "خطأ في جلب البيانات" });
+    }
+  });
+
+  // POST /api/rumors/:id/view — increment view count
+  app.post("/api/rumors/:id/view", async (req, res) => {
+    try {
+      await storage.incrementRumorViewCount(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.json({ success: false });
+    }
+  });
+
+  // GET /api/admin/rumors — admin list with optional status filter
+  app.get("/api/admin/rumors", isAdminAuthenticated, async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const rumors = await storage.getRumorSubmissions(status);
+      res.json(rumors);
+    } catch (error: any) {
+      console.error("[GET /api/admin/rumors] Error:", error);
+      res.status(500).json({ message: "خطأ في جلب البيانات" });
+    }
+  });
+
+  // GET /api/admin/rumors/:id
+  app.get("/api/admin/rumors/:id", isAdminAuthenticated, async (req, res) => {
+    try {
+      const rumor = await storage.getRumorSubmissionById(req.params.id);
+      if (!rumor) return res.status(404).json({ message: "الشائعة غير موجودة" });
+      res.json(rumor);
+    } catch (error: any) {
+      res.status(500).json({ message: "خطأ في جلب البيانات" });
+    }
+  });
+
+  // PATCH /api/admin/rumors/:id — edit notes, reject, or approve + publish
+  app.patch("/api/admin/rumors/:id", isAdminAuthenticated, async (req, res) => {
+    try {
+      const rumor = await storage.getRumorSubmissionById(req.params.id);
+      if (!rumor) return res.status(404).json({ message: "الشائعة غير موجودة" });
+
+      const { action, editorNotes, aiResponse } = req.body;
+
+      if (action === "reject") {
+        const updated = await storage.updateRumorSubmission(req.params.id, {
+          status: "rejected",
+          editorNotes: editorNotes || rumor.editorNotes,
+        });
+        return res.json(updated);
+      }
+
+      if (action === "publish") {
+        // Create a news item with category "debunk"
+        const responseData = aiResponse || rumor.aiResponse;
+        if (!responseData) {
+          return res.status(400).json({ message: "لا يوجد رد من الذكاء الاصطناعي للنشر" });
+        }
+
+        const verdictEmoji = responseData.verdict === "خرافة" ? "❌" : responseData.verdict === "صحيح" ? "✅" : "⚠️";
+        const newsTitle = `تفنيد | ${verdictEmoji} ${responseData.shortSummary || rumor.rumorText.substring(0, 80)}`;
+        const platformLabels: Record<string, string> = {
+          tiktok: "تيك توك", whatsapp: "واتساب", facebook: "فيسبوك", twitter: "تويتر", other: "الإنترنت"
+        };
+        const platformLabel = platformLabels[rumor.sourcePlatform] || "الإنترنت";
+
+        const newsContent = `
+<p><strong>الشائعة المُقدَّمة:</strong></p>
+<blockquote>${rumor.rumorText}</blockquote>
+<p><strong>المصدر:</strong> ${platformLabel}</p>
+<hr/>
+<h2>الحكم: ${responseData.verdict}</h2>
+<p>${responseData.explanation}</p>
+${responseData.sources && responseData.sources.length > 0 ? `
+<h3>المراجع والمصادر:</h3>
+<ul>
+${responseData.sources.map((s: { title: string; url: string }) => `<li><a href="${s.url}" target="_blank" rel="noopener">${s.title}</a></li>`).join('')}
+</ul>` : ''}
+${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` : ''}`.trim();
+
+        // Generate short code
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let shortCode = '';
+        for (let i = 0; i < 7; i++) shortCode += chars.charAt(Math.floor(Math.random() * chars.length));
+
+        const publishedNews = await storage.createNews({
+          title: newsTitle,
+          subtitle: `شائعة انتشرت على ${platformLabel}`,
+          summary: responseData.shortSummary || "",
+          content: newsContent,
+          category: "debunk",
+          shortCode,
+          status: "published",
+          publishedAt: new Date(),
+          source: "اسأل كبسولة",
+          isFeatured: false,
+          isBreaking: false,
+        });
+
+        const updated = await storage.updateRumorSubmission(req.params.id, {
+          status: "published",
+          editorNotes: editorNotes || rumor.editorNotes,
+          aiResponse: responseData,
+          publishedNewsId: publishedNews.id,
+        });
+        return res.json({ ...updated, publishedNews });
+      }
+
+      // Otherwise just update notes/aiResponse
+      const updated = await storage.updateRumorSubmission(req.params.id, {
+        editorNotes: editorNotes !== undefined ? editorNotes : rumor.editorNotes,
+        aiResponse: aiResponse !== undefined ? aiResponse : rumor.aiResponse,
+      });
+      res.json(updated);
+    } catch (error: any) {
+      console.error("[PATCH /api/admin/rumors/:id] Error:", error);
+      res.status(500).json({ message: "خطأ في تحديث البيانات" });
+    }
+  });
+
+  // POST /api/admin/rumors/:id/regenerate — re-run AI debunk
+  app.post("/api/admin/rumors/:id/regenerate", isAdminAuthenticated, async (req, res) => {
+    try {
+      const rumor = await storage.getRumorSubmissionById(req.params.id);
+      if (!rumor) return res.status(404).json({ message: "الشائعة غير موجودة" });
+
+      const aiResponse = await debunkMedicalRumor(rumor.rumorText);
+      const updated = await storage.updateRumorSubmission(req.params.id, {
+        status: "ai_responded",
+        aiResponse,
+      });
+      res.json(updated);
+    } catch (error: any) {
+      console.error("[POST /api/admin/rumors/:id/regenerate] Error:", error);
+      res.status(500).json({ message: "خطأ في إعادة التحليل" });
+    }
+  });
 
   // ─── Ads (Advertisement Banners) ──────────────────────────────────────────
 

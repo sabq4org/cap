@@ -928,3 +928,51 @@ export const adStatsRelations = relations(adStats, ({ one }) => ({
 }));
 
 export type AdStat = typeof adStats.$inferSelect;
+
+// =====================================================
+// Rumor Submissions (اسأل كبسولة)
+// =====================================================
+
+export const rumorStatusEnum = ["pending", "ai_responded", "published", "rejected"] as const;
+export type RumorStatus = typeof rumorStatusEnum[number];
+
+export const rumorSourceEnum = ["tiktok", "whatsapp", "facebook", "twitter", "other"] as const;
+export type RumorSource = typeof rumorSourceEnum[number];
+
+export const rumorVerdictEnum = ["خرافة", "صحيح جزئياً", "صحيح"] as const;
+export type RumorVerdict = typeof rumorVerdictEnum[number];
+
+export const rumorSubmissions = pgTable("rumor_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  rumorText: text("rumor_text").notNull(),
+  sourcePlatform: varchar("source_platform").notNull().default("other"),
+  sourceUrl: varchar("source_url"),
+  status: varchar("status").notNull().default("pending"),
+  aiResponse: jsonb("ai_response").$type<{
+    verdict: string;
+    explanation: string;
+    shortSummary: string;
+    sources: Array<{ title: string; url: string }>;
+  }>(),
+  editorNotes: text("editor_notes"),
+  publishedNewsId: varchar("published_news_id").references(() => news.id, { onDelete: "set null" }),
+  viewCount: integer("view_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_rumor_submissions_status").on(table.status),
+  index("idx_rumor_submissions_created").on(table.createdAt),
+]);
+
+export const insertRumorSubmissionSchema = createInsertSchema(rumorSubmissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  status: true,
+  aiResponse: true,
+  editorNotes: true,
+  publishedNewsId: true,
+  viewCount: true,
+});
+export type InsertRumorSubmission = z.infer<typeof insertRumorSubmissionSchema>;
+export type RumorSubmission = typeof rumorSubmissions.$inferSelect;

@@ -29,6 +29,7 @@ import {
   trendAlerts,
   adStats,
   type AdStat,
+  rumorSubmissions,
   type User,
   type UpsertUser,
   type HealthProfile,
@@ -78,6 +79,8 @@ import {
   type InsertHealthTrend,
   type TrendAlert,
   type InsertTrendAlert,
+  type RumorSubmission,
+  type InsertRumorSubmission,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike, inArray, ne } from "drizzle-orm";
@@ -209,6 +212,14 @@ export interface IStorage {
   markTrendAlertRead(id: string): Promise<void>;
   markAllTrendAlertsRead(): Promise<void>;
   getUnreadTrendAlertsCount(): Promise<number>;
+
+  // Rumor submissions operations
+  createRumorSubmission(data: InsertRumorSubmission): Promise<RumorSubmission>;
+  getRumorSubmissions(status?: string, limit?: number): Promise<RumorSubmission[]>;
+  getRumorSubmissionById(id: string): Promise<RumorSubmission | undefined>;
+  updateRumorSubmission(id: string, data: Partial<RumorSubmission>): Promise<RumorSubmission | undefined>;
+  getPublishedRumors(limit?: number): Promise<RumorSubmission[]>;
+  incrementRumorViewCount(id: string): Promise<void>;
 }
 
 // Simple TTL in-memory cache
@@ -1867,6 +1878,39 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  // Rumor Submissions Operations
+  // ==========================================
+
+  async createRumorSubmission(data: InsertRumorSubmission): Promise<RumorSubmission> {
+    const [created] = await db.insert(rumorSubmissions).values(data as any).returning();
+    return created;
+  }
+
+  async getRumorSubmissions(status?: string, limit: number = 100): Promise<RumorSubmission[]> {
+    if (status) {
+      return await db.select().from(rumorSubmissions)
+        .where(eq(rumorSubmissions.status, status))
+        .orderBy(desc(rumorSubmissions.createdAt))
+        .limit(limit);
+    }
+    return await db.select().from(rumorSubmissions)
+      .orderBy(desc(rumorSubmissions.createdAt))
+      .limit(limit);
+  }
+
+  async getRumorSubmissionById(id: string): Promise<RumorSubmission | undefined> {
+    const [rumor] = await db.select().from(rumorSubmissions).where(eq(rumorSubmissions.id, id));
+    return rumor;
+  }
+
+  async updateRumorSubmission(id: string, data: Partial<RumorSubmission>): Promise<RumorSubmission | undefined> {
+    const [updated] = await db.update(rumorSubmissions)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(eq(rumorSubmissions.id, id))
+      .returning();
+    return updated;
+  }
+
   async deleteAdvertisement(id: string): Promise<boolean> {
     await db.delete(advertisements).where(eq(advertisements.id, id));
     return true;
@@ -1892,6 +1936,19 @@ export class DatabaseStorage implements IStorage {
       )
       .returning({ id: advertisements.id });
     return result.length;
+  }
+
+  async getPublishedRumors(limit: number = 10): Promise<RumorSubmission[]> {
+    return await db.select().from(rumorSubmissions)
+      .where(eq(rumorSubmissions.status, "published"))
+      .orderBy(desc(rumorSubmissions.createdAt))
+      .limit(limit);
+  }
+
+  async incrementRumorViewCount(id: string): Promise<void> {
+    await db.update(rumorSubmissions)
+      .set({ viewCount: sql`${rumorSubmissions.viewCount} + 1` })
+      .where(eq(rumorSubmissions.id, id));
   }
 
   // ==========================================

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Heart, User, Home, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown, LayoutDashboard, ShieldCheck, Search } from "lucide-react";
+import { Menu, X, Heart, User, Home, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown, LayoutDashboard, ShieldCheck, Search, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -126,6 +126,12 @@ export default function Header() {
                 })}
               </div>
               <DropdownMenuSeparator />
+              <Link href="/ask-capsule">
+                <DropdownMenuItem className="flex items-center justify-center gap-2 py-2 cursor-pointer text-violet-700 dark:text-violet-400 font-medium hover:bg-violet-50 dark:hover:bg-violet-950/30" data-testid="link-ask-capsule-dropdown">
+                  <FlaskConical className="h-4 w-4" />
+                  اسأل كبسولة - مفنّد الشائعات
+                </DropdownMenuItem>
+              </Link>
               <Link href="/news">
                 <DropdownMenuItem className="justify-center text-primary font-medium cursor-pointer" data-testid="link-all-categories">
                   عرض جميع الأخبار
@@ -256,7 +262,19 @@ export default function Header() {
                     })}
                   </div>
                 </div>
-                <div className="mt-4 flex flex-col gap-2 border-t pt-4">
+                <div className="mt-2 border-t pt-3">
+                  <Link href="/ask-capsule">
+                    <button
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium text-violet-700 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors"
+                      data-testid="link-mobile-ask-capsule"
+                    >
+                      <FlaskConical className="h-4 w-4" />
+                      اسأل كبسولة - مفنّد الشائعات
+                    </button>
+                  </Link>
+                </div>
+                <div className="mt-2 flex flex-col gap-2 border-t pt-4">
                   {isAuthenticated ? (
                     <>
                       {user?.id === "admin" && (

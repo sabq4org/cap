@@ -5,7 +5,7 @@ import {
   Settings, Save, Loader2, Wand2,
   TrendingUp, Image as ImageIcon, LayoutTemplate, AlertCircle,
   LayoutDashboard, Newspaper, BookOpen, Download, Shield,
-  Users, Radar, Globe, LogOut, Menu, ChevronLeft,
+  Users, Radar, Globe, LogOut, Menu, ChevronLeft, FlaskConical,
   Cpu, Zap, CheckCircle, SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -232,6 +232,7 @@ export default function AdminGenerationSettings() {
               <SidebarItem icon={Download} label="استيراد الأخبار" onClick={() => navigateTo("/admin/import")} />
               <SidebarItem icon={LayoutTemplate} label="توليد إنفوجرافيك" onClick={() => navigateTo("/admin/infographic")} />
               <SidebarItem icon={Wand2} label="إعدادات التوليد" active onClick={() => navigateTo("/admin/generation-settings")} />
+              <SidebarItem icon={FlaskConical} label="مفنّد الشائعات" onClick={() => navigateTo("/admin/rumors")} />
             </div>
           </div>
           <div>

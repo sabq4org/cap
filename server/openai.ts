@@ -1322,6 +1322,7 @@ ${analyticsData.radarSourcePerformance.map((s: any) => `- ${s.name}: ${s.itemsCo
   }
 }
 
+
 export interface ArchiveSearchResult {
   id: string;
   type: "news" | "article";
@@ -1413,6 +1414,7 @@ ${archiveContext}
   }
 }
 
+// =====================================================
 // =====================================================
 // Medical Content Capsule AI Functions
 // =====================================================
@@ -1558,6 +1560,68 @@ export async function extractNewsFromPdf(pdfText: string): Promise<PdfNewsResult
   } catch (error: any) {
     console.error("[extractNewsFromPdf] Error:", error?.message);
     throw error;
+  }
+}
+
+// =====================================================
+// Rumor Debunker (اسأل كبسولة)
+// =====================================================
+
+export interface RumorDebunkResult {
+  verdict: "خرافة" | "صحيح جزئياً" | "صحيح";
+  explanation: string;
+  shortSummary: string;
+  sources: Array<{ title: string; url: string }>;
+}
+
+export async function debunkMedicalRumor(rumorText: string): Promise<RumorDebunkResult> {
+  const systemPrompt = `أنت خبير طبي وعلمي متخصص في تفنيد الشائعات الطبية بدقة وحزم. مهمتك تحليل الشائعات الطبية المنتشرة على الإنترنت وتقديم ردود علمية موثوقة باللغة العربية.
+
+قواعد مهمة جداً:
+1. كن حازماً وعلمياً في حكمك
+2. اعتمد على المصادر الطبية الموثوقة مثل منظمة الصحة العالمية (WHO)، Mayo Clinic، WebMD، والدراسات العلمية المحكّمة
+3. الرد يجب أن يكون باللغة العربية الفصحى الواضحة
+4. لا تتردد في الحكم القاطع عند وجود أدلة علمية كافية
+
+أرجع النتيجة بصيغة JSON فقط:
+{
+  "verdict": "خرافة" | "صحيح جزئياً" | "صحيح",
+  "explanation": "شرح علمي مفصل يوضح الحقيقة العلمية، الأسباب، والمخاطر إن وجدت (200-400 كلمة)",
+  "shortSummary": "جملة واحدة موجزة تلخص الحكم للعنوان",
+  "sources": [
+    {"title": "اسم المرجع الطبي", "url": "رابط المرجع"}
+  ]
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `الشائعة الطبية:\n${rumorText}` }
+      ] as any,
+      max_tokens: 2000,
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+    });
+
+    const content = response.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(content);
+
+    return {
+      verdict: parsed.verdict || "صحيح جزئياً",
+      explanation: parsed.explanation || "تعذر تحليل الشائعة.",
+      shortSummary: parsed.shortSummary || parsed.explanation?.substring(0, 100) || "",
+      sources: parsed.sources || [],
+    };
+  } catch (error) {
+    console.error("[debunkMedicalRumor] Error:", error);
+    return {
+      verdict: "صحيح جزئياً",
+      explanation: "عذراً، تعذر تحليل هذه الشائعة حالياً. يرجى المحاولة مرة أخرى.",
+      shortSummary: "تعذر التحليل",
+      sources: [],
+    };
   }
 }
 
