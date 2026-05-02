@@ -275,6 +275,20 @@ shared/          - Code shared between client and server
   - Hero images and generated graphics
   - Favicon and branding assets
 
+✅ **WhatsApp Newsletter — كبسولة الصباح الصحية**
+- Public subscription page at `/whatsapp` with phone number, name (optional), and health interest selection (9 topics)
+- Webhook handler for inbound WhatsApp messages (confirm with "نعم", unsubscribe with "إيقاف"/"stop")
+- Database tables: `whatsapp_subscribers`, `whatsapp_newsletters`, `whatsapp_settings`
+- Mock mode (logs to console) when `WHATSAPP_API_KEY` / `WHATSAPP_PHONE_NUMBER_ID` not set; real Meta Cloud API otherwise
+- AI-powered newsletter generation via `generateWhatsAppNewsletter()` in OpenAI service
+- Admin panel at `/admin/whatsapp` (linked from admin sidebar) with:
+  - Subscriber management with status filtering, toggles to activate/deactivate
+  - Newsletter composer with AI generation button, content preview, and manual send
+  - Newsletter history log (title, recipients, sent time, sender)
+  - Settings tab (auto-send toggle, send time hour/minute, API mode indicator)
+- Daily scheduler in `server/index.ts` checks every minute; sends automatically at configured time (Saudi timezone)
+- Deduplication: checks if already sent today before re-sending
+
 ### Future Integration Points
 
 Based on design documentation:

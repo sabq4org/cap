@@ -266,6 +266,93 @@ async function fixCategoriesArabic() {
     } catch (err) {
       console.error("[Init] خطأ في تشغيل رادار الترند (غير حرج):", err);
     }
+
+    // WhatsApp morning newsletter scheduler — checks every minute
+    const runWhatsAppScheduler = async () => {
+      try {
+        const settings = await storage.getWhatsappSettings();
+        if (!settings?.isAutoSendEnabled) return;
+
+        const now = new Date();
+        const saudiNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Riyadh" }));
+        const currentHour = saudiNow.getHours();
+        const currentMinute = saudiNow.getMinutes();
+
+        if (currentHour !== settings.sendHour || currentMinute !== settings.sendMinute) return;
+
+        // Check if we already sent today
+        const todayStr = saudiNow.toLocaleDateString("en-CA", { timeZone: "Asia/Riyadh" });
+        const recentNewsletters = await storage.getWhatsappNewsletters(10);
+        const alreadySentToday = recentNewsletters.some(nl => {
+          if (!nl.sentAt) return false;
+          const sentDate = new Date(nl.sentAt).toLocaleDateString("en-CA", { timeZone: "Asia/Riyadh" });
+          return sentDate === todayStr && nl.status === "sent";
+        });
+
+        if (alreadySentToday) return;
+
+        log("[WhatsApp Scheduler] 🌿 إرسال كبسولة الصباح...");
+
+        const recentNews = await storage.getNews(undefined, 20);
+        const { generateWhatsAppNewsletter } = await import("./openai");
+        const { sendBulkWhatsAppMessages } = await import("./whatsappService");
+
+        const content = await generateWhatsAppNewsletter(
+          recentNews.map(n => ({ title: n.title, summary: n.summary || undefined, category: n.category })),
+          []
+        );
+
+        const dateStr = saudiNow.toLocaleDateString("ar-SA", { timeZone: "Asia/Riyadh", weekday: "long", year: "numeric", month: "long", day: "numeric" });
+        const formattedMessage = [
+          `🌿 *كبسولة الصباح الصحية*`,
+          `📅 ${dateStr}`,
+          ``,
+          `*${content.title}*`,
+          ``,
+          ...content.points.map((p, i) => `${i + 1}. ${p}`),
+          ``,
+          `📖 اقرأ المزيد: https://capsulah.com`,
+          ``,
+          `━━━━━━━━━━━━━━━━━━`,
+          `للإلغاء أرسل: *إيقاف*`,
+        ].join("\n");
+
+        const activeSubscribers = await storage.getActiveWhatsappSubscribers([]);
+        if (activeSubscribers.length === 0) {
+          log("[WhatsApp Scheduler] لا يوجد مشتركون فعّالون");
+          return;
+        }
+
+        const newsletter = await storage.createWhatsappNewsletter({
+          title: content.title,
+          content: formattedMessage,
+          interests: [],
+          recipientsCount: activeSubscribers.length,
+          status: "sending",
+          sentBy: "auto",
+          scheduledAt: null as any,
+        });
+
+        const phones = activeSubscribers.map(s => s.phone);
+        const result = await sendBulkWhatsAppMessages(phones, formattedMessage);
+
+        await storage.updateWhatsappNewsletter(newsletter.id, {
+          status: "sent",
+          sentAt: new Date(),
+          recipientsCount: result.sent,
+        });
+
+        for (const sub of activeSubscribers) {
+          await storage.updateWhatsappSubscriber(sub.id, { lastMessageAt: new Date() });
+        }
+
+        log(`[WhatsApp Scheduler] ✅ أُرسلت كبسولة الصباح إلى ${result.sent} مشترك`);
+      } catch (err) {
+        console.error("[WhatsApp Scheduler] خطأ:", err);
+      }
+    };
+
+    setInterval(runWhatsAppScheduler, 60 * 1000);
   } catch (err) {
     console.error('[Startup] فشل حرج في بدء تشغيل الخادم:', err);
     process.exit(1);

@@ -1625,4 +1625,140 @@ export async function debunkMedicalRumor(rumorText: string): Promise<RumorDebunk
   }
 }
 
+// WhatsApp Newsletter Generation
+// =====================================================
+
+export interface NewsletterContent {
+  title: string;
+  points: string[];
+  readMoreUrl?: string;
+}
+
+// ── Archive Chatbot ────────────────────────────────────────────────────────────
+
+export interface ArchiveSearchResult {
+  id: string;
+  type: "news" | "article";
+  title: string;
+  excerpt: string;
+  url: string;
+  category?: string | null;
+  publishedAt?: Date | string | null;
+}
+
+export async function generateArchiveChatResponse(
+  query: string,
+  archiveResults: ArchiveSearchResult[]
+): Promise<{ answer: string; sources: ArchiveSearchResult[] }> {
+  const sourcesText = archiveResults
+    .slice(0, 6)
+    .map((r, i) => `[${i + 1}] ${r.title}\n${r.excerpt.substring(0, 300)}\nرابط: ${r.url}`)
+    .join("\n\n");
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `أنت مساعد بحث متخصص في الأرشيف الصحي لمنصة كبسولة الصحية. مهمتك:
+1. الإجابة على سؤال المستخدم بناءً على المقالات والأخبار المتاحة في الأرشيف
+2. الاستشهاد بالمصادر المرقمة عند الإجابة [1], [2], إلخ
+3. إذا لم تجد إجابة في الأرشيف، أخبر المستخدم بذلك بوضوح
+4. الإجابة باللغة العربية دائماً
+5. الإجابة يجب أن تكون مختصرة ومفيدة (200-400 كلمة كحد أقصى)`,
+        },
+        {
+          role: "user",
+          content: `السؤال: ${query}\n\nنتائج الأرشيف المتاحة:\n${sourcesText}`,
+        },
+      ],
+      max_tokens: 1000,
+    });
+
+    const answer = response.choices[0]?.message?.content || "عذراً، لم أتمكن من الإجابة على سؤالك.";
+    return { answer, sources: archiveResults.slice(0, 6) };
+  } catch (error: any) {
+    console.error("[generateArchiveChatResponse] Error:", error.message);
+    return {
+      answer: "عذراً، حدث خطأ أثناء معالجة سؤالك. يرجى المحاولة مرة أخرى.",
+      sources: [],
+    };
+  }
+}
+
+/**
+ * Generate a WhatsApp-formatted morning newsletter from recent news items.
+ * Takes top news headlines + summaries and produces a short, readable Arabic summary.
+ */
+export async function generateWhatsAppNewsletter(
+  newsItems: Array<{ title: string; summary?: string; category?: string }>,
+  interests: string[] = []
+): Promise<NewsletterContent> {
+  const interestLabels: Record<string, string> = {
+    heart: "القلب والأوعية الدموية",
+    nutrition: "التغذية والغذاء",
+    diabetes: "السكري",
+    pressure: "ضغط الدم",
+    mother: "صحة الأم والحمل",
+    child: "صحة الطفل",
+    mental: "الصحة النفسية",
+    fitness: "اللياقة البدنية",
+    general: "صحة عامة",
+  };
+
+  const interestText = interests.length > 0
+    ? `الاهتمامات المحددة: ${interests.map(i => interestLabels[i] || i).join("، ")}`
+    : "جميع المواضيع الصحية";
+
+  const newsText = newsItems
+    .slice(0, 10)
+    .map((n, i) => `${i + 1}. ${n.title}${n.summary ? ` — ${n.summary.substring(0, 120)}` : ""}`)
+    .join("\n");
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `أنت محرر متخصص في كتابة نشرات واتساب الصحية. مهمتك:
+1. اختيار أبرز وأهم الأخبار الصحية من القائمة المعطاة
+2. كتابة عنوان رئيسي جذاب وموجز (10 كلمات كحد أقصى)
+3. توليد 3-5 نقاط صحية مختصرة ومفيدة بالعربية
+4. كل نقطة لا تتجاوز 100 حرف
+5. اللغة سهلة وواضحة مناسبة لعموم القراء
+6. مراعاة الاهتمامات المحددة عند وجودها
+
+أرجع النتيجة بصيغة JSON:
+{
+  "title": "عنوان رئيسي جذاب",
+  "points": ["نقطة 1", "نقطة 2", "نقطة 3", "نقطة 4"]
+}`,
+        },
+        {
+          role: "user",
+          content: `${interestText}\n\nأبرز أخبار اليوم:\n${newsText}`,
+        },
+      ],
+      max_tokens: 800,
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(content);
+
+    return {
+      title: parsed.title || "كبسولة الصباح الصحية",
+      points: Array.isArray(parsed.points) ? parsed.points : [],
+    };
+  } catch (error: any) {
+    console.error("[generateWhatsAppNewsletter] Error:", error.message);
+    return {
+      title: "أبرز الأخبار الصحية اليوم",
+      points: newsItems.slice(0, 4).map((n) => n.title),
+    };
+  }
+}
+
 export default openai;

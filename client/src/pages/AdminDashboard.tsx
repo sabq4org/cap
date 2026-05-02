@@ -10,7 +10,7 @@ import {
   TrendingUp, Eye, LogOut, Plus, Edit, Trash2, Search,
   Activity, Utensils, Heart, Settings, ChevronLeft, BarChart3,
   Calendar, Clock, ArrowUpRight, ArrowDownRight, Sparkles, Menu, X,
-  Save, Loader2, ChevronRight, Image, Upload, ImagePlus, Download, Globe, Check, AlertCircle, CheckSquare, Square, Star, Shield, Apple, Radar, Wand2, LayoutTemplate, ChevronsLeft, ChevronsRight, ArrowUpDown, Rss, AlertTriangle,
+  Save, Loader2, ChevronRight, Image, Upload, ImagePlus, Download, Globe, Check, AlertCircle, CheckSquare, Square, Star, Shield, Apple, Radar, Wand2, LayoutTemplate, ChevronsLeft, ChevronsRight, ArrowUpDown, Rss, AlertTriangle, MessageCircle,
   Megaphone, RefreshCw, ToggleLeft, ToggleRight, ExternalLink, Link2, Weight, Timer, RotateCcw, MousePointerClick, FlaskConical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -1470,6 +1470,7 @@ export default function AdminDashboard() {
               <SidebarItem icon={Wand2} label="إعدادات التوليد" onClick={() => setLocation('/admin/generation-settings')} />
               <SidebarItem icon={FlaskConical} label="مفنّد الشائعات" onClick={() => setLocation('/admin/rumors')} />
               <SidebarItem icon={Megaphone} label="الإعلانات" active={activeSection === 'ads'} onClick={() => navigateTo('ads')} />
+              <SidebarItem icon={MessageCircle} label="كبسولة الصباح (واتساب)" onClick={() => setLocation('/admin/whatsapp')} />
             </div>
           </div>
 
@@ -4956,9 +4957,7 @@ export default function AdminDashboard() {
           ) : activeSection === 'ads' ? (
             <AdsSection />
           ) : activeSection === 'dashboard' ? (
-            <AdminDashboardOverview adminUser={adminUser} onNavigate={navigateTo} />
-          ) : activeSection === 'ads' ? (
-            <AdsSection />
+            <AdminDashboardOverview adminUser={adminUser} onNavigate={(section: string) => navigateTo(section as ActiveSection)} />
           ) : (
             <DashboardContent />
           )}

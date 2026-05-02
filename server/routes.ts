@@ -4104,79 +4104,256 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     }
   });
 
-  // ─── Ads (Advertisement Banners) ──────────────────────────────────────────
+  // ─── WhatsApp Newsletter API ────────────────────────────────────────────────
 
-  // Public: get the currently selected ad for a position (weighted random)
-  app.get("/api/ads", async (req, res) => {
+  // Public: Subscribe to WhatsApp newsletter
+  app.post("/api/whatsapp/subscribe", async (req, res) => {
     try {
-      const position = req.query.position as string;
-      if (!position) {
-        return res.status(400).json({ message: "position is required" });
+      const { phone, name, interests } = req.body;
+      if (!phone || typeof phone !== "string") {
+        return res.status(400).json({ message: "رقم الهاتف مطلوب" });
       }
-      const ad = await storage.getActiveAdByPosition(position);
-      if (!ad) return res.json(null);
-      res.json(ad);
-    } catch (err) {
-      console.error("GET /api/ads error:", err);
-      res.status(500).json({ message: "Internal server error" });
+      const cleanPhone = phone.replace(/\s/g, "").replace(/^00/, "+");
+      if (!/^\+?[0-9]{9,15}$/.test(cleanPhone)) {
+        return res.status(400).json({ message: "رقم الهاتف غير صحيح" });
+      }
+
+      const existing = await storage.getWhatsappSubscriberByPhone(cleanPhone);
+      if (existing) {
+        if (existing.isActive && existing.status === "active") {
+          return res.status(409).json({ message: "هذا الرقم مشترك بالفعل" });
+        }
+        const updated = await storage.updateWhatsappSubscriber(existing.id, {
+          isActive: true,
+          status: "pending",
+          name: name || existing.name,
+          interests: interests || existing.interests,
+          unsubscribedAt: null as any,
+        });
+        const { sendWhatsAppMessage, formatWelcomeMessage } = await import("./whatsappService");
+        await sendWhatsAppMessage({ to: cleanPhone, body: formatWelcomeMessage(name) });
+        return res.json({ message: "تم إعادة تفعيل اشتراكك", subscriber: updated });
+      }
+
+      const subscriber = await storage.createWhatsappSubscriber({
+        phone: cleanPhone,
+        name: name || null,
+        interests: interests || [],
+        status: "pending",
+        isActive: true,
+      });
+
+      const { sendWhatsAppMessage, formatWelcomeMessage } = await import("./whatsappService");
+      await sendWhatsAppMessage({ to: cleanPhone, body: formatWelcomeMessage(name) });
+
+      res.status(201).json({ message: "تم الاشتراك بنجاح، يرجى تأكيد اشتراكك عبر الرسالة المرسلة", subscriber });
+    } catch (error: any) {
+      console.error("[WhatsApp Subscribe]", error.message);
+      res.status(500).json({ message: "حدث خطأ، يرجى المحاولة مرة أخرى" });
     }
   });
 
-  // Admin: list all ads
-  app.get("/api/admin/ads", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  // Public: Unsubscribe (can also be triggered by webhook "stop" keyword)
+  app.post("/api/whatsapp/unsubscribe", async (req, res) => {
     try {
-      const position = req.query.position as string | undefined;
-      const adsList = await storage.getAds(position);
-      res.json(adsList);
-    } catch (err) {
-      console.error("GET /api/admin/ads error:", err);
-      res.status(500).json({ message: "Internal server error" });
+      const { phone } = req.body;
+      if (!phone) return res.status(400).json({ message: "رقم الهاتف مطلوب" });
+      const cleanPhone = phone.replace(/\s/g, "");
+      const subscriber = await storage.getWhatsappSubscriberByPhone(cleanPhone);
+      if (!subscriber) return res.status(404).json({ message: "لم يتم العثور على اشتراك بهذا الرقم" });
+      await storage.updateWhatsappSubscriber(subscriber.id, {
+        isActive: false,
+        status: "unsubscribed",
+        unsubscribedAt: new Date(),
+      });
+      res.json({ message: "تم إلغاء اشتراكك بنجاح" });
+    } catch (error: any) {
+      res.status(500).json({ message: "حدث خطأ" });
     }
   });
 
-  // Admin: create ad
-  app.post("/api/admin/ads", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  // WhatsApp webhook for inbound messages (stop/نعم keywords)
+  app.post("/api/whatsapp/webhook", async (req, res) => {
     try {
-      const { insertAdSchema } = await import("@shared/schema");
-      const parsed = insertAdSchema.safeParse(req.body);
-      if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
-      const ad = await storage.createAd(parsed.data);
-      res.status(201).json(ad);
-    } catch (err) {
-      console.error("POST /api/admin/ads error:", err);
-      res.status(500).json({ message: "Internal server error" });
+      const body = req.body;
+      const entry = body?.entry?.[0];
+      const changes = entry?.changes?.[0];
+      const messages = changes?.value?.messages;
+      if (messages && messages.length > 0) {
+        for (const msg of messages) {
+          const from = msg.from;
+          const text = (msg.text?.body || "").trim().toLowerCase();
+
+          if (text === "إيقاف" || text === "stop" || text === "ايقاف") {
+            const subscriber = await storage.getWhatsappSubscriberByPhone(from);
+            if (subscriber) {
+              await storage.updateWhatsappSubscriber(subscriber.id, {
+                isActive: false,
+                status: "unsubscribed",
+                unsubscribedAt: new Date(),
+              });
+              const { sendWhatsAppMessage } = await import("./whatsappService");
+              await sendWhatsAppMessage({ to: from, body: "✅ تم إلغاء اشتراكك بنجاح. يمكنك الاشتراك مجدداً من موقعنا في أي وقت." });
+            }
+          } else if (text === "نعم" || text === "yes") {
+            const subscriber = await storage.getWhatsappSubscriberByPhone(from);
+            if (subscriber && subscriber.status === "pending") {
+              await storage.updateWhatsappSubscriber(subscriber.id, { status: "active" });
+              const { sendWhatsAppMessage } = await import("./whatsappService");
+              await sendWhatsAppMessage({ to: from, body: "🎉 أهلاً بك! تم تفعيل اشتراكك في كبسولة الصباح الصحية. ستصلك رسالتنا كل صباح 🌿" });
+            }
+          }
+        }
+      }
+      res.sendStatus(200);
+    } catch (error) {
+      res.sendStatus(200);
     }
   });
 
-  // Admin: update ad
-  app.patch("/api/admin/ads/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  // WhatsApp webhook verification
+  app.get("/api/whatsapp/webhook", (req, res) => {
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || "capsulah_whatsapp_verify";
+    if (mode === "subscribe" && token === verifyToken) {
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
+    }
+  });
+
+  // Admin: Get all subscribers
+  app.get("/api/admin/whatsapp/subscribers", isAdminAuthenticated, async (req, res) => {
+    try {
+      const { status, isActive } = req.query;
+      const filters: any = {};
+      if (status) filters.status = status as string;
+      if (isActive !== undefined) filters.isActive = isActive === "true";
+      const subscribers = await storage.getWhatsappSubscribers(filters);
+      res.json(subscribers);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin: Get subscriber stats
+  app.get("/api/admin/whatsapp/stats", isAdminAuthenticated, async (req, res) => {
+    try {
+      const stats = await storage.getWhatsappSubscriberStats();
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin: Update subscriber status
+  app.patch("/api/admin/whatsapp/subscribers/:id", isAdminAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
-      const updated = await storage.updateAd(id, req.body);
-      if (!updated) return res.status(404).json({ message: "Ad not found" });
+      const updated = await storage.updateWhatsappSubscriber(id, req.body);
       res.json(updated);
-    } catch (err) {
-      console.error("PATCH /api/admin/ads/:id error:", err);
-      res.status(500).json({ message: "Internal server error" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 
-  // Admin: delete ad
-  app.delete("/api/admin/ads/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  // Admin: Get newsletters
+  app.get("/api/admin/whatsapp/newsletters", isAdminAuthenticated, async (req, res) => {
     try {
-      const { id } = req.params;
-      const deleted = await storage.deleteAd(id);
-      if (!deleted) return res.status(404).json({ message: "Ad not found" });
-      res.json({ message: "Deleted" });
-    } catch (err) {
-      console.error("DELETE /api/admin/ads/:id error:", err);
-      res.status(500).json({ message: "Internal server error" });
+      const newsletters = await storage.getWhatsappNewsletters();
+      res.json(newsletters);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
+
+  // Admin: Generate newsletter content with AI
+  app.post("/api/admin/whatsapp/generate-newsletter", isAdminAuthenticated, async (req, res) => {
+    try {
+      const { interests } = req.body;
+      const recentNews = await storage.getNews(undefined, 20);
+      const { generateWhatsAppNewsletter } = await import("./openai");
+      const content = await generateWhatsAppNewsletter(
+        recentNews.map(n => ({ title: n.title, summary: n.summary || undefined, category: n.category })),
+        interests || []
+      );
+      res.json(content);
+    } catch (error: any) {
+      console.error("[WhatsApp Generate Newsletter]", error.message);
+      res.status(500).json({ message: "فشل في توليد المحتوى" });
+    }
+  });
+
+  // Admin: Send newsletter manually
+  app.post("/api/admin/whatsapp/send-newsletter", isAdminAuthenticated, async (req, res) => {
+    try {
+      const { title, content, interests } = req.body;
+      if (!title || !content) return res.status(400).json({ message: "العنوان والمحتوى مطلوبان" });
+
+      const targetSubscribers = await storage.getActiveWhatsappSubscribers(interests || []);
+      if (targetSubscribers.length === 0) {
+        return res.status(400).json({ message: "لا يوجد مشتركون فعّالون لهذا التخصص. تأكد من وجود مشتركين نشطين." });
+      }
+
+      const sentBy = (req.session as any)?.adminUser?.displayName || "admin";
+      const newsletter = await storage.createWhatsappNewsletter({
+        title,
+        content,
+        interests: interests || [],
+        recipientsCount: targetSubscribers.length,
+        status: "sending",
+        sentBy,
+        scheduledAt: null as any,
+      });
+
+      const phones = targetSubscribers.map(s => s.phone);
+      const { sendBulkWhatsAppMessages } = await import("./whatsappService");
+      const result = await sendBulkWhatsAppMessages(phones, content);
+
+      await storage.updateWhatsappNewsletter(newsletter.id, {
+        status: "sent",
+        sentAt: new Date(),
+        recipientsCount: result.sent,
+      });
+
+      for (const sub of targetSubscribers) {
+        await storage.updateWhatsappSubscriber(sub.id, { lastMessageAt: new Date() });
+      }
+
+      res.json({
+        message: `تم إرسال النشرة إلى ${result.sent} مشترك`,
+        sent: result.sent,
+        failed: result.failed,
+        newsletterId: newsletter.id,
+      });
+    } catch (error: any) {
+      console.error("[WhatsApp Send Newsletter]", error.message);
+      res.status(500).json({ message: "فشل في إرسال النشرة" });
+    }
+  });
+
+  // Admin: Get/Update WhatsApp settings
+  app.get("/api/admin/whatsapp/settings", isAdminAuthenticated, async (req, res) => {
+    try {
+      const settings = await storage.getWhatsappSettings();
+      const { getApiMode } = await import("./whatsappService");
+      res.json({ ...settings, apiMode: getApiMode() });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/whatsapp/settings", isAdminAuthenticated, async (req, res) => {
+    try {
+      const settings = await storage.upsertWhatsappSettings(req.body);
+      res.json(settings);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
 
   // ─── Legacy WordPress URL redirect ────────────────────────────────────────
   // Catches old capsulah.com WordPress permalinks (e.g. /2025/03/article-slug/)
@@ -4263,7 +4440,6 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
         if (existing && existing.expiresAt && new Date(existing.expiresAt) < new Date()) {
           return res.status(400).json({
             message: "لا يمكن تفعيل إعلان منتهي الصلاحية. يرجى تعديل تاريخ الانتهاء أولاً.",
-          });
         }
         // Also validate the new expiresAt if provided
         if (updates.expiresAt && new Date(updates.expiresAt) < new Date()) {

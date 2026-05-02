@@ -30,6 +30,9 @@ import {
   adStats,
   type AdStat,
   rumorSubmissions,
+  whatsappSubscribers,
+  whatsappNewsletters,
+  whatsappSettings,
   type User,
   type UpsertUser,
   type HealthProfile,
@@ -81,6 +84,11 @@ import {
   type InsertTrendAlert,
   type RumorSubmission,
   type InsertRumorSubmission,
+  type WhatsappSubscriber,
+  type InsertWhatsappSubscriber,
+  type WhatsappNewsletter,
+  type InsertWhatsappNewsletter,
+  type WhatsappSettings,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike, inArray, ne } from "drizzle-orm";
@@ -221,6 +229,25 @@ export interface IStorage {
   updateRumorSubmission(id: string, data: Partial<RumorSubmission>): Promise<RumorSubmission | undefined>;
   getPublishedRumors(limit?: number): Promise<RumorSubmission[]>;
   incrementRumorViewCount(id: string): Promise<void>;
+
+  // WhatsApp subscriber operations
+  getWhatsappSubscribers(filters?: { status?: string; isActive?: boolean }): Promise<WhatsappSubscriber[]>;
+  getWhatsappSubscriberByPhone(phone: string): Promise<WhatsappSubscriber | undefined>;
+  createWhatsappSubscriber(data: InsertWhatsappSubscriber): Promise<WhatsappSubscriber>;
+  updateWhatsappSubscriber(id: string, data: Partial<WhatsappSubscriber>): Promise<WhatsappSubscriber | undefined>;
+  getActiveWhatsappSubscribers(interests?: string[]): Promise<WhatsappSubscriber[]>;
+  getWhatsappSubscriberStats(): Promise<{ total: number; active: number; pending: number; unsubscribed: number }>;
+
+  // WhatsApp newsletter operations
+  getWhatsappNewsletters(limit?: number): Promise<WhatsappNewsletter[]>;
+  getWhatsappNewsletter(id: string): Promise<WhatsappNewsletter | undefined>;
+  createWhatsappNewsletter(data: InsertWhatsappNewsletter): Promise<WhatsappNewsletter>;
+  updateWhatsappNewsletter(id: string, data: Partial<WhatsappNewsletter>): Promise<WhatsappNewsletter | undefined>;
+
+  // WhatsApp settings
+  getWhatsappSettings(): Promise<WhatsappSettings | undefined>;
+  upsertWhatsappSettings(data: Partial<WhatsappSettings>): Promise<WhatsappSettings>;
+
 }
 
 // Simple TTL in-memory cache
@@ -1937,6 +1964,7 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+
   async deactivateExpiredAds(): Promise<number> {
     const now = new Date();
     const result = await db.update(advertisements)
@@ -1949,6 +1977,114 @@ export class DatabaseStorage implements IStorage {
       )
       .returning({ id: advertisements.id });
     return result.length;
+  }
+
+  // WhatsApp Operations
+  // ==========================================
+
+  async getWhatsappSubscribers(filters?: { status?: string; isActive?: boolean }): Promise<WhatsappSubscriber[]> {
+    const conditions = [];
+    if (filters?.status) conditions.push(eq(whatsappSubscribers.status, filters.status));
+    if (filters?.isActive !== undefined) conditions.push(eq(whatsappSubscribers.isActive, filters.isActive));
+    if (conditions.length > 0) {
+      return await db.select().from(whatsappSubscribers)
+        .where(and(...conditions))
+        .orderBy(desc(whatsappSubscribers.subscribedAt));
+    }
+    return await db.select().from(whatsappSubscribers)
+      .orderBy(desc(whatsappSubscribers.subscribedAt));
+  }
+
+  async getWhatsappSubscriberByPhone(phone: string): Promise<WhatsappSubscriber | undefined> {
+    const [subscriber] = await db.select().from(whatsappSubscribers)
+      .where(eq(whatsappSubscribers.phone, phone));
+    return subscriber;
+  }
+
+  async createWhatsappSubscriber(data: InsertWhatsappSubscriber): Promise<WhatsappSubscriber> {
+    const [subscriber] = await db.insert(whatsappSubscribers).values(data).returning();
+    return subscriber;
+  }
+
+  async updateWhatsappSubscriber(id: string, data: Partial<WhatsappSubscriber>): Promise<WhatsappSubscriber | undefined> {
+    const [updated] = await db.update(whatsappSubscribers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(whatsappSubscribers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getActiveWhatsappSubscribers(interests?: string[]): Promise<WhatsappSubscriber[]> {
+    const activeSubscribers = await db.select().from(whatsappSubscribers)
+      .where(and(
+        eq(whatsappSubscribers.isActive, true),
+        eq(whatsappSubscribers.status, "active")
+      ))
+      .orderBy(desc(whatsappSubscribers.subscribedAt));
+
+    if (!interests || interests.length === 0) return activeSubscribers;
+
+    return activeSubscribers.filter(sub => {
+      const subInterests = (sub.interests as string[]) || [];
+      if (subInterests.length === 0) return true;
+      return interests.some(i => subInterests.includes(i));
+    });
+  }
+
+  async getWhatsappSubscriberStats(): Promise<{ total: number; active: number; pending: number; unsubscribed: number }> {
+    const all = await db.select().from(whatsappSubscribers);
+    return {
+      total: all.length,
+      active: all.filter(s => s.status === "active" && s.isActive).length,
+      pending: all.filter(s => s.status === "pending").length,
+      unsubscribed: all.filter(s => !s.isActive || s.status === "unsubscribed").length,
+    };
+  }
+
+  async getWhatsappNewsletters(limit: number = 50): Promise<WhatsappNewsletter[]> {
+    return await db.select().from(whatsappNewsletters)
+      .orderBy(desc(whatsappNewsletters.createdAt))
+      .limit(limit);
+  }
+
+  async getWhatsappNewsletter(id: string): Promise<WhatsappNewsletter | undefined> {
+    const [newsletter] = await db.select().from(whatsappNewsletters)
+      .where(eq(whatsappNewsletters.id, id));
+    return newsletter;
+  }
+
+  async createWhatsappNewsletter(data: InsertWhatsappNewsletter): Promise<WhatsappNewsletter> {
+    const [newsletter] = await db.insert(whatsappNewsletters).values(data).returning();
+    return newsletter;
+  }
+
+  async updateWhatsappNewsletter(id: string, data: Partial<WhatsappNewsletter>): Promise<WhatsappNewsletter | undefined> {
+    const [updated] = await db.update(whatsappNewsletters)
+      .set(data)
+      .where(eq(whatsappNewsletters.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getWhatsappSettings(): Promise<WhatsappSettings | undefined> {
+    const [settings] = await db.select().from(whatsappSettings)
+      .where(eq(whatsappSettings.id, "default"));
+    return settings;
+  }
+
+  async upsertWhatsappSettings(data: Partial<WhatsappSettings>): Promise<WhatsappSettings> {
+    const existing = await this.getWhatsappSettings();
+    if (existing) {
+      const [updated] = await db.update(whatsappSettings)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(whatsappSettings.id, "default"))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(whatsappSettings)
+      .values({ id: "default", ...data } as any)
+      .returning();
+    return created;
   }
 
   async getPublishedRumors(limit: number = 10): Promise<RumorSubmission[]> {
@@ -2058,7 +2194,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(trendAlerts.isRead, false));
     return Number(result[0]?.count || 0);
   }
-
   async incrementAdDailyStat(adId: string, field: 'impressions' | 'clicks'): Promise<void> {
     const today = new Date().toISOString().slice(0, 10);
     if (field === 'impressions') {

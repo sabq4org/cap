@@ -27,11 +27,13 @@ import AdminInfographic from "@/pages/AdminInfographic";
 import AdminGenerationSettings from "@/pages/AdminGenerationSettings";
 import AdminCapsule from "@/pages/AdminCapsule";
 import AdminTrends from "@/pages/AdminTrends";
+import AdminWhatsApp from "@/pages/AdminWhatsApp";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import AskCapsule from "@/pages/AskCapsule";
 import AdminRumors from "@/pages/AdminRumors";
 import NotFound from "@/pages/not-found";
+import WhatsAppSubscribe from "@/pages/WhatsAppSubscribe";
 import ArchiveChatbot from "@/components/ArchiveChatbot";
 
 function Router() {
@@ -58,6 +60,7 @@ function Router() {
       <Route path="/n/:shortCode" component={NewsDetail} />
       <Route path="/keyword/:keyword" component={KeywordPage} />
       <Route path="/ask-capsule" component={AskCapsule} />
+      <Route path="/whatsapp" component={WhatsAppSubscribe} />
       <Route path="/about" component={About} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/login">{isAuthenticated ? <Landing /> : <Login />}</Route>
@@ -90,6 +93,7 @@ function AdminRouter() {
       <Route path="/admin/trends" component={AdminTrends} />
       <Route path="/admin/rumors" component={AdminRumors} />
       <Route path="/admin/ads" component={AdminDashboard} />
+      <Route path="/admin/whatsapp" component={AdminWhatsApp} />
     </Switch>
   );
 }

@@ -977,3 +977,95 @@ export const insertRumorSubmissionSchema = createInsertSchema(rumorSubmissions).
 });
 export type InsertRumorSubmission = z.infer<typeof insertRumorSubmissionSchema>;
 export type RumorSubmission = typeof rumorSubmissions.$inferSelect;
+
+// ── WhatsApp Newsletter Subscription System ────────────────────────────────────
+
+export const whatsappInterestsEnum = [
+  "heart",       // القلب
+  "nutrition",   // التغذية
+  "diabetes",    // السكري
+  "pressure",    // الضغط
+  "mother",      // صحة الأم
+  "child",       // صحة الطفل
+  "mental",      // الصحة النفسية
+  "fitness",     // اللياقة البدنية
+  "general",     // صحة عامة
+] as const;
+export type WhatsappInterest = typeof whatsappInterestsEnum[number];
+
+export const whatsappInterestLabels: Record<WhatsappInterest, string> = {
+  heart: "القلب والأوعية الدموية",
+  nutrition: "التغذية والغذاء",
+  diabetes: "السكري",
+  pressure: "ضغط الدم",
+  mother: "صحة الأم والحمل",
+  child: "صحة الطفل",
+  mental: "الصحة النفسية",
+  fitness: "اللياقة البدنية",
+  general: "صحة عامة",
+};
+
+export const whatsappSubscribers = pgTable("whatsapp_subscribers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phone: varchar("phone", { length: 20 }).notNull().unique(),
+  name: varchar("name", { length: 100 }),
+  interests: jsonb("interests").$type<WhatsappInterest[]>().default([]),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  isActive: boolean("is_active").default(true).notNull(),
+  subscribedAt: timestamp("subscribed_at").defaultNow(),
+  unsubscribedAt: timestamp("unsubscribed_at"),
+  lastMessageAt: timestamp("last_message_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_wa_subscribers_phone").on(table.phone),
+  index("idx_wa_subscribers_status").on(table.status),
+]);
+
+export const insertWhatsappSubscriberSchema = createInsertSchema(whatsappSubscribers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  subscribedAt: true,
+  unsubscribedAt: true,
+  lastMessageAt: true,
+});
+export type InsertWhatsappSubscriber = z.infer<typeof insertWhatsappSubscriberSchema>;
+export type WhatsappSubscriber = typeof whatsappSubscribers.$inferSelect;
+
+export const whatsappNewsletters = pgTable("whatsapp_newsletters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  content: text("content").notNull(),
+  interests: jsonb("interests").$type<WhatsappInterest[]>().default([]),
+  recipientsCount: integer("recipients_count").default(0).notNull(),
+  sentAt: timestamp("sent_at"),
+  scheduledAt: timestamp("scheduled_at"),
+  status: varchar("status", { length: 20 }).notNull().default("draft"),
+  sentBy: varchar("sent_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertWhatsappNewsletterSchema = createInsertSchema(whatsappNewsletters).omit({
+  id: true,
+  createdAt: true,
+  sentAt: true,
+});
+export type InsertWhatsappNewsletter = z.infer<typeof insertWhatsappNewsletterSchema>;
+export type WhatsappNewsletter = typeof whatsappNewsletters.$inferSelect;
+
+// WhatsApp settings
+export const whatsappSettings = pgTable("whatsapp_settings", {
+  id: varchar("id").primaryKey().default("default"),
+  apiProvider: varchar("api_provider", { length: 50 }).default("mock"),
+  apiKey: text("api_key"),
+  phoneNumberId: varchar("phone_number_id"),
+  sendHour: integer("send_hour").default(7).notNull(),
+  sendMinute: integer("send_minute").default(0).notNull(),
+  isAutoSendEnabled: boolean("is_auto_send_enabled").default(false).notNull(),
+  welcomeMessage: text("welcome_message"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type WhatsappSettings = typeof whatsappSettings.$inferSelect;
+
