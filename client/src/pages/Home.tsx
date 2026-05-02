@@ -1,10 +1,44 @@
-import { MessageSquare, Apple, Activity, BookOpen, ArrowLeft, Sparkles } from "lucide-react";
+import { MessageSquare, Apple, Activity, BookOpen, ArrowLeft, Sparkles, XCircle, CheckCircle, AlertTriangle, Clock, ShieldAlert } from "lucide-react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import Hero from "@/components/Hero";
 import StatsCard from "@/components/StatsCard";
 import ArticleCard from "@/components/ArticleCard";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getNewsImage } from "@/lib/newsImages";
+import type { News as NewsType } from "@shared/schema";
+
+interface PaginatedResponse {
+  news: NewsType[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+const getVerdictFromTitle = (title: string) => {
+  if (title.includes("❌")) return { label: "خرافة", icon: XCircle, color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300", iconColor: "text-red-600 dark:text-red-400" };
+  if (title.includes("✅")) return { label: "صحيح", icon: CheckCircle, color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300", iconColor: "text-green-600 dark:text-green-400" };
+  if (title.includes("⚠️")) return { label: "صحيح جزئياً", icon: AlertTriangle, color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300", iconColor: "text-orange-600 dark:text-orange-400" };
+  return null;
+};
+
+const getCleanDebunkTitle = (title: string) => {
+  return title.replace(/^تفنيد\s*\|\s*[❌✅⚠️]\s*/, "").trim();
+};
+
+const formatDate = (date: Date | string) => {
+  const d = new Date(date);
+  return d.toLocaleDateString('ar-EG-u-nu-latn', {
+    timeZone: 'Asia/Riyadh',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    calendar: 'gregory'
+  });
+};
 
 export default function Home() {
   const features = [
@@ -33,6 +67,12 @@ export default function Home() {
       href: "/articles",
     },
   ];
+
+  const { data: debunksData, isLoading: debunksLoading } = useQuery<PaginatedResponse>({
+    queryKey: ["/api/news?page=1&perPage=4&category=debunk"],
+  });
+
+  const latestDebunks = debunksData?.news || [];
 
   return (
     <div className="flex flex-col">
@@ -122,6 +162,92 @@ export default function Home() {
               </Button>
             </Link>
           </div>
+        </div>
+      </section>
+
+      <section className="py-16 md:py-20 bg-violet-50/50 dark:bg-violet-950/10 border-y border-violet-100 dark:border-violet-900/30" dir="rtl">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between max-w-6xl mx-auto mb-10">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-violet-100 dark:bg-violet-900/30 px-4 py-2 text-sm font-medium text-violet-700 dark:text-violet-300 mb-3">
+                <ShieldAlert className="h-4 w-4" />
+                تفنيد الشائعات الصحية
+              </div>
+              <h2 className="text-2xl md:text-3xl font-bold">أحدث الشائعات المُفنَّدة</h2>
+              <p className="text-muted-foreground mt-1">نكشف الحقيقة وراء الشائعات الصحية المنتشرة</p>
+            </div>
+            <Link href="/news?category=debunk">
+              <Button variant="outline" className="gap-2 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/30" data-testid="button-view-all-debunks">
+                عرض الكل
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+
+          {debunksLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i} className="overflow-hidden">
+                  <Skeleton className="aspect-video w-full" />
+                  <CardContent className="p-4">
+                    <Skeleton className="h-5 w-1/3 mb-3" />
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : latestDebunks.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
+              {latestDebunks.map((item) => {
+                const verdict = getVerdictFromTitle(item.title);
+                const cleanTitle = getCleanDebunkTitle(item.title);
+                const href = item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
+                const VerdictIcon = verdict?.icon;
+                return (
+                  <Link key={item.id} href={href}>
+                    <Card
+                      className="hover-elevate cursor-pointer transition-all overflow-hidden h-full border-violet-100 dark:border-violet-900/30"
+                      data-testid={`debunk-card-${item.id}`}
+                    >
+                      <div className="relative">
+                        <img
+                          src={getNewsImage(item)}
+                          alt={cleanTitle}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full aspect-video object-cover"
+                        />
+                        {verdict && (
+                          <span
+                            className={`absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold shadow-lg z-10 ${verdict.color}`}
+                            data-testid={`badge-verdict-${item.id}`}
+                          >
+                            {VerdictIcon && <VerdictIcon className="h-3.5 w-3.5" />}
+                            {verdict.label}
+                          </span>
+                        )}
+                      </div>
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold text-sm line-clamp-3 mb-3 leading-relaxed">
+                          {cleanTitle}
+                        </h3>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="w-3 h-3" />
+                          {formatDate(item.publishedAt)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground max-w-6xl mx-auto" data-testid="debunks-empty">
+              <ShieldAlert className="w-12 h-12 mx-auto mb-3 opacity-40" />
+              <p>لا توجد شائعات مفنَّدة بعد</p>
+            </div>
+          )}
         </div>
       </section>
 

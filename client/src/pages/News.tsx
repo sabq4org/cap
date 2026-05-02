@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Newspaper, Search, Clock, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertTriangle } from "lucide-react";
+import { Newspaper, Search, Clock, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertTriangle, XCircle, CheckCircle } from "lucide-react";
 import { AIImageBadge } from "@/components/AIImageBadge";
 import type { News as NewsType } from "@shared/schema";
 import { getNewsImage } from "@/lib/newsImages";
@@ -20,7 +20,7 @@ const categories = [
   { value: "health-events", label: "فعاليات صحية" },
   { value: "quality-life", label: "جودة حياة" },
   { value: "nutrition", label: "تغذية" },
-  { value: "debunk", label: "تفنيد" },
+  { value: "debunk", label: "تفنيد الشائعات" },
   { value: "misc", label: "منوعات" }
 ];
 
@@ -35,6 +35,17 @@ const categoryColors: Record<string, string> = {
   "nutrition": "bg-lime-100 dark:bg-lime-900/30 text-lime-800 dark:text-lime-200",
   "debunk": "bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-200",
   "misc": "bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-200"
+};
+
+const getVerdictFromTitle = (title: string) => {
+  if (title.includes("❌")) return { label: "خرافة", icon: XCircle, color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" };
+  if (title.includes("✅")) return { label: "صحيح", icon: CheckCircle, color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" };
+  if (title.includes("⚠️")) return { label: "صحيح جزئياً", icon: AlertTriangle, color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300" };
+  return null;
+};
+
+const getCleanDebunkTitle = (title: string) => {
+  return title.replace(/^تفنيد\s*\|\s*[❌✅⚠️]\s*/, "").trim();
 };
 
 const PER_PAGE = 28;
@@ -196,56 +207,71 @@ export default function News() {
         ) : filteredNews && filteredNews.length > 0 ? (
           <>
             <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-              {filteredNews.map((item, index) => (
-                <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
-                  <Card 
-                    className={`hover-elevate cursor-pointer transition-all overflow-hidden h-full ${item.isBreaking ? "ring-2 ring-red-500 shadow-red-100 dark:shadow-red-950/30" : ""}`}
-                    data-testid={`news-card-${item.id}`}
-                  >
-                    <div className="relative">
-                      <img 
-                        src={getNewsImage(item)} 
-                        alt={item.title}
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full aspect-video object-cover"
-                      />
-                      <AIImageBadge imageUrl={item.imageUrl} size="sm" />
-                      {item.isBreaking && (
-                        <span className="absolute top-2 right-2 inline-flex items-center gap-1 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold animate-pulse shadow-lg z-10">
-                          <AlertTriangle className="h-3.5 w-3.5" />
-                          عاجل
-                        </span>
-                      )}
-                    </div>
-                    <CardContent className="p-3" dir="rtl">
-                      <Badge 
-                        className={`${item.isBreaking ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200" : categoryColors[item.category] || ""} text-sm mb-2`}
-                        data-testid={`badge-category-${item.category}`}
-                      >
-                        {item.isBreaking ? "عاجل" : getCategoryLabel(item.category)}
-                      </Badge>
-                      <h3 className={`font-semibold text-sm line-clamp-2 mb-2 ${item.isBreaking ? "text-red-700 dark:text-red-400" : ""}`}>
-                        {item.title}
-                      </h3>
-                      <div className="flex items-center justify-between gap-1 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {formatDate(item.publishedAt)}
-                        </div>
-                        {item.sourceUrl && (
+              {filteredNews.map((item, index) => {
+                const isDebunk = item.category === "debunk";
+                const verdict = isDebunk ? getVerdictFromTitle(item.title) : null;
+                const VerdictIcon = verdict?.icon;
+                const displayTitle = isDebunk ? getCleanDebunkTitle(item.title) : item.title;
+                return (
+                  <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
+                    <Card 
+                      className={`hover-elevate cursor-pointer transition-all overflow-hidden h-full ${item.isBreaking ? "ring-2 ring-red-500 shadow-red-100 dark:shadow-red-950/30" : ""}`}
+                      data-testid={`news-card-${item.id}`}
+                    >
+                      <div className="relative">
+                        <img 
+                          src={getNewsImage(item)} 
+                          alt={displayTitle}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full aspect-video object-cover"
+                        />
+                        <AIImageBadge imageUrl={item.imageUrl} size="sm" />
+                        {item.isBreaking && (
+                          <span className="absolute top-2 right-2 inline-flex items-center gap-1 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold animate-pulse shadow-lg z-10">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            عاجل
+                          </span>
+                        )}
+                        {isDebunk && verdict && !item.isBreaking && (
                           <span
-                            className="text-primary flex items-center gap-1"
-                            data-testid={`link-source-${item.id}`}
+                            className={`absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold shadow-lg z-10 ${verdict.color}`}
+                            data-testid={`badge-verdict-${item.id}`}
                           >
-                            <ExternalLink className="w-3 h-3" />
+                            {VerdictIcon && <VerdictIcon className="h-3.5 w-3.5" />}
+                            {verdict.label}
                           </span>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+                      <CardContent className="p-3" dir="rtl">
+                        <Badge 
+                          className={`${item.isBreaking ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200" : categoryColors[item.category] || ""} text-sm mb-2`}
+                          data-testid={`badge-category-${item.category}`}
+                        >
+                          {item.isBreaking ? "عاجل" : getCategoryLabel(item.category)}
+                        </Badge>
+                        <h3 className={`font-semibold text-sm line-clamp-2 mb-2 ${item.isBreaking ? "text-red-700 dark:text-red-400" : ""}`}>
+                          {displayTitle}
+                        </h3>
+                        <div className="flex items-center justify-between gap-1 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatDate(item.publishedAt)}
+                          </div>
+                          {item.sourceUrl && (
+                            <span
+                              className="text-primary flex items-center gap-1"
+                              data-testid={`link-source-${item.id}`}
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                            </span>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
             </div>
 
             {totalPages > 1 && (
