@@ -5,7 +5,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupLocalAuth, registerLocalAuthRoutes } from "./localAuth";
-import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, generateInfographicImage, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle, generateEditorialInsights } from "./openai";
+import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, generateInfographicImage, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle, generateEditorialInsights, generateArchiveChatResponse, type ArchiveSearchResult } from "./openai";
 import { 
   insertGenerationSettingsSchema, 
   insertImageGenerationSchema, 
@@ -3685,6 +3685,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error uploading image:', error);
       res.status(500).json({ message: 'فشل في رفع الصورة' });
+    }
+  });
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // ─── Archive Chatbot Endpoints ────────────────────────────────────────────
+  app.get('/api/assistant/search', async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.trim().length < 2) {
+        return res.status(400).json({ message: "يرجى إدخال كلمة بحث صالحة" });
+      }
+      const results = await storage.searchArchive(query.trim());
+      const baseUrl = process.env.BASE_URL || 'https://capsulah.com';
+
+      const newsItems = results.news.map((n) => ({
+        id: n.id,
+        type: "news" as const,
+        title: n.title,
+        excerpt: n.summary || n.content.substring(0, 300),
+        url: n.shortCode ? `${baseUrl}/n/${n.shortCode}` : `${baseUrl}/news/${n.id}`,
+        category: n.category,
+        publishedAt: n.publishedAt,
+        relevanceScore: n.relevanceScore,
+      }));
+
+      const articleItems = results.articles.map((a) => ({
+        id: a.id,
+        type: "article" as const,
+        title: a.title,
+        excerpt: a.excerpt,
+        url: `${baseUrl}/articles/${a.slug}`,
+        category: a.category,
+        publishedAt: a.publishedAt,
+        relevanceScore: a.relevanceScore,
+      }));
+
+      // Merge and sort globally by relevance score so the list is properly ranked
+      const merged = [...newsItems, ...articleItems].sort(
+        (a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0)
+      );
+
+      res.json({ results: merged, total: merged.length });
+    } catch (error) {
+      console.error("[Archive Search] Error:", error);
+      res.status(500).json({ message: "فشل البحث في الأرشيف" });
+    }
+  });
+
+  app.post('/api/assistant/chat', async (req, res) => {
+    try {
+      const { message } = req.body;
+      if (!message || typeof message !== 'string' || message.trim().length < 2) {
+        return res.status(400).json({ message: "يرجى إدخال سؤال صالح" });
+      }
+
+      const query = message.trim();
+      const archiveData = await storage.searchArchive(query, 8);
+      const baseUrl = process.env.BASE_URL || 'https://capsulah.com';
+
+      const archiveResults: ArchiveSearchResult[] = [
+        ...archiveData.news.map((n) => ({
+          id: n.id,
+          type: "news" as const,
+          title: n.title,
+          excerpt: (n.summary || n.content.substring(0, 500)).replace(/<[^>]*>/g, ''),
+          url: n.shortCode ? `${baseUrl}/n/${n.shortCode}` : `${baseUrl}/news/${n.id}`,
+          category: n.category,
+          publishedAt: n.publishedAt,
+        })),
+        ...archiveData.articles.map((a) => ({
+          id: a.id,
+          type: "article" as const,
+          title: a.title,
+          excerpt: a.excerpt.replace(/<[^>]*>/g, ''),
+          url: `${baseUrl}/articles/${a.slug}`,
+          category: a.category,
+          publishedAt: a.publishedAt,
+        })),
+      ];
+
+      const chatResponse = await generateArchiveChatResponse(query, archiveResults);
+      res.json(chatResponse);
+    } catch (error) {
+      console.error("[Archive Chat] Error:", error);
+      res.status(500).json({ message: "فشل في معالجة السؤال" });
     }
   });
   // ──────────────────────────────────────────────────────────────────────────

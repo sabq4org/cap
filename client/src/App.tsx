@@ -28,6 +28,7 @@ import AdminGenerationSettings from "@/pages/AdminGenerationSettings";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import NotFound from "@/pages/not-found";
+import ArchiveChatbot from "@/components/ArchiveChatbot";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -99,6 +100,7 @@ function App() {
               <Router />
             </main>
             <Footer />
+            <ArchiveChatbot />
           </div>
         )}
         <Toaster />

@@ -133,6 +133,12 @@ export interface IStorage {
   getChatMessages(sessionId: string): Promise<ChatMessage[]>;
   addChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
 
+  // Archive search for AI chatbot
+  searchArchive(query: string, limit?: number): Promise<{
+    news: Array<{ id: string; title: string; summary: string | null; content: string; category: string; publishedAt: Date | null; shortCode: string | null; imageUrl: string | null; relevanceScore: number }>;
+    articles: Array<{ id: string; slug: string; title: string; excerpt: string; content: string; category: string; publishedAt: Date | null; relevanceScore: number }>;
+  }>;
+
   // Dashboard stats
   getDashboardStats(): Promise<{
     totalNews: number;
@@ -1658,6 +1664,122 @@ export class DatabaseStorage implements IStorage {
     const [job] = await db.select().from(infographicJobs)
       .where(eq(infographicJobs.id, id));
     return job;
+  }
+
+  async searchArchive(query: string, limit: number = 8): Promise<{
+    news: Array<{ id: string; title: string; summary: string | null; content: string; category: string; publishedAt: Date | null; shortCode: string | null; imageUrl: string | null; relevanceScore: number }>;
+    articles: Array<{ id: string; slug: string; title: string; excerpt: string; content: string; category: string; publishedAt: Date | null; relevanceScore: number }>;
+  }> {
+    // Extract meaningful Arabic/English keywords from the natural-language query
+    const ARABIC_STOP_WORDS = new Set([
+      'من','في','على','مع','عن','إلى','الى','هل','ما','ماذا','كيف','لماذا','متى','أين','اين',
+      'هذا','هذه','ذلك','تلك','هو','هي','هم','هن','انا','نحن','انت','انتم',
+      'كان','يكون','كانت','لا','نعم','قد','لقد','حتى','بعد','قبل','أو','او',
+      'و','ف','ب','ل','ك','أن','ان','إن','إذ','إذا','اذا','لأن','لكن',
+      'آخر','اخر','أحدث','احدث','اخبار','خبر','مقال','مقالات','معلومات',
+      'تحدث','يتحدث','تخص','حول','عن','بشأن','بخصوص','لي','لنا','لهم',
+      'أريد','اريد','أبحث','ابحث','اعطني','أخبرني','اخبرني','لخص','لخصي',
+    ]);
+
+    const tokens = query
+      .replace(/[؟?!،,\.。\-_()[\]{}]/g, ' ')
+      .split(/\s+/)
+      .map(t => t.trim())
+      .filter(t => t.length >= 2 && !ARABIC_STOP_WORDS.has(t));
+
+    // Deduplicate and cap tokens for query safety
+    const uniqueTokens = [...new Set(tokens)].slice(0, 6);
+
+    // If no meaningful tokens, fall back to the raw query trimmed
+    const searchTokens = uniqueTokens.length > 0 ? uniqueTokens : [query.trim().slice(0, 50)];
+
+    // Build OR filter conditions per token across all text fields
+    const buildTokenFilter = (table: 'news' | 'articles') => {
+      const titleCol = table === 'news' ? news.title : articles.title;
+      const summaryCol = table === 'news' ? news.summary : articles.excerpt;
+      const contentCol = table === 'news' ? news.content : articles.content;
+
+      const termConditions = searchTokens.map(token => {
+        const t = `%${token}%`;
+        return or(
+          ilike(titleCol, t),
+          ilike(summaryCol, t),
+          sql`${contentCol} ILIKE ${t}`,
+          ...(table === 'news' ? [sql`${news.keywords}::text ILIKE ${t}`] : [])
+        );
+      });
+      return or(...termConditions);
+    };
+
+    // Build relevance score: title match = 3 pts, summary/excerpt = 2 pts, content = 1 pt per token
+    const buildScoreExpr = (table: 'news' | 'articles') => {
+      const titleCol = table === 'news' ? news.title : articles.title;
+      const summaryCol = table === 'news' ? news.summary : articles.excerpt;
+      const contentCol = table === 'news' ? news.content : articles.content;
+
+      const parts = searchTokens.flatMap(token => {
+        const t = `%${token}%`;
+        return [
+          sql`CASE WHEN ${titleCol} ILIKE ${t} THEN 3 ELSE 0 END`,
+          sql`CASE WHEN ${summaryCol} ILIKE ${t} THEN 2 ELSE 0 END`,
+          sql`CASE WHEN ${contentCol} ILIKE ${t} THEN 1 ELSE 0 END`,
+        ];
+      });
+      return sql.join(parts, sql` + `);
+    };
+
+    const [newsResults, articleResults] = await Promise.all([
+      db
+        .select({
+          id: news.id,
+          title: news.title,
+          summary: news.summary,
+          content: news.content,
+          category: news.category,
+          publishedAt: news.publishedAt,
+          shortCode: news.shortCode,
+          imageUrl: news.imageUrl,
+          relevanceScore: sql<number>`(${buildScoreExpr('news')})`,
+        })
+        .from(news)
+        .where(and(eq(news.status, 'published'), buildTokenFilter('news')))
+        .orderBy(sql`(${buildScoreExpr('news')}) DESC`, desc(news.publishedAt))
+        .limit(limit),
+
+      db
+        .select({
+          id: articles.id,
+          slug: articles.slug,
+          title: articles.title,
+          excerpt: articles.excerpt,
+          content: articles.content,
+          category: articles.category,
+          publishedAt: articles.publishedAt,
+          relevanceScore: sql<number>`(${buildScoreExpr('articles')})`,
+        })
+        .from(articles)
+        .where(and(eq(articles.status, 'published'), buildTokenFilter('articles')))
+        .orderBy(sql`(${buildScoreExpr('articles')}) DESC`, desc(articles.publishedAt))
+        .limit(limit),
+    ]);
+
+    // Merge and return top-N by relevance score (global ranking)
+    const combined = [
+      ...newsResults.map(n => ({ ...n, _type: 'news' as const })),
+      ...articleResults.map(a => ({ ...a, _type: 'article' as const })),
+    ].sort((a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0));
+
+    const topNews = combined
+      .filter(r => r._type === 'news')
+      .slice(0, limit)
+      .map(({ _type, ...r }) => r as typeof newsResults[number]);
+
+    const topArticles = combined
+      .filter(r => r._type === 'article')
+      .slice(0, Math.max(2, Math.ceil(limit / 3)))
+      .map(({ _type, ...r }) => r as typeof articleResults[number]);
+
+    return { news: topNews, articles: topArticles };
   }
 
   async getInfographicJobs(filters?: { userId?: string; status?: string }, limit: number = 50): Promise<InfographicJob[]> {

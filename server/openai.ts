@@ -1322,4 +1322,95 @@ ${analyticsData.radarSourcePerformance.map((s: any) => `- ${s.name}: ${s.itemsCo
   }
 }
 
+export interface ArchiveSearchResult {
+  id: string;
+  type: "news" | "article";
+  title: string;
+  excerpt: string;
+  url: string;
+  category: string;
+  publishedAt: Date | null;
+}
+
+export interface ArchiveChatResponse {
+  answer: string;
+  sources: Array<{ title: string; url: string; type: "news" | "article" }>;
+  foundInArchive: boolean;
+}
+
+export async function generateArchiveChatResponse(
+  userMessage: string,
+  archiveResults: ArchiveSearchResult[]
+): Promise<ArchiveChatResponse> {
+  const hasResults = archiveResults.length > 0;
+
+  const archiveContext = hasResults
+    ? archiveResults
+        .map(
+          (r, i) =>
+            `[${i + 1}] ${r.type === "news" ? "خبر" : "مقال"}: "${r.title}"\nالفئة: ${r.category}\nالمحتوى: ${r.excerpt}\nالرابط: ${r.url}`
+        )
+        .join("\n\n")
+    : "لا توجد نتائج في الأرشيف.";
+
+  const systemPrompt = `أنت "مساعد كبسولة"، مساعد ذكي متخصص في الإجابة عن الأسئلة من أرشيف موقع كبسولة الصحي.
+
+قواعد مهمة:
+1. أجب فقط بناءً على المحتوى المقدم من الأرشيف أدناه.
+2. إذا لم تجد معلومات كافية في الأرشيف، قل ذلك بصراحة بدلاً من اختراع معلومات.
+3. اذكر المصادر بأرقامها [1], [2], إلخ عند الإشارة إليها في إجابتك.
+4. استخدم لغة عربية واضحة ومناسبة.
+5. لا تخترع أو تتخيل أخباراً أو معلومات غير موجودة في الأرشيف.
+
+أرشيف كبسولة المتاح:
+${archiveContext}
+
+قدم إجابتك بصيغة JSON:
+{
+  "answer": "الإجابة التفصيلية بالعربية مع الإشارة للمصادر",
+  "foundInArchive": true/false,
+  "usedSources": [1, 2, ...]
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: userMessage },
+      ],
+      max_tokens: 2000,
+      response_format: { type: "json_object" as const },
+      temperature: 0.3,
+    });
+
+    const content = response.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(content);
+
+    const usedIndices: number[] = parsed.usedSources || [];
+    const sources = usedIndices
+      .filter((i) => i >= 1 && i <= archiveResults.length)
+      .map((i) => ({
+        title: archiveResults[i - 1].title,
+        url: archiveResults[i - 1].url,
+        type: archiveResults[i - 1].type,
+      }));
+
+    return {
+      answer:
+        parsed.answer ||
+        "عذراً، لم أتمكن من معالجة سؤالك. يرجى المحاولة مرة أخرى.",
+      sources,
+      foundInArchive: parsed.foundInArchive ?? hasResults,
+    };
+  } catch (error) {
+    console.error("[ArchiveChat] OpenAI error:", error);
+    return {
+      answer: "عذراً، حدث خطأ في معالجة طلبك. يرجى المحاولة مرة أخرى.",
+      sources: [],
+      foundInArchive: false,
+    };
+  }
+}
+
 export default openai;
