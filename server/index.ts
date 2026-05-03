@@ -270,6 +270,37 @@ async function fixCategoriesArabic() {
     // WhatsApp morning newsletter scheduler — checks every minute
     const runWhatsAppScheduler = async () => {
       try {
+        // Pick up any scheduled newsletters that are now due
+        const dueNewsletters = await storage.getScheduledWhatsappNewslettersDue();
+        for (const nl of dueNewsletters) {
+          try {
+            // Atomic claim: only proceed if we successfully transition scheduled -> sending
+            const claimed = await storage.claimScheduledNewsletter(nl.id);
+            if (!claimed) continue; // another process already claimed it or it was canceled
+            log(`[WhatsApp Scheduler] 📨 إرسال نشرة مجدولة: ${nl.title}`);
+            const { sendBulkWhatsAppMessages } = await import("./whatsappService");
+            const activeSubscribers = await storage.getActiveWhatsappSubscribers((nl.interests as string[]) || []);
+            if (activeSubscribers.length === 0) {
+              await storage.updateWhatsappNewsletter(nl.id, { status: "sent", sentAt: new Date(), recipientsCount: 0 });
+              continue;
+            }
+            const phones = activeSubscribers.map(s => s.phone);
+            const result = await sendBulkWhatsAppMessages(phones, nl.content);
+            await storage.updateWhatsappNewsletter(nl.id, {
+              status: "sent",
+              sentAt: new Date(),
+              recipientsCount: result.sent,
+            });
+            for (const sub of activeSubscribers) {
+              await storage.updateWhatsappSubscriber(sub.id, { lastMessageAt: new Date() });
+            }
+            log(`[WhatsApp Scheduler] ✅ أُرسلت النشرة المجدولة "${nl.title}" إلى ${result.sent} مشترك`);
+          } catch (nlErr) {
+            console.error(`[WhatsApp Scheduler] خطأ في إرسال النشرة المجدولة ${nl.id}:`, nlErr);
+            await storage.updateWhatsappNewsletter(nl.id, { status: "failed" });
+          }
+        }
+
         const settings = await storage.getWhatsappSettings();
         if (!settings?.isAutoSendEnabled) return;
 
@@ -330,7 +361,6 @@ async function fixCategoriesArabic() {
           recipientsCount: activeSubscribers.length,
           status: "sending",
           sentBy: "auto",
-          scheduledAt: null as any,
         });
 
         const phones = activeSubscribers.map(s => s.phone);
@@ -352,6 +382,7 @@ async function fixCategoriesArabic() {
       }
     };
 
+    runWhatsAppScheduler();
     setInterval(runWhatsAppScheduler, 60 * 1000);
   } catch (err) {
     console.error('[Startup] فشل حرج في بدء تشغيل الخادم:', err);

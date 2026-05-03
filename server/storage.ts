@@ -253,6 +253,10 @@ export interface IStorage {
   getWhatsappNewsletter(id: string): Promise<WhatsappNewsletter | undefined>;
   createWhatsappNewsletter(data: InsertWhatsappNewsletter): Promise<WhatsappNewsletter>;
   updateWhatsappNewsletter(id: string, data: Partial<WhatsappNewsletter>): Promise<WhatsappNewsletter | undefined>;
+  deleteWhatsappNewsletter(id: string): Promise<void>;
+  getScheduledWhatsappNewslettersDue(): Promise<WhatsappNewsletter[]>;
+  claimScheduledNewsletter(id: string): Promise<boolean>;
+  cancelScheduledNewsletter(id: string): Promise<boolean>;
 
   // WhatsApp settings
   getWhatsappSettings(): Promise<WhatsappSettings | undefined>;
@@ -2092,6 +2096,48 @@ export class DatabaseStorage implements IStorage {
       .where(eq(whatsappNewsletters.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteWhatsappNewsletter(id: string): Promise<void> {
+    await db.delete(whatsappNewsletters).where(eq(whatsappNewsletters.id, id));
+  }
+
+  async getScheduledWhatsappNewslettersDue(): Promise<WhatsappNewsletter[]> {
+    const now = new Date();
+    return await db.select().from(whatsappNewsletters)
+      .where(
+        and(
+          eq(whatsappNewsletters.status, "scheduled"),
+          lte(whatsappNewsletters.scheduledAt, now)
+        )
+      )
+      .orderBy(whatsappNewsletters.scheduledAt);
+  }
+
+  async claimScheduledNewsletter(id: string): Promise<boolean> {
+    const result = await db.update(whatsappNewsletters)
+      .set({ status: "sending" })
+      .where(
+        and(
+          eq(whatsappNewsletters.id, id),
+          eq(whatsappNewsletters.status, "scheduled")
+        )
+      )
+      .returning();
+    return result.length > 0;
+  }
+
+  async cancelScheduledNewsletter(id: string): Promise<boolean> {
+    const result = await db.update(whatsappNewsletters)
+      .set({ status: "canceled" })
+      .where(
+        and(
+          eq(whatsappNewsletters.id, id),
+          eq(whatsappNewsletters.status, "scheduled")
+        )
+      )
+      .returning();
+    return result.length > 0;
   }
 
   async getWhatsappSettings(): Promise<WhatsappSettings | undefined> {

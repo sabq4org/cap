@@ -4711,18 +4711,44 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     }
   });
 
-  // Admin: Send newsletter manually
+  // Admin: Send newsletter manually (or schedule for later)
   app.post("/api/admin/whatsapp/send-newsletter", isAdminAuthenticated, async (req, res) => {
     try {
-      const { title, content, interests } = req.body;
+      const { title, content, interests, scheduledAtMs } = req.body;
       if (!title || !content) return res.status(400).json({ message: "العنوان والمحتوى مطلوبان" });
 
+      const sentBy = (req.session as any)?.adminUser?.displayName || "admin";
+
+      // If scheduledAtMs (epoch ms) is provided, save as scheduled without sending
+      if (scheduledAtMs) {
+        const scheduledDate = new Date(Number(scheduledAtMs));
+        if (isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
+          return res.status(400).json({ message: "وقت الجدولة يجب أن يكون في المستقبل" });
+        }
+
+        const newsletter = await storage.createWhatsappNewsletter({
+          title,
+          content,
+          interests: interests || [],
+          recipientsCount: 0,
+          status: "scheduled",
+          sentBy,
+          scheduledAt: scheduledDate,
+        });
+
+        return res.json({
+          message: `تمت جدولة النشرة للإرسال في ${scheduledDate.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}`,
+          newsletterId: newsletter.id,
+          scheduled: true,
+        });
+      }
+
+      // Immediate send
       const targetSubscribers = await storage.getActiveWhatsappSubscribers(interests || []);
       if (targetSubscribers.length === 0) {
         return res.status(400).json({ message: "لا يوجد مشتركون فعّالون لهذا التخصص. تأكد من وجود مشتركين نشطين." });
       }
 
-      const sentBy = (req.session as any)?.adminUser?.displayName || "admin";
       const newsletter = await storage.createWhatsappNewsletter({
         title,
         content,
@@ -4730,7 +4756,6 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
         recipientsCount: targetSubscribers.length,
         status: "sending",
         sentBy,
-        scheduledAt: null as any,
       });
 
       const phones = targetSubscribers.map(s => s.phone);
@@ -4756,6 +4781,20 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     } catch (error: any) {
       console.error("[WhatsApp Send Newsletter]", error.message);
       res.status(500).json({ message: "فشل في إرسال النشرة" });
+    }
+  });
+
+  // Admin: Cancel a scheduled newsletter
+  app.delete("/api/admin/whatsapp/newsletters/:id", isAdminAuthenticated, async (req, res) => {
+    try {
+      const canceled = await storage.cancelScheduledNewsletter(req.params.id);
+      if (!canceled) {
+        return res.status(409).json({ message: "النشرة غير موجودة أو لم تعد مجدولة (ربما تم إرسالها بالفعل)" });
+      }
+      res.json({ message: "تم إلغاء الجدولة بنجاح" });
+    } catch (error: any) {
+      console.error("[WhatsApp Cancel Newsletter]", error.message);
+      res.status(500).json({ message: "فشل في إلغاء الجدولة" });
     }
   });
 

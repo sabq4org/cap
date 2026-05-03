@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   MessageCircle, Users, Send, Clock, CheckCircle, XCircle,
   AlertCircle, Sparkles, ChevronRight, RefreshCw, ToggleLeft,
-  ToggleRight, Phone, Calendar, Eye, EyeOff, Settings
+  ToggleRight, Phone, Calendar, Eye, EyeOff, Settings, CalendarClock, Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -35,6 +35,9 @@ const STATUS_COLORS: Record<string, string> = {
   sent: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   sending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
   draft: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
+  scheduled: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  canceled: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500",
+  failed: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -44,7 +47,29 @@ const STATUS_LABELS: Record<string, string> = {
   sent: "مُرسل",
   sending: "يُرسل...",
   draft: "مسودة",
+  scheduled: "مجدولة",
+  canceled: "ملغاة",
+  failed: "فشل الإرسال",
 };
+
+function Countdown({ target }: { target: string }) {
+  const [remaining, setRemaining] = useState("");
+  useEffect(() => {
+    const calc = () => {
+      const diff = new Date(target).getTime() - Date.now();
+      if (diff <= 0) { setRemaining("الآن"); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      if (h >= 24) setRemaining(`${Math.floor(h / 24)} يوم`);
+      else if (h > 0) setRemaining(`${h}س ${m}د`);
+      else setRemaining(`${m} دقيقة`);
+    };
+    calc();
+    const id = setInterval(calc, 30000);
+    return () => clearInterval(id);
+  }, [target]);
+  return <span className="text-xs text-purple-600 dark:text-purple-400">بعد {remaining}</span>;
+}
 
 type ActiveTab = "subscribers" | "compose" | "newsletters" | "settings";
 
@@ -56,6 +81,8 @@ export default function AdminWhatsApp() {
   const [newsletterContent, setNewsletterContent] = useState("");
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [showContent, setShowContent] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
   const { toast } = useToast();
 
   const { data: stats, isLoading: statsLoading } = useQuery<{ total: number; active: number; pending: number; unsubscribed: number }>({
@@ -105,17 +132,31 @@ export default function AdminWhatsApp() {
       title: newsletterTitle,
       content: newsletterContent,
       interests: selectedInterests,
+      ...(scheduleMode && scheduledAt ? { scheduledAtMs: new Date(scheduledAt).getTime() } : {}),
     }),
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/whatsapp/newsletters"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/whatsapp/stats"] });
-      toast({ title: "تم الإرسال بنجاح", description: data.message });
+      toast({ title: data.scheduled ? "تمت الجدولة بنجاح" : "تم الإرسال بنجاح", description: data.message });
       setNewsletterTitle("");
       setNewsletterContent("");
+      setScheduleMode(false);
+      setScheduledAt("");
       setActiveTab("newsletters");
     },
     onError: (error: any) => {
-      toast({ title: "خطأ في الإرسال", description: error?.message || "حدث خطأ", variant: "destructive" });
+      toast({ title: "خطأ", description: error?.message || "حدث خطأ", variant: "destructive" });
+    },
+  });
+
+  const cancelNewsletterMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/whatsapp/newsletters/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/whatsapp/newsletters"] });
+      toast({ title: "تم إلغاء الجدولة" });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ في الإلغاء", description: error?.message || "حدث خطأ", variant: "destructive" });
     },
   });
 
@@ -397,21 +438,57 @@ export default function AdminWhatsApp() {
                 </div>
               )}
 
+              {/* Schedule toggle */}
+              <div className="border rounded-xl p-3 space-y-3 bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    <span className="text-sm font-medium">جدولة الإرسال</span>
+                  </div>
+                  <Switch
+                    data-testid="toggle-schedule-mode"
+                    checked={scheduleMode}
+                    onCheckedChange={setScheduleMode}
+                  />
+                </div>
+                {scheduleMode && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="scheduled-at" className="text-sm">وقت الإرسال</Label>
+                    <Input
+                      id="scheduled-at"
+                      data-testid="input-scheduled-at"
+                      type="datetime-local"
+                      value={scheduledAt}
+                      onChange={(e) => setScheduledAt(e.target.value)}
+                      min={(() => { const d = new Date(Date.now() + 60 * 1000); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; })()}
+                    />
+                    <p className="text-xs text-muted-foreground">حسب توقيت جهازك — يُحوَّل إلى UTC عند الحفظ</p>
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center gap-3 pt-2">
                 <Button
                   data-testid="button-send-newsletter"
                   onClick={() => sendMutation.mutate()}
-                  disabled={sendMutation.isPending || !newsletterTitle || !newsletterContent}
-                  className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+                  disabled={
+                    sendMutation.isPending ||
+                    !newsletterTitle ||
+                    !newsletterContent ||
+                    (scheduleMode && !scheduledAt)
+                  }
+                  className={`gap-2 text-white ${scheduleMode ? "bg-purple-600 hover:bg-purple-700" : "bg-green-600 hover:bg-green-700"}`}
                 >
                   {sendMutation.isPending ? (
-                    <><RefreshCw className="h-4 w-4 animate-spin" />جاري الإرسال...</>
+                    <><RefreshCw className="h-4 w-4 animate-spin" />{scheduleMode ? "جاري الجدولة..." : "جاري الإرسال..."}</>
+                  ) : scheduleMode ? (
+                    <><CalendarClock className="h-4 w-4" />جدولة الإرسال</>
                   ) : (
                     <><Send className="h-4 w-4" />إرسال إلى {stats?.active ?? 0} مشترك</>
                   )}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  سيُرسل إلى المشتركين الفعّالين فقط
+                  {scheduleMode ? "سيُرسل تلقائياً في الوقت المحدد" : "سيُرسل إلى المشتركين الفعّالين فقط"}
                 </p>
               </div>
             </CardContent>
@@ -438,9 +515,15 @@ export default function AdminWhatsApp() {
             ) : (
               <div className="space-y-3">
                 {newsletters.map((nl: any) => (
-                  <div key={nl.id} data-testid={`newsletter-${nl.id}`} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${nl.status === "sent" ? "bg-blue-100 dark:bg-blue-900/30" : "bg-yellow-100 dark:bg-yellow-900/30"}`}>
-                      {nl.status === "sent" ? <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" /> : <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />}
+                  <div key={nl.id} data-testid={`newsletter-${nl.id}`} className={`flex items-start gap-3 p-3 rounded-lg ${nl.status === "scheduled" ? "bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800" : "bg-muted/30"}`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      nl.status === "sent" ? "bg-blue-100 dark:bg-blue-900/30"
+                      : nl.status === "scheduled" ? "bg-purple-100 dark:bg-purple-900/30"
+                      : "bg-yellow-100 dark:bg-yellow-900/30"
+                    }`}>
+                      {nl.status === "sent" ? <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                       : nl.status === "scheduled" ? <CalendarClock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                       : <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{nl.title}</p>
@@ -448,10 +531,20 @@ export default function AdminWhatsApp() {
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[nl.status] || STATUS_COLORS.draft}`}>
                           {STATUS_LABELS[nl.status] || nl.status}
                         </span>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {nl.recipientsCount} مستلم
-                        </span>
+                        {nl.status === "scheduled" && nl.scheduledAt && (
+                          <>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(nl.scheduledAt).toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}
+                            </span>
+                            <Countdown target={nl.scheduledAt} />
+                          </>
+                        )}
+                        {nl.status !== "scheduled" && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {nl.recipientsCount} مستلم
+                          </span>
+                        )}
                         {nl.sentAt && (
                           <span className="text-xs text-muted-foreground">
                             {new Date(nl.sentAt).toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}
@@ -462,6 +555,19 @@ export default function AdminWhatsApp() {
                         )}
                       </div>
                     </div>
+                    {nl.status === "scheduled" && (
+                      <Button
+                        data-testid={`cancel-newsletter-${nl.id}`}
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                        onClick={() => cancelNewsletterMutation.mutate(nl.id)}
+                        disabled={cancelNewsletterMutation.isPending}
+                        title="إلغاء الجدولة"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
