@@ -43,6 +43,7 @@ export const users = pgTable("users", {
   role: varchar("role").notNull().default("subscriber"),
   isActive: boolean("is_active").default(true),
   lastLoginAt: timestamp("last_login_at"),
+  userInterests: jsonb("user_interests").$type<string[]>().default([]),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

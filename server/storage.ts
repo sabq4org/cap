@@ -264,6 +264,18 @@ export interface IStorage {
   createPodcastEpisode(data: InsertPodcastEpisode): Promise<PodcastEpisode>;
   updatePodcastEpisode(id: string, data: Partial<InsertPodcastEpisode> & { updatedAt?: Date; errorMessage?: string | null }): Promise<PodcastEpisode | undefined>;
   deletePodcastEpisode(id: string): Promise<boolean>;
+
+  // User interests operations
+  getUserInterests(userId: string): Promise<string[]>;
+  updateUserInterests(userId: string, interests: string[]): Promise<void>;
+
+  // Capsule feed — returns both news and articles, filtered by interests
+  getCapsuleFeed(interests: string[], page?: number, perPage?: number): Promise<{
+    items: Array<{ type: "news"; item: News } | { type: "article"; item: Article }>;
+    total: number;
+    page: number;
+    totalPages: number;
+  }>;
 }
 
 // Simple TTL in-memory cache
@@ -2303,6 +2315,78 @@ export class DatabaseStorage implements IStorage {
   async deletePodcastEpisode(id: string): Promise<boolean> {
     const result = await db.delete(podcastEpisodes).where(eq(podcastEpisodes.id, id)).returning();
     return result.length > 0;
+  }
+
+  // ==========================================
+  // User Interests & Capsule Feed
+  // ==========================================
+
+  async getUserInterests(userId: string): Promise<string[]> {
+    const [user] = await db.select({ userInterests: users.userInterests }).from(users).where(eq(users.id, userId));
+    return (user?.userInterests as string[]) ?? [];
+  }
+
+  async updateUserInterests(userId: string, interests: string[]): Promise<void> {
+    await db.update(users).set({ userInterests: interests, updatedAt: new Date() }).where(eq(users.id, userId));
+  }
+
+  async getCapsuleFeed(interests: string[], page: number = 1, perPage: number = 20): Promise<{
+    items: Array<{ type: "news"; item: News } | { type: "article"; item: Article }>;
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
+    // Return empty feed when user has no interests selected
+    if (interests.length === 0) {
+      return { items: [], total: 0, page, totalPages: 0 };
+    }
+
+    const safePerPage = Math.max(1, Math.min(perPage, 50));
+    const safePage = Math.max(1, page);
+    const now = new Date();
+
+    // ── Fetch matching news ──────────────────────────────────────────────────
+    const newsConditions = [
+      sql`${news.status} != 'deleted'`,
+      sql`${news.status} != 'draft'`,
+      sql`(${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${now})`,
+      sql`(${sql.join(interests.map(cat => sql`${news.category} = ${cat}`), sql` OR `)})`,
+    ];
+    const newsResults = await db.select().from(news)
+      .where(sql.join(newsConditions, sql` AND `))
+      .orderBy(desc(news.publishedAt), desc(news.createdAt));
+
+    await this.autoPromoteScheduledItems(newsResults);
+
+    // ── Fetch matching published articles ────────────────────────────────────
+    const articlesResults = await db.select().from(articles)
+      .where(and(
+        eq(articles.status, "published"),
+        sql`(${sql.join(interests.map(cat => sql`${articles.category} = ${cat}`), sql` OR `)})`,
+      ))
+      .orderBy(desc(articles.publishedAt));
+
+    // ── Merge and sort by date descending ────────────────────────────────────
+    type FeedItem = { type: "news"; item: News; date: Date } | { type: "article"; item: Article; date: Date };
+
+    const combined: FeedItem[] = [
+      ...newsResults.map(n => ({ type: "news" as const, item: n, date: new Date(n.publishedAt || n.createdAt || 0) })),
+      ...articlesResults.map(a => ({ type: "article" as const, item: a, date: new Date(a.publishedAt || a.createdAt || 0) })),
+    ];
+
+    combined.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    const total = combined.length;
+    const totalPages = Math.ceil(total / safePerPage);
+    const offset = (safePage - 1) * safePerPage;
+    const paginated = combined.slice(offset, offset + safePerPage);
+
+    return {
+      items: paginated.map(({ type, item }) => ({ type, item } as { type: "news"; item: News } | { type: "article"; item: Article })),
+      total,
+      page: safePage,
+      totalPages,
+    };
   }
 }
 

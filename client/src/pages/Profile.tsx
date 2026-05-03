@@ -1,17 +1,150 @@
-import { User, Calendar, TrendingUp, Plus } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { User, Calendar, TrendingUp, Plus, Pill, Check } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import HealthTracker from "@/components/HealthTracker";
 import SymptomChecker from "@/components/SymptomChecker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { healthProfiles, trackers } from "@shared/schema";
+import type { healthProfiles, trackers, Category } from "@shared/schema";
 import profileImage from "@assets/mm_1762932674721.png";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 type HealthProfile = typeof healthProfiles.$inferSelect;
 type TrackerType = typeof trackers.$inferSelect;
+
+// ── Interests Panel (used inside Profile tabs) ────────────────────────────────
+
+function InterestsPanel() {
+  const { toast } = useToast();
+  const [editMode, setEditMode] = useState(false);
+
+  const { data: categoriesData = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories?active=true"],
+    queryFn: async () => {
+      const res = await fetch("/api/categories?active=true");
+      if (!res.ok) throw new Error("Failed to load categories");
+      return res.json();
+    },
+  });
+
+  const { data: interestsData } = useQuery<{ interests: string[] }>({
+    queryKey: ["/api/capsule/interests"],
+  });
+
+  const interests = interestsData?.interests ?? [];
+
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const toggle = (slug: string) => {
+    setSelected(prev =>
+      prev.includes(slug) ? prev.filter(v => v !== slug) : [...prev, slug]
+    );
+  };
+
+  const startEdit = () => {
+    setSelected([...interests]);
+    setEditMode(true);
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (newInterests: string[]) => {
+      await apiRequest("PUT", "/api/capsule/interests", { interests: newInterests });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/capsule/interests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/capsule/feed"] });
+      setEditMode(false);
+      toast({ title: "تم حفظ الاهتمامات" });
+    },
+    onError: () => {
+      toast({ title: "حدث خطأ", variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2">
+          <Pill className="h-5 w-5 text-primary" />
+          اهتمامات جرعتك اليومية
+        </CardTitle>
+        {!editMode && (
+          <Button variant="outline" size="sm" onClick={startEdit} data-testid="button-profile-edit-interests">
+            تعديل
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent dir="rtl">
+        {editMode ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">اختر الأقسام التي تهمك:</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {categoriesData.map(cat => {
+                const isSelected = selected.includes(cat.slug);
+                return (
+                  <button
+                    key={cat.slug}
+                    onClick={() => toggle(cat.slug)}
+                    data-testid={`profile-interest-${cat.slug}`}
+                    className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all hover-elevate
+                      ${isSelected
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-border bg-muted/30 hover:border-primary/40"
+                      }`}
+                  >
+                    {isSelected && (
+                      <span className="absolute top-1.5 left-1.5 rounded-full bg-primary p-0.5">
+                        <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                      </span>
+                    )}
+                    <span className="text-xs font-medium text-center">{cat.nameAr}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setEditMode(false)} data-testid="button-profile-cancel-interests">
+                إلغاء
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => saveMutation.mutate(selected)}
+                disabled={saveMutation.isPending}
+                data-testid="button-profile-save-interests"
+              >
+                <Check className="h-4 w-4 me-1" />
+                {saveMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+              </Button>
+            </div>
+          </div>
+        ) : interests.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {interests.map(slug => {
+              const cat = categoriesData.find(c => c.slug === slug);
+              return cat ? (
+                <Badge key={slug} variant="secondary" data-testid={`profile-active-interest-${slug}`}>
+                  {cat.nameAr}
+                </Badge>
+              ) : null;
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-6 space-y-3">
+            <p className="text-muted-foreground">لم تختر اهتمامات بعد</p>
+            <Button variant="outline" size="sm" onClick={startEdit} data-testid="button-profile-add-interests">
+              اختر اهتماماتك
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Profile() {
   const { user } = useAuth();
@@ -110,12 +243,15 @@ export default function Profile() {
           </Card>
 
           <Tabs defaultValue="vitals" className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3">
               <TabsTrigger value="symptoms" data-testid="tab-symptoms">
                 فاحص الأعراض
               </TabsTrigger>
               <TabsTrigger value="vitals" data-testid="tab-vitals">
                 المؤشرات الحيوية
+              </TabsTrigger>
+              <TabsTrigger value="interests" data-testid="tab-interests">
+                اهتماماتي
               </TabsTrigger>
             </TabsList>
 
@@ -201,6 +337,10 @@ export default function Profile() {
 
             <TabsContent value="symptoms" className="mt-8 flex justify-center">
               <SymptomChecker />
+            </TabsContent>
+
+            <TabsContent value="interests" className="mt-8">
+              <InterestsPanel />
             </TabsContent>
           </Tabs>
         </div>

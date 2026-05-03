@@ -35,6 +35,7 @@ import RumorStatus from "@/pages/RumorStatus";
 import AdminRumors from "@/pages/AdminRumors";
 import AdminPodcast from "@/pages/AdminPodcast";
 import Podcast from "@/pages/Podcast";
+import Capsule from "@/pages/Capsule";
 import NotFound from "@/pages/not-found";
 import WhatsAppSubscribe from "@/pages/WhatsAppSubscribe";
 import ArchiveChatbot from "@/components/ArchiveChatbot";
@@ -57,6 +58,7 @@ function Router() {
       <Route path="/assistant">{isAuthenticated ? <Assistant /> : <Login />}</Route>
       <Route path="/nutrition" component={Nutrition} />
       <Route path="/profile">{isAuthenticated ? <Profile /> : <Login />}</Route>
+      <Route path="/capsule" component={Capsule} />
       <Route path="/articles" component={Articles} />
       <Route path="/news" component={News} />
       <Route path="/news/:id" component={NewsDetail} />

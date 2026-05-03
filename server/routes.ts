@@ -718,6 +718,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Capsule (Personalized Feed) Routes ─────────────────────────────────────
+
+  // GET current user's interests
+  app.get('/api/capsule/interests', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const interests = await storage.getUserInterests(userId);
+      res.json({ interests });
+    } catch (error) {
+      console.error("Error fetching interests:", error);
+      res.status(500).json({ message: "Failed to fetch interests" });
+    }
+  });
+
+  // PUT update current user's interests
+  app.put('/api/capsule/interests', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const schema = z.object({ interests: z.array(z.string()) });
+      const { interests } = schema.parse(req.body);
+      await storage.updateUserInterests(userId, interests);
+      res.json({ interests });
+    } catch (error: any) {
+      console.error("Error updating interests:", error);
+      res.status(400).json({ message: error.message || "Failed to update interests" });
+    }
+  });
+
+  // GET personalized capsule feed (news + articles combined)
+  app.get('/api/capsule/feed', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const page = Math.max(1, parseInt(req.query.page as string || "1", 10));
+      const perPage = Math.max(1, Math.min(parseInt(req.query.perPage as string || "20", 10), 50));
+      const interests = await storage.getUserInterests(userId);
+      const result = await storage.getCapsuleFeed(interests, page, perPage);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching capsule feed:", error);
+      res.status(500).json({ message: "Failed to fetch capsule feed" });
+    }
+  });
+
+  // ── End Capsule Routes ───────────────────────────────────────────────────────
+
   // Health Profile routes
   app.get('/api/health-profile', isAuthenticated, async (req: any, res) => {
     try {
