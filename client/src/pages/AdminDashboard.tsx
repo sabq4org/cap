@@ -173,6 +173,7 @@ export default function AdminDashboard() {
   const [selectedNewsIds, setSelectedNewsIds] = useState<Set<string>>(new Set());
   const [showPreview, setShowPreview] = useState(false);
   const [socialModalArticle, setSocialModalArticle] = useState<{ id: string; title: string; socialContentData?: SocialContent | null } | null>(null);
+  const [socialModalNews, setSocialModalNews] = useState<{ id: string; title: string } | null>(null);
   const { toast } = useToast();
 
   // Category form state
@@ -2874,6 +2875,16 @@ export default function AdminDashboard() {
                           </>
                         ) : (
                           <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`h-7 w-7 ${item.socialContentGenerated ? "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" : "hover:bg-muted hover:text-emerald-700"}`}
+                              onClick={() => setSocialModalNews({ id: item.id, title: item.title })}
+                              title="توليد محتوى السوشيال ميديا"
+                              data-testid={`button-social-news-${index}`}
+                            >
+                              <Share2 className="h-3.5 w-3.5" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-muted hover:text-emerald-700" onClick={() => handleEditNews(item)} title="تعديل" data-testid={`button-edit-news-${index}`}>
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
@@ -4870,6 +4881,16 @@ export default function AdminDashboard() {
           articleId={socialModalArticle.id}
           articleTitle={socialModalArticle.title}
           storedContent={socialModalArticle.socialContentData}
+        />
+      )}
+
+      {socialModalNews && (
+        <SocialContentModal
+          open={!!socialModalNews}
+          onClose={() => setSocialModalNews(null)}
+          articleId={socialModalNews.id}
+          articleTitle={socialModalNews.title}
+          contentType="news"
         />
       )}
 

@@ -991,6 +991,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Social content generation for news
+  app.post('/api/news/:id/social-content', isAdminAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const newsItem = await storage.getNewsById(id);
+      if (!newsItem) {
+        return res.status(404).json({ message: "News not found" });
+      }
+      const result = await generateSocialContent(newsItem.title, newsItem.content);
+      await storage.updateNews(id, {
+        socialContentGenerated: true,
+        socialContentGeneratedAt: new Date(),
+      } as any);
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating social content for news:", error);
+      res.status(500).json({ message: "Failed to generate social content" });
+    }
+  });
+
   // News routes
   app.get('/api/news/trending', async (req, res) => {
     try {

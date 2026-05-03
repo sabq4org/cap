@@ -259,6 +259,8 @@ export const news = pgTable("news", {
   scheduledAt: timestamp("scheduled_at"), // When to publish scheduled news
   deletedAt: timestamp("deleted_at"), // Soft delete timestamp
   publishedAt: timestamp("published_at").notNull().defaultNow(),
+  socialContentGenerated: boolean("social_content_generated").default(false),
+  socialContentGeneratedAt: timestamp("social_content_generated_at"),
   createdBy: varchar("created_by"), // Who created this news
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

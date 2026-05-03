@@ -15,9 +15,10 @@ interface Props {
   articleId: string;
   articleTitle: string;
   storedContent?: SocialContent | null;
+  contentType?: "article" | "news";
 }
 
-export function SocialContentModal({ open, onClose, articleId, articleTitle, storedContent }: Props) {
+export function SocialContentModal({ open, onClose, articleId, articleTitle, storedContent, contentType = "article" }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [content, setContent] = useState<SocialContent | null>(null);
@@ -50,17 +51,25 @@ export function SocialContentModal({ open, onClose, articleId, articleTitle, sto
     }
   }, [open, storedContent]);
 
+  const apiPath = contentType === "news"
+    ? `/api/news/${articleId}/social-content`
+    : `/api/articles/${articleId}/social-content`;
+
+  const invalidateKey = contentType === "news"
+    ? ["/api/admin/news"]
+    : ["/api/articles?includeAll=true"];
+
   const handleGenerate = async () => {
     setLoading(true);
     try {
-      const res = await apiRequest("POST", `/api/articles/${articleId}/social-content`, {});
+      const res = await apiRequest("POST", apiPath, {});
       const data = await res.json();
       setContent(data);
       setXTweets(data.xThread || []);
       setScenes(data.reelsScript || []);
       setIgPoints(data.instagramPoints?.points || []);
       setIgHashtags(data.instagramPoints?.hashtags || []);
-      queryClient.invalidateQueries({ queryKey: ["/api/articles?includeAll=true"] });
+      queryClient.invalidateQueries({ queryKey: invalidateKey });
       toast({ title: "تم التوليد بنجاح", description: "المحتوى جاهز للنسخ والنشر" });
     } catch (err) {
       toast({ title: "خطأ في التوليد", description: "تعذر توليد المحتوى، يرجى المحاولة مجدداً", variant: "destructive" });
