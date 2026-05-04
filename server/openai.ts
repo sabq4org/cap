@@ -1573,14 +1573,73 @@ export interface RumorDebunkResult {
   sources: Array<{ title: string; url: string }>;
 }
 
+async function searchMedicalSources(rumorText: string): Promise<Array<{ title: string; url: string; snippet: string }>> {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
+  if (!apiKey || !searchEngineId) return [];
+
+  const results: Array<{ title: string; url: string; snippet: string }> = [];
+
+  // Trusted medical domains to prioritise
+  const trustedDomains = ['who.int', 'mayoclinic.org', 'webmd.com', 'pubmed.ncbi.nlm.nih.gov',
+    'healthline.com', 'medlineplus.gov', 'ncbi.nlm.nih.gov', 'nhs.uk', 'harvard.edu',
+    'clevelandclinic.org', 'nih.gov', 'cdc.gov'];
+
+  try {
+    // Two parallel searches: Arabic + English to maximise coverage
+    const arabicQuery = encodeURIComponent(rumorText.substring(0, 100));
+    // Strip Arabic to get a concise English search query (first ~60 chars of rumour, let AI rephrase later)
+    const englishQuery = encodeURIComponent(rumorText.substring(0, 60) + ' medical fact');
+
+    const [arRes, enRes] = await Promise.allSettled([
+      fetch(`https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${arabicQuery}&num=5&lr=lang_ar`),
+      fetch(`https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${englishQuery}&num=5`),
+    ]);
+
+    const processItems = (items: any[]) => {
+      for (const item of items || []) {
+        const domain = (() => { try { return new URL(item.link).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+        const isTrusted = trustedDomains.some(d => domain.endsWith(d));
+        // Accept trusted sites immediately; accept others only if under 10 results so far
+        if (isTrusted || results.length < 3) {
+          if (!results.find(r => r.url === item.link)) {
+            results.push({ title: item.title, url: item.link, snippet: item.snippet || '' });
+          }
+        }
+        if (results.length >= 4) break;
+      }
+    };
+
+    if (arRes.status === 'fulfilled' && arRes.value.ok) {
+      const data = await arRes.value.json();
+      processItems(data.items || []);
+    }
+    if (enRes.status === 'fulfilled' && enRes.value.ok) {
+      const data = await enRes.value.json();
+      processItems(data.items || []);
+    }
+  } catch (err) {
+    console.error('[searchMedicalSources] Error:', err);
+  }
+
+  return results.slice(0, 4);
+}
+
 export async function debunkMedicalRumor(rumorText: string): Promise<RumorDebunkResult> {
+  // Step 1: Fetch real, verifiable sources from Google before calling AI
+  const realSources = await searchMedicalSources(rumorText);
+  const sourcesContext = realSources.length > 0
+    ? `\n\nمصادر حقيقية وجدناها على الإنترنت مرتبطة بهذا الموضوع — استخدمها كمراجع إذا كانت ذات صلة:\n${realSources.map((s, i) => `[${i + 1}] ${s.title}\n    الرابط: ${s.url}\n    الملخص: ${s.snippet}`).join('\n')}`
+    : '';
+
   const systemPrompt = `أنت خبير طبي وعلمي متخصص في تفنيد الشائعات الطبية بدقة وحزم. مهمتك تحليل الشائعات الطبية المنتشرة على الإنترنت وتقديم ردود علمية موثوقة باللغة العربية.
 
 قواعد مهمة جداً:
 1. كن حازماً وعلمياً في حكمك
-2. اعتمد على المصادر الطبية الموثوقة مثل منظمة الصحة العالمية (WHO)، Mayo Clinic، WebMD، والدراسات العلمية المحكّمة
-3. الرد يجب أن يكون باللغة العربية الفصحى الواضحة
-4. لا تتردد في الحكم القاطع عند وجود أدلة علمية كافية
+2. الرد يجب أن يكون باللغة العربية الفصحى الواضحة
+3. لا تتردد في الحكم القاطع عند وجود أدلة علمية كافية
+4. للمصادر: استخدم فقط الروابط المقدَّمة لك أدناه — لا تخترع أي رابط من عندك
+5. إذا كانت المصادر المقدَّمة غير ذات صلة بالموضوع، أعِد حقل sources كمصفوفة فارغة []
 
 أرجع النتيجة بصيغة JSON فقط:
 {
@@ -1588,7 +1647,7 @@ export async function debunkMedicalRumor(rumorText: string): Promise<RumorDebunk
   "explanation": "شرح علمي مفصل يوضح الحقيقة العلمية، الأسباب، والمخاطر إن وجدت (200-400 كلمة)",
   "shortSummary": "جملة واحدة موجزة تلخص الحكم للعنوان",
   "sources": [
-    {"title": "اسم المرجع الطبي", "url": "رابط المرجع"}
+    {"title": "العنوان كما هو مُقدَّم", "url": "الرابط كما هو مُقدَّم بدون تعديل"}
   ]
 }`;
 
@@ -1597,7 +1656,7 @@ export async function debunkMedicalRumor(rumorText: string): Promise<RumorDebunk
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `الشائعة الطبية:\n${rumorText}` }
+        { role: "user", content: `الشائعة الطبية:\n${rumorText}${sourcesContext}` }
       ] as any,
       max_tokens: 2000,
       response_format: { type: "json_object" },
@@ -1607,11 +1666,17 @@ export async function debunkMedicalRumor(rumorText: string): Promise<RumorDebunk
     const content = response.choices[0]?.message?.content || "{}";
     const parsed = JSON.parse(content);
 
+    // Validate that returned URLs actually came from our real sources (prevent hallucination)
+    const allowedUrls = new Set(realSources.map(s => s.url));
+    const validatedSources = (parsed.sources || []).filter((s: any) =>
+      s?.url && s?.title && (allowedUrls.has(s.url) || allowedUrls.size === 0)
+    );
+
     return {
       verdict: parsed.verdict || "صحيح جزئياً",
       explanation: parsed.explanation || "تعذر تحليل الشائعة.",
       shortSummary: parsed.shortSummary || parsed.explanation?.substring(0, 100) || "",
-      sources: parsed.sources || [],
+      sources: validatedSources,
     };
   } catch (error) {
     console.error("[debunkMedicalRumor] Error:", error);
