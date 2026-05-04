@@ -94,6 +94,17 @@ export default function Header() {
             );
           })}
           
+          <Link href="/ask-capsule">
+            <Button
+              variant={location === "/ask-capsule" ? "secondary" : "ghost"}
+              className="gap-2 text-violet-700 dark:text-violet-400"
+              data-testid="link-debunk"
+            >
+              <FlaskConical className="h-4 w-4" />
+              تفنيد الشائعات
+            </Button>
+          </Link>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="gap-2" data-testid="button-categories">
@@ -237,6 +248,18 @@ export default function Header() {
                   })}
                 </nav>
                 
+                <Link href="/ask-capsule">
+                  <Button
+                    variant={location === "/ask-capsule" ? "secondary" : "ghost"}
+                    className="w-full justify-start gap-3 text-violet-700 dark:text-violet-400"
+                    onClick={() => setMobileOpen(false)}
+                    data-testid="link-mobile-debunk"
+                  >
+                    <FlaskConical className="h-5 w-5" />
+                    تفنيد الشائعات
+                  </Button>
+                </Link>
+
                 <div className="mt-4 border-t pt-4">
                   <div className="flex items-center gap-2 px-2 mb-3">
                     <Sparkles className="h-4 w-4 text-primary" />
