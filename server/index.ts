@@ -229,6 +229,23 @@ async function fixCategoriesArabic() {
       log(`serving on port ${port}`);
     });
 
+    // Graceful shutdown — frees the port cleanly on SIGTERM/SIGINT so the next
+    // process can bind immediately without hitting EADDRINUSE.
+    const shutdown = (signal: string) => {
+      log(`[Shutdown] ${signal} received — closing server gracefully`);
+      server.close(() => {
+        log('[Shutdown] HTTP server closed');
+        process.exit(0);
+      });
+      // Force exit after 10 s if connections are still lingering
+      setTimeout(() => {
+        log('[Shutdown] Forcing exit after 10s timeout');
+        process.exit(1);
+      }, 10_000).unref();
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT',  () => shutdown('SIGINT'));
+
     // Background scheduler: promote overdue scheduled news every 60 seconds
     const runScheduler = async () => {
       try {
