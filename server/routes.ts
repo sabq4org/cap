@@ -169,6 +169,20 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
       return null;
     }
     
+    // Detect HEIF/AVIF format (Sharp cannot decode these) — bail early
+    // Magic: bytes 4-7 are 'ftyp' (0x66 0x74 0x79 0x70)
+    if (
+      imageBuffer.length > 11 &&
+      imageBuffer[4] === 0x66 && imageBuffer[5] === 0x74 &&
+      imageBuffer[6] === 0x79 && imageBuffer[7] === 0x70
+    ) {
+      const brand = imageBuffer.toString('ascii', 8, 12).toLowerCase();
+      if (['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1', 'avif', 'avis'].includes(brand)) {
+        console.warn(`[OG] Skipping unsupported HEIF/AVIF image (brand: ${brand})`);
+        return null;
+      }
+    }
+
     const maxDim = 1200;
 
     let resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
@@ -1874,10 +1888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!newsItem) {
         return res.status(404).json({ message: "News not found" });
       }
-      const categoryNews = await storage.getNews(newsItem.category || undefined, 20);
-      const related = categoryNews
-        .filter(n => n.id !== newsItem.id)
-        .slice(0, 10);
+      const related = await storage.getRelatedNews(newsItem.id, newsItem.category || 'general', 10);
       res.json(related);
     } catch (error) {
       console.error("Error fetching related news:", error);

@@ -129,6 +129,7 @@ export interface IStorage {
 
   // News operations
   getNews(category?: string, limit?: number): Promise<News[]>;
+  getRelatedNews(newsId: string, category: string, limit?: number): Promise<News[]>;
   getNewsPaginated(category?: string, page?: number, perPage?: number, search?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }>;
   getNewsById(id: string): Promise<News | undefined>;
   getNewsByShortCode(shortCode: string): Promise<News | undefined>;
@@ -560,6 +561,42 @@ export class DatabaseStorage implements IStorage {
     await this.autoPromoteScheduledItems(results);
     newsCache.set(cacheKey, results, 60_000); // 60 seconds TTL
     return results;
+  }
+
+  async getRelatedNews(newsId: string, category: string, limit: number = 10): Promise<News[]> {
+    const cacheKey = `related:${category}:${newsId}:${limit}`;
+    const cached = newsCache.get<News[]>(cacheKey);
+    if (cached) return cached;
+
+    const results = await db
+      .select({
+        id: news.id, shortCode: news.shortCode, title: news.title, subtitle: news.subtitle,
+        summary: news.summary, category: news.category, source: news.source,
+        imageUrl: news.imageUrl, imageAlt: news.imageAlt, viewCount: news.viewCount,
+        isFeatured: news.isFeatured, isBreaking: news.isBreaking, isTranslated: news.isTranslated,
+        status: news.status, publishedAt: news.publishedAt, createdAt: news.createdAt,
+        updatedAt: news.updatedAt, keywords: news.keywords,
+        // Exclude heavy content column
+        content: sql<string>`''`,
+        // Required by News type
+        todayViews: news.todayViews, todayViewsDate: news.todayViewsDate,
+        seoTitle: news.seoTitle, seoDescription: news.seoDescription,
+        sourceUrl: news.sourceUrl, scheduledAt: news.scheduledAt,
+        deletedAt: news.deletedAt,
+      })
+      .from(news)
+      .where(
+        and(
+          eq(news.status, 'published'),
+          eq(news.category, category),
+          sql`${news.id} != ${newsId}`,
+        )
+      )
+      .orderBy(desc(news.publishedAt))
+      .limit(limit);
+
+    newsCache.set(cacheKey, results, 300_000); // 5 min TTL
+    return results as unknown as News[];
   }
 
   async getNewsPaginated(category?: string, page: number = 1, perPage: number = 20, search?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }> {
