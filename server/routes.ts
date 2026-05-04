@@ -4496,6 +4496,42 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
           aiResponse: responseData,
           publishedNewsId: publishedNews.id,
         });
+
+        // Generate a relevant image in the background (fire-and-forget)
+        (async () => {
+          try {
+            const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
+            if (!privateObjectDir) return;
+
+            const imagePrompt = buildNewsImagePrompt({
+              title: responseData.shortSummary || rumor.rumorText.substring(0, 120),
+              summary: rumor.rumorText.substring(0, 300),
+              category: 'health',
+              style: 'photorealistic',
+              mood: 'serious',
+              language: 'Arabic',
+            });
+
+            const imgResult = await generateImage({ prompt: imagePrompt });
+            if (!imgResult.success || !imgResult.imageBuffer) return;
+
+            const extension = imgResult.imageMimeType?.includes('png') ? 'png' : 'jpg';
+            const fileName = `ai-${randomUUID()}.${extension}`;
+            const fullPath = `${privateObjectDir}/uploads/${fileName}`;
+            const pathParts = fullPath.startsWith('/') ? fullPath.slice(1).split('/') : fullPath.split('/');
+            const bucket = objectStorageClient.bucket(pathParts[0]);
+            await bucket.file(pathParts.slice(1).join('/')).save(imgResult.imageBuffer, {
+              contentType: imgResult.imageMimeType || 'image/png',
+              resumable: false,
+            });
+
+            await storage.updateNews(publishedNews.id, { imageUrl: `/objects/uploads/${fileName}` });
+            console.log(`[Rumor] صورة الشائعة ${publishedNews.id} تم توليدها وحفظها`);
+          } catch (imgErr) {
+            console.error('[Rumor] فشل توليد صورة الشائعة (غير حرج):', imgErr);
+          }
+        })();
+
         return res.json({ ...updated, publishedNews });
       }
 
