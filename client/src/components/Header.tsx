@@ -60,16 +60,13 @@ export default function Header() {
   const navItems = isAuthenticated ? [
     { label: "الرئيسية", path: "/", icon: Home, activePaths: ["/"] },
     { label: "الأخبار", path: "/news", icon: Newspaper, activePaths: ["/news"] },
-    { label: "الكبسولة الصوتية", path: "/podcast", icon: Headphones, activePaths: ["/podcast"] },
     { label: "جرعتك اليومية", path: "/capsule", icon: Pill, activePaths: ["/capsule"] },
-    { label: "بوابتي الصحية", path: "/portal", icon: LayoutDashboard, activePaths: ["/portal"] },
     { label: "المساعد الصحي", path: "/assistant", icon: Heart, activePaths: ["/assistant"] },
     { label: "التغذية", path: "/nutrition", icon: Apple, activePaths: ["/nutrition"] },
     { label: "ملفي الصحي", path: "/profile", icon: Activity, activePaths: ["/profile"] },
   ] : [
     { label: "الرئيسية", path: "/", icon: Home, activePaths: ["/"] },
     { label: "الأخبار", path: "/news", icon: Newspaper, activePaths: ["/news"] },
-    { label: "الكبسولة الصوتية", path: "/podcast", icon: Headphones, activePaths: ["/podcast"] },
   ];
 
   return (
