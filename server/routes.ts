@@ -4444,14 +4444,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (action === "publish") {
-        // Create a news item with category "debunk"
+        // Create or update a news item with category "debunk"
         const responseData = aiResponse || rumor.aiResponse;
         if (!responseData) {
           return res.status(400).json({ message: "لا يوجد رد من الذكاء الاصطناعي للنشر" });
         }
 
-        const verdictEmoji = responseData.verdict === "خرافة" ? "❌" : responseData.verdict === "صحيح" ? "✅" : "⚠️";
-        const newsTitle = `تفنيد | ${verdictEmoji} ${responseData.shortSummary || rumor.rumorText.substring(0, 80)}`;
+        // Ensure responseData is a plain serialisable object before writing to JSONB
+        let safeResponseData: any;
+        try {
+          safeResponseData = JSON.parse(JSON.stringify(responseData));
+        } catch (serErr) {
+          console.error("[PATCH /api/admin/rumors/:id] aiResponse is not JSON-serialisable:", serErr);
+          return res.status(400).json({ message: "بيانات الذكاء الاصطناعي غير صالحة للحفظ" });
+        }
+        if (typeof safeResponseData !== 'object' || safeResponseData === null || Array.isArray(safeResponseData)) {
+          console.error("[PATCH /api/admin/rumors/:id] aiResponse is not a plain object:", typeof safeResponseData);
+          return res.status(400).json({ message: "بيانات الذكاء الاصطناعي غير صالحة للحفظ" });
+        }
+
+        const verdictEmoji = safeResponseData.verdict === "خرافة" ? "❌" : safeResponseData.verdict === "صحيح" ? "✅" : "⚠️";
+        const newsTitle = `تفنيد | ${verdictEmoji} ${safeResponseData.shortSummary || rumor.rumorText.substring(0, 80)}`;
         const platformLabels: Record<string, string> = {
           tiktok: "تيك توك", whatsapp: "واتساب", facebook: "فيسبوك", twitter: "تويتر", other: "الإنترنت"
         };
@@ -4462,38 +4475,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
 <blockquote>${rumor.rumorText}</blockquote>
 <p><strong>المصدر:</strong> ${platformLabel}</p>
 <hr/>
-<h2>الحكم: ${responseData.verdict}</h2>
-<p>${responseData.explanation}</p>
-${responseData.sources && responseData.sources.length > 0 ? `
+<h2>الحكم: ${safeResponseData.verdict}</h2>
+<p>${safeResponseData.explanation}</p>
+${safeResponseData.sources && safeResponseData.sources.length > 0 ? `
 <h3>المراجع والمصادر:</h3>
 <ul>
-${responseData.sources.map((s: { title: string; url: string }) => `<li><a href="${s.url}" target="_blank" rel="noopener">${s.title}</a></li>`).join('')}
+${safeResponseData.sources.map((s: { title: string; url: string }) => `<li><a href="${s.url}" target="_blank" rel="noopener">${s.title}</a></li>`).join('')}
 </ul>` : ''}
 ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` : ''}`.trim();
 
-        // Generate short code
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let shortCode = '';
-        for (let i = 0; i < 7; i++) shortCode += chars.charAt(Math.floor(Math.random() * chars.length));
-
-        const publishedNews = await storage.createNews({
+        const newsPayload = {
           title: newsTitle,
           subtitle: `شائعة انتشرت على ${platformLabel}`,
-          summary: responseData.shortSummary || "",
+          summary: safeResponseData.shortSummary || "",
           content: newsContent,
-          category: "debunk",
-          shortCode,
-          status: "published",
+          category: "debunk" as const,
+          status: "published" as const,
           publishedAt: new Date(),
           source: "اسأل كبسولة",
           isFeatured: false,
           isBreaking: false,
-        });
+        };
+
+        let publishedNews: any;
+        if (rumor.publishedNewsId) {
+          // Re-publish: update the existing news item to avoid duplicate/constraint conflicts
+          console.log(`[PATCH /api/admin/rumors/:id] Updating existing news item ${rumor.publishedNewsId} for rumor ${req.params.id}`);
+          publishedNews = await storage.updateNews(rumor.publishedNewsId, newsPayload);
+          if (!publishedNews) {
+            // Existing news was deleted — fall back to creating a new one
+            console.warn(`[PATCH /api/admin/rumors/:id] Existing news ${rumor.publishedNewsId} not found, creating new one`);
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let shortCode = '';
+            for (let i = 0; i < 7; i++) shortCode += chars.charAt(Math.floor(Math.random() * chars.length));
+            publishedNews = await storage.createNews({ ...newsPayload, shortCode });
+          }
+        } else {
+          // First publish: create a new news item
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+          let shortCode = '';
+          for (let i = 0; i < 7; i++) shortCode += chars.charAt(Math.floor(Math.random() * chars.length));
+          publishedNews = await storage.createNews({ ...newsPayload, shortCode });
+        }
 
         const updated = await storage.updateRumorSubmission(req.params.id, {
           status: "published",
           editorNotes: editorNotes || rumor.editorNotes,
-          aiResponse: responseData,
+          aiResponse: safeResponseData,
           publishedNewsId: publishedNews.id,
         });
 
@@ -4549,20 +4577,58 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
 
   // POST /api/admin/rumors/:id/regenerate — re-run AI debunk
   app.post("/api/admin/rumors/:id/regenerate", isAdminAuthenticated, async (req, res) => {
-    try {
-      const rumor = await storage.getRumorSubmissionById(req.params.id);
-      if (!rumor) return res.status(404).json({ message: "الشائعة غير موجودة" });
+    const rumorId = req.params.id;
 
-      const aiResponse = await debunkMedicalRumor(rumor.rumorText);
-      const updated = await storage.updateRumorSubmission(req.params.id, {
-        status: "ai_responded",
-        aiResponse,
-      });
-      res.json(updated);
-    } catch (error: any) {
-      console.error("[POST /api/admin/rumors/:id/regenerate] Error:", error);
-      res.status(500).json({ message: "خطأ في إعادة التحليل" });
+    // Step 1: Fetch the rumor
+    let rumor: any;
+    try {
+      rumor = await storage.getRumorSubmissionById(rumorId);
+    } catch (dbErr: any) {
+      console.error(`[POST /api/admin/rumors/${rumorId}/regenerate] DB fetch error:`, dbErr?.message, dbErr?.stack);
+      return res.status(500).json({ message: "خطأ في قراءة بيانات الشائعة" });
     }
+    if (!rumor) return res.status(404).json({ message: "الشائعة غير موجودة" });
+
+    // Step 2: Call the AI debunk function
+    let aiResponse: any;
+    try {
+      aiResponse = await debunkMedicalRumor(rumor.rumorText);
+    } catch (aiErr: any) {
+      console.error(`[POST /api/admin/rumors/${rumorId}/regenerate] AI call error:`, aiErr?.message, aiErr?.stack);
+      return res.status(500).json({ message: "خطأ في استدعاء خدمة الذكاء الاصطناعي" });
+    }
+
+    // Ensure aiResponse is a plain JSON-serialisable object before writing to JSONB
+    let safeAiResponse: any;
+    try {
+      safeAiResponse = JSON.parse(JSON.stringify(aiResponse));
+    } catch (serErr: any) {
+      console.error(`[POST /api/admin/rumors/${rumorId}/regenerate] aiResponse serialisation error:`, serErr?.message);
+      return res.status(500).json({ message: "استجابة الذكاء الاصطناعي غير صالحة للحفظ" });
+    }
+    if (typeof safeAiResponse !== 'object' || safeAiResponse === null || Array.isArray(safeAiResponse)) {
+      console.error(`[POST /api/admin/rumors/${rumorId}/regenerate] aiResponse is not a plain object:`, typeof safeAiResponse);
+      return res.status(500).json({ message: "استجابة الذكاء الاصطناعي غير صالحة للحفظ" });
+    }
+
+    // Step 3: Persist the result
+    let updated: any;
+    try {
+      updated = await storage.updateRumorSubmission(rumorId, {
+        status: "ai_responded",
+        aiResponse: safeAiResponse,
+      });
+    } catch (updateErr: any) {
+      console.error(`[POST /api/admin/rumors/${rumorId}/regenerate] DB update error:`, updateErr?.message, updateErr?.stack);
+      return res.status(500).json({ message: "خطأ في حفظ نتيجة التحليل" });
+    }
+
+    if (!updated) {
+      console.error(`[POST /api/admin/rumors/${rumorId}/regenerate] updateRumorSubmission returned undefined — ID not found mid-flight`);
+      return res.status(404).json({ message: "الشائعة غير موجودة أو تم حذفها" });
+    }
+
+    return res.json(updated);
   });
 
   // ─── WhatsApp Newsletter API ────────────────────────────────────────────────
