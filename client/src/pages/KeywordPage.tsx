@@ -16,7 +16,8 @@ const categoryLabels: Record<string, string> = {
   conference: "مؤتمرات طبية",
   awareness: "أخبار توعوية",
   nutrition: "أخبار التغذية",
-  saudi: "أخبار السعودية"
+  saudi: "أخبار السعودية",
+  debunk: "تفنيد"
 };
 
 const categoryColors: Record<string, string> = {

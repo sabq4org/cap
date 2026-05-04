@@ -38,7 +38,8 @@ const categoryLabels: Record<string, string> = {
   "health-events": "فعاليات صحية",
   "quality-life": "جودة حياة",
   "nutrition": "تغذية",
-  "misc": "منوعات"
+  "misc": "منوعات",
+  "debunk": "تفنيد"
 };
 
 const categoryColors: Record<string, string> = {
