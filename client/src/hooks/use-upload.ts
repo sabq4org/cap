@@ -16,6 +16,7 @@ interface UploadResponse {
 interface UseUploadOptions {
   onSuccess?: (response: UploadResponse) => void;
   onError?: (error: Error) => void;
+  endpoint?: string;
 }
 
 /**
@@ -62,7 +63,7 @@ export function useUpload(options: UseUploadOptions = {}) {
    */
   const requestUploadUrl = useCallback(
     async (file: File): Promise<UploadResponse> => {
-      const response = await fetch("/api/uploads/request-url", {
+      const response = await fetch(options.endpoint || "/api/uploads/request-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

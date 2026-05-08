@@ -5416,6 +5416,58 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   // ==========================================
 
   const authorRegLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false });
+  const authorUploadLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false });
+
+  const AUTHOR_UPLOAD_MIME = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "image/avif", "application/pdf"]);
+  // Public read route for author profile images (UUIDs are unguessable; credentials are NEVER served via this route)
+  app.get('/api/author-image/:objectId', async (req, res) => {
+    try {
+      const { ObjectStorageService, ObjectNotFoundError } = await import('./replit_integrations/object_storage/objectStorage');
+      const objectId = req.params.objectId;
+      if (!/^[a-zA-Z0-9._-]+$/.test(objectId)) {
+        return res.status(400).json({ error: "معرّف غير صحيح" });
+      }
+      const svc = new ObjectStorageService();
+      try {
+        const file = await svc.getObjectEntityFile(`/objects/uploads/${objectId}`);
+        res.set({
+          "Content-Disposition": "inline",
+          "X-Content-Type-Options": "nosniff",
+          "Cache-Control": "public, max-age=86400",
+        });
+        await svc.downloadObject(file, res, 86400);
+      } catch (e: any) {
+        if (e instanceof ObjectNotFoundError || e?.name === 'ObjectNotFoundError') {
+          return res.status(404).json({ error: "لم يُعثر على الصورة" });
+        }
+        throw e;
+      }
+    } catch (e) {
+      console.error("author-image error:", e);
+      if (!res.headersSent) res.status(500).json({ error: "فشل عرض الصورة" });
+    }
+  });
+
+  app.post('/api/authors/upload-url', authorUploadLimiter, async (req, res) => {
+    try {
+      const { ObjectStorageService } = await import('./replit_integrations/object_storage/objectStorage');
+      const { name, size, contentType } = req.body as { name?: string; size?: number; contentType?: string };
+      if (!name) return res.status(400).json({ error: "اسم الملف مطلوب" });
+      if (!contentType || !AUTHOR_UPLOAD_MIME.has(contentType)) {
+        return res.status(400).json({ error: "نوع الملف غير مدعوم. الأنواع المسموحة: صور وPDF" });
+      }
+      if (typeof size === 'number' && size > 10 * 1024 * 1024) {
+        return res.status(400).json({ error: "حجم الملف يتجاوز 10 ميجابايت" });
+      }
+      const svc = new ObjectStorageService();
+      const uploadURL = await svc.getObjectEntityUploadURL();
+      const objectPath = svc.normalizeObjectEntityPath(uploadURL);
+      res.json({ uploadURL, objectPath, metadata: { name, size, contentType } });
+    } catch (e) {
+      console.error("Author upload-url error:", e);
+      res.status(500).json({ error: "فشل توليد رابط الرفع" });
+    }
+  });
 
   const slugifyAuthor = (name: string): string => {
     const base = name
@@ -5428,12 +5480,20 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     return base || `author-${Date.now()}`;
   };
 
+  // Rewrite private object paths to public author-image route
+  const toPublicImageUrl = (url: string | null | undefined): string | null => {
+    if (!url) return null;
+    const m = url.match(/^\/objects\/uploads\/(.+)$/);
+    if (m) return `/api/author-image/${m[1]}`;
+    return url;
+  };
+
   // Strip private fields (email, phone, credentials, review notes) before sending to public
   const toPublicAuthor = (a: any) => ({
     id: a.id,
     slug: a.slug,
     fullName: a.fullName,
-    profileImageUrl: a.profileImageUrl,
+    profileImageUrl: toPublicImageUrl(a.profileImageUrl),
     bio: a.bio,
     specialty: a.specialty,
     jobTitle: a.jobTitle,

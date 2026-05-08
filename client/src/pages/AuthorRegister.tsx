@@ -41,10 +41,12 @@ export default function AuthorRegister() {
   });
 
   const { uploadFile: uploadProfile, isUploading: isUpProfile } = useUpload({
+    endpoint: "/api/authors/upload-url",
     onSuccess: (r) => form.setValue("profileImageUrl", r.objectPath),
     onError: (e) => toast({ title: "فشل الرفع", description: e.message, variant: "destructive" }),
   });
   const { uploadFile: uploadCred, isUploading: isUpCred } = useUpload({
+    endpoint: "/api/authors/upload-url",
     onSuccess: (r) => form.setValue("credentialsImageUrl", r.objectPath),
     onError: (e) => toast({ title: "فشل الرفع", description: e.message, variant: "destructive" }),
   });
