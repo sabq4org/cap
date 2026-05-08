@@ -164,7 +164,8 @@ export default function Landing() {
   const latestArticles = articles?.slice(0, 3) || [];
 
   return (
-    <div className="min-h-screen p-6 bg-background" dir="rtl">
+    <div className="min-h-screen bg-background overflow-x-hidden" dir="rtl">
+      <div className="px-4 md:px-6 pt-6">
       <div className="container mx-auto max-w-7xl">
         <AdBanner position="above_featured" className="mb-4" />
         {newsLoading ? (
@@ -274,132 +275,123 @@ export default function Landing() {
         ) : null}
 
         <AdBanner position="below_featured" className="mt-4" />
+      </div>
+      </div>
 
-        {/* ── Debunk Block ── */}
-        <section
-          className="relative py-14 md:py-18 overflow-hidden -mx-6 mt-6"
-          dir="rtl"
-          style={{
-            background: "linear-gradient(135deg, #052e16 0%, #064e3b 50%, #0a3728 100%)",
-          }}
-        >
-          <div className="pointer-events-none absolute -top-24 right-0 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: "radial-gradient(circle, #16a34a, transparent 70%)" }} />
-          <div className="pointer-events-none absolute bottom-0 left-10 w-72 h-72 rounded-full opacity-15 blur-3xl" style={{ background: "radial-gradient(circle, #059669, transparent 70%)" }} />
+      {/* ── Debunk Block — full width light green ── */}
+      <section className="py-10 md:py-14 mt-6 bg-green-50 dark:bg-green-950/20 border-y border-green-100 dark:border-green-900/30" dir="rtl">
+        <div className="container mx-auto max-w-7xl px-4 md:px-6">
+          <div className="grid lg:grid-cols-2 gap-8 items-center">
 
-          <div className="relative px-6">
-            <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 items-center">
-
-              {/* CTA column */}
-              <div className="space-y-6 text-white">
-                <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold border border-green-400/40 bg-green-500/20 text-green-200">
-                  <Bot className="h-3.5 w-3.5" />
-                  مدعوم بالذكاء الاصطناعي · AI-Powered
-                </div>
-                <div>
-                  <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-3">
-                    تفنيد الشائعات
-                    <span className="block text-green-300">الصحية بالذكاء الاصطناعي</span>
-                  </h2>
-                  <p className="text-slate-300 text-lg leading-relaxed">
-                    انشر الحقيقة، لا الشائعة — أرسل لنا ما سمعته ونحللها بالذكاء الاصطناعي ليردّ فريقنا الطبي بتفنيد علمي موثق.
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link href="/ask">
-                    <Button
-                      size="lg"
-                      className="gap-2 bg-green-600 hover:bg-green-500 text-white border-0 h-12 px-6 font-semibold"
-                      data-testid="button-cta-submit-rumor"
-                    >
-                      <Send className="h-4 w-4" />
-                      أرسل شائعة للتحقق منها
-                    </Button>
-                  </Link>
-                  <Link href="/news?category=debunk">
-                    <Button
-                      size="lg"
-                      variant="ghost"
-                      className="gap-2 text-slate-300 hover:text-white hover:bg-white/10 h-12 px-6"
-                      data-testid="button-view-all-debunks"
-                    >
-                      عرض جميع الشائعات المُفنَّدة
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </div>
+            {/* CTA column */}
+            <div className="space-y-5">
+              <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold border border-green-300 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">
+                <Bot className="h-3.5 w-3.5" />
+                مدعوم بالذكاء الاصطناعي · AI-Powered
               </div>
-
-              {/* Cards column */}
-              <div
-                className="space-y-3"
-                dir="rtl"
-                onMouseEnter={() => { isPaused.current = true; }}
-                onMouseLeave={() => { isPaused.current = false; }}
-                style={{ transition: "opacity 0.35s ease", opacity: visible ? 1 : 0 }}
-              >
-                {debunksLoading ? (
-                  <>
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="rounded-xl p-4 border border-white/10 bg-white/5">
-                        <Skeleton className="h-5 w-24 mb-3 bg-white/10" />
-                        <Skeleton className="h-4 w-full mb-2 bg-white/10" />
-                        <Skeleton className="h-3 w-1/3 bg-white/10" />
-                      </div>
-                    ))}
-                  </>
-                ) : latestDebunks.length > 0 ? (
-                  <>
-                    {latestDebunks.map((item) => {
-                      const verdict = getVerdictFromTitle(item.title);
-                      const VerdictIcon = verdict?.icon;
-                      const cleanTitle = getCleanDebunkTitle(item.title);
-                      return (
-                        <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
-                          <div
-                            className="rounded-xl p-4 border border-white/10 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-                            data-testid={`debunk-card-${item.id}`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="flex-1 min-w-0">
-                                {verdict && VerdictIcon && (
-                                  <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full mb-2 ${verdict.chipClass}`}>
-                                    <VerdictIcon className={`h-3 w-3 ${verdict.iconColor}`} />
-                                    {verdict.label}
-                                  </span>
-                                )}
-                                <p className="text-white font-medium text-sm leading-snug line-clamp-2">{cleanTitle}</p>
-                                <p className="text-slate-400 text-xs mt-1">{formatDate(item.publishedAt)}</p>
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                    {totalSets > 1 && (
-                      <div className="flex justify-center gap-2 pt-1" data-testid="debunk-dots">
-                        {Array.from({ length: totalSets }).map((_, i) => (
-                          <button
-                            key={i}
-                            onClick={() => { setVisible(false); setTimeout(() => { setCurrentSet(i); setVisible(true); }, 350); }}
-                            className={`rounded-full transition-all ${i === currentSet ? "w-5 h-2 bg-green-400" : "w-2 h-2 bg-white/30"}`}
-                            data-testid={`debunk-dot-${i}`}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="text-center py-10 text-slate-400" data-testid="debunks-empty">
-                    <ShieldAlert className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                    <p className="font-medium">لا توجد شائعات مُفنَّدة بعد</p>
-                    <p className="text-slate-500 text-sm">كن أول من يرسل شائعة للتحليل</p>
-                  </div>
-                )}
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-slate-100 leading-tight mb-2">
+                  تفنيد الشائعات الصحية
+                  <span className="block text-primary">بالذكاء الاصطناعي</span>
+                </h2>
+                <p className="text-slate-500 dark:text-slate-400 text-base leading-relaxed">
+                  أرسل لنا ما سمعته ونحللها علمياً — ليردّ فريقنا الطبي بتفنيد موثق.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link href="/ask">
+                  <Button
+                    size="lg"
+                    className="gap-2 h-11 px-6 font-semibold"
+                    data-testid="button-cta-submit-rumor"
+                  >
+                    <Send className="h-4 w-4" />
+                    أرسل شائعة للتحقق منها
+                  </Button>
+                </Link>
+                <Link href="/news?category=debunk">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="gap-2 h-11 px-6 border-green-300 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30"
+                    data-testid="button-view-all-debunks"
+                  >
+                    عرض جميع الشائعات المُفنَّدة
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                </Link>
               </div>
             </div>
-          </div>
-        </section>
 
+            {/* Cards column — titles only */}
+            <div
+              onMouseEnter={() => { isPaused.current = true; }}
+              onMouseLeave={() => { isPaused.current = false; }}
+              style={{ transition: "opacity 0.35s ease", opacity: visible ? 1 : 0 }}
+              className="space-y-2"
+            >
+              {debunksLoading ? (
+                <>
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="rounded-lg p-3 bg-white dark:bg-slate-800/50 border border-green-100 dark:border-green-900/40">
+                      <Skeleton className="h-4 w-20 mb-2" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                  ))}
+                </>
+              ) : latestDebunks.length > 0 ? (
+                <>
+                  {latestDebunks.map((item) => {
+                    const verdict = getVerdictFromTitle(item.title);
+                    const VerdictIcon = verdict?.icon;
+                    const cleanTitle = getCleanDebunkTitle(item.title);
+                    return (
+                      <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
+                        <div
+                          className="rounded-lg p-3 bg-white dark:bg-slate-800/50 border border-green-100 dark:border-green-900/40 hover:border-green-300 hover:shadow-sm transition-all cursor-pointer"
+                          data-testid={`debunk-card-${item.id}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {verdict && VerdictIcon && (
+                              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${verdict.chipClass}`}>
+                                <VerdictIcon className={`h-3 w-3 ${verdict.iconColor}`} />
+                                {verdict.label}
+                              </span>
+                            )}
+                            <p className="text-slate-700 dark:text-slate-200 font-medium text-sm leading-snug line-clamp-1 flex-1">{cleanTitle}</p>
+                            <ChevronLeft className="h-4 w-4 text-slate-400 shrink-0" />
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                  {totalSets > 1 && (
+                    <div className="flex justify-center gap-2 pt-1" data-testid="debunk-dots">
+                      {Array.from({ length: totalSets }).map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => { setVisible(false); setTimeout(() => { setCurrentSet(i); setVisible(true); }, 350); }}
+                          className={`rounded-full transition-all ${i === currentSet ? "w-5 h-2 bg-primary" : "w-2 h-2 bg-slate-300 dark:bg-slate-600"}`}
+                          data-testid={`debunk-dot-${i}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8 text-slate-400" data-testid="debunks-empty">
+                  <ShieldAlert className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="font-medium text-sm">لا توجد شائعات مُفنَّدة بعد</p>
+                  <p className="text-slate-400 text-xs mt-1">كن أول من يرسل شائعة للتحليل</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="px-4 md:px-6 pb-6">
+      <div className="container mx-auto max-w-7xl">
         <div className="mt-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
@@ -687,6 +679,7 @@ export default function Landing() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
