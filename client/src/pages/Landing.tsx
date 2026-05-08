@@ -299,7 +299,7 @@ export default function Landing() {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
-                <Link href="/ask">
+                <Link href="/ask-capsule">
                   <Button
                     size="lg"
                     className="gap-2 h-11 px-6 font-semibold"
