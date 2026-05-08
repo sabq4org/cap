@@ -1,6 +1,6 @@
-import { MessageSquare, Apple, Activity, BookOpen, ArrowLeft, Sparkles, XCircle, CheckCircle, AlertTriangle, Clock, ShieldAlert, Bot, Send, ChevronLeft } from "lucide-react";
+import { MessageSquare, Apple, Activity, BookOpen, ArrowLeft, Sparkles, XCircle, CheckCircle, AlertTriangle, Clock, ShieldAlert, Bot, Send, ChevronLeft, MousePointerClick } from "lucide-react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import Hero from "@/components/Hero";
 import StatsCard from "@/components/StatsCard";
@@ -8,6 +8,7 @@ import ArticleCard from "@/components/ArticleCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { apiRequest } from "@/lib/queryClient";
 import type { News as NewsType } from "@shared/schema";
 
 interface PaginatedResponse {
@@ -101,6 +102,14 @@ export default function Home() {
     currentSet * CARDS_PER_PAGE + CARDS_PER_PAGE
   );
 
+  const { data: ctaTotalData } = useQuery<{ total: number }>({
+    queryKey: ["/api/analytics/debunk-cta/total"],
+  });
+
+  const ctaClickMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/analytics/debunk-cta"),
+  });
+
   return (
     <div className="flex flex-col">
       <Hero />
@@ -144,6 +153,7 @@ export default function Home() {
                     size="lg"
                     className="gap-2 bg-violet-600 hover:bg-violet-500 text-white border-0 h-12 px-6 font-semibold"
                     data-testid="button-cta-submit-rumor"
+                    onClick={() => ctaClickMutation.mutate()}
                   >
                     <Send className="h-4 w-4" />
                     أرسل شائعة للتحقق منها
@@ -161,6 +171,16 @@ export default function Home() {
                   </Button>
                 </Link>
               </div>
+
+              {(ctaTotalData?.total ?? 0) > 0 && (
+                <div
+                  className="inline-flex items-center gap-2 text-sm text-violet-300/80"
+                  data-testid="text-debunk-cta-social-proof"
+                >
+                  <MousePointerClick className="h-3.5 w-3.5" />
+                  {ctaTotalData!.total.toLocaleString("ar-SA-u-nu-latn")} شائعة مُرسلة حتى الآن
+                </div>
+              )}
             </div>
 
             {/* Right column – Debunk cards */}

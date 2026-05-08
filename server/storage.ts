@@ -30,6 +30,8 @@ import {
   adStats,
   type AdStat,
   rumorSubmissions,
+  debunkCtaClicks,
+  type DebunkCtaClick,
   whatsappSubscribers,
   whatsappNewsletters,
   whatsappSettings,
@@ -240,6 +242,11 @@ export interface IStorage {
   updateRumorSubmission(id: string, data: Partial<RumorSubmission>): Promise<RumorSubmission | undefined>;
   getPublishedRumors(limit?: number): Promise<RumorSubmission[]>;
   incrementRumorViewCount(id: string): Promise<void>;
+
+  // Debunk CTA analytics
+  recordDebunkCtaClick(): Promise<void>;
+  getDebunkCtaStats(days?: number): Promise<{ date: string; clicks: number }[]>;
+  getTotalDebunkCtaClicks(): Promise<number>;
 
   // WhatsApp subscriber operations
   getWhatsappSubscribers(filters?: { status?: string; isActive?: boolean }): Promise<WhatsappSubscriber[]>;
@@ -2411,6 +2418,38 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserInterests(userId: string, interests: string[]): Promise<void> {
     await db.update(users).set({ userInterests: interests, updatedAt: new Date() }).where(eq(users.id, userId));
+  }
+
+  async recordDebunkCtaClick(): Promise<void> {
+    const todaySA = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+    await db.execute(sql`
+      INSERT INTO debunk_cta_clicks (id, click_count, date)
+      VALUES (gen_random_uuid(), 1, ${todaySA})
+      ON CONFLICT (date)
+      DO UPDATE SET click_count = debunk_cta_clicks.click_count + 1
+    `);
+  }
+
+  async getDebunkCtaStats(days: number = 30): Promise<{ date: string; clicks: number }[]> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffDate = cutoff.toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+
+    const rows = await db.select({
+      date: debunkCtaClicks.date,
+      clicks: debunkCtaClicks.clickCount,
+    }).from(debunkCtaClicks)
+      .where(sql`${debunkCtaClicks.date} >= ${cutoffDate}`)
+      .orderBy(asc(debunkCtaClicks.date));
+
+    return rows.map(r => ({ date: r.date, clicks: r.clicks }));
+  }
+
+  async getTotalDebunkCtaClicks(): Promise<number> {
+    const [row] = await db.select({
+      total: sql<string>`COALESCE(SUM(${debunkCtaClicks.clickCount}), 0)::text`,
+    }).from(debunkCtaClicks);
+    return parseInt(row?.total || '0');
   }
 
   async getCapsuleFeed(interests: string[], page: number = 1, perPage: number = 20): Promise<{

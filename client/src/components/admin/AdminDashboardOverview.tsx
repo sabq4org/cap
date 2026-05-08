@@ -8,7 +8,7 @@ import {
   Newspaper, Eye, TrendingUp, Users, Radar, Calendar,
   Sparkles, Zap, AlertCircle, ArrowUpRight, Activity,
   Clock, Star, Shield, ChevronRight, Loader2, BookOpen,
-  CheckCircle2, XCircle, Hourglass, Globe
+  CheckCircle2, XCircle, Hourglass, Globe, MousePointerClick
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -314,6 +314,11 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
     refetchInterval: 120_000,
   });
 
+  const { data: debunkCtaData } = useQuery<{ stats: { date: string; clicks: number }[]; total: number }>({
+    queryKey: ["/api/admin/debunk-cta-stats"],
+    refetchInterval: 120_000,
+  });
+
   const { data: recentNews } = useQuery<any[]>({
     queryKey: ["/api/admin/news", "recent"],
     queryFn: async () => {
@@ -490,6 +495,16 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
           icon={Radar}
           color="bg-teal-500"
           sparkColor="#14b8a6"
+        />
+        <KpiCard
+          title="نقرات زر الشائعات"
+          value={debunkCtaData ? formatNumber(debunkCtaData.total) : "…"}
+          sub="إجمالي النقرات على الزر"
+          icon={MousePointerClick}
+          color="bg-violet-500"
+          sparkData={debunkCtaData?.stats.map(s => s.clicks)}
+          sparkColor="#8b5cf6"
+          trend={debunkCtaData && debunkCtaData.total > 0 ? "up" : "neutral"}
         />
       </div>
 

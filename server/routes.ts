@@ -1409,6 +1409,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public: record a debunk CTA click (fire-and-forget analytics)
+  app.post('/api/analytics/debunk-cta', async (req, res) => {
+    try {
+      await storage.recordDebunkCtaClick();
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error recording debunk CTA click:", error);
+      res.status(500).json({ message: "Failed to record click" });
+    }
+  });
+
+  // Public: get total debunk CTA clicks (for social proof)
+  app.get('/api/analytics/debunk-cta/total', async (req, res) => {
+    try {
+      const total = await storage.getTotalDebunkCtaClicks();
+      res.json({ total });
+    } catch (error) {
+      console.error("Error fetching debunk CTA total:", error);
+      res.status(500).json({ message: "Failed to fetch total" });
+    }
+  });
+
+  // Admin: debunk CTA click stats over time
+  app.get('/api/admin/debunk-cta-stats', requireAdminPermission('view_analytics'), async (req, res) => {
+    try {
+      const raw = parseInt(req.query.days as string);
+      const days = Number.isNaN(raw) ? 30 : Math.max(1, Math.min(365, raw));
+      const [stats, total] = await Promise.all([
+        storage.getDebunkCtaStats(days),
+        storage.getTotalDebunkCtaClicks(),
+      ]);
+      res.json({ stats, total });
+    } catch (error) {
+      console.error("Error fetching debunk CTA stats:", error);
+      res.status(500).json({ message: "Failed to fetch debunk CTA stats" });
+    }
+  });
+
   app.get('/api/admin/country-stats', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const raw = parseInt(req.query.days as string);

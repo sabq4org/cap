@@ -1066,6 +1066,18 @@ export const insertRumorSubmissionSchema = createInsertSchema(rumorSubmissions).
 export type InsertRumorSubmission = z.infer<typeof insertRumorSubmissionSchema>;
 export type RumorSubmission = typeof rumorSubmissions.$inferSelect;
 
+// ── Debunk CTA Click Analytics ───────────────────────────────────────────────
+
+export const debunkCtaClicks = pgTable("debunk_cta_clicks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clickCount: integer("click_count").default(0).notNull(),
+  date: varchar("date", { length: 10 }).notNull(),
+}, (table) => [
+  uniqueIndex("idx_debunk_cta_clicks_date").on(table.date),
+]);
+
+export type DebunkCtaClick = typeof debunkCtaClicks.$inferSelect;
+
 // ── WhatsApp Newsletter Subscription System ────────────────────────────────────
 
 export const whatsappInterestsEnum = [
