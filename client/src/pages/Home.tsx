@@ -1,14 +1,12 @@
-import { MessageSquare, Apple, Activity, BookOpen, ArrowLeft, Sparkles, XCircle, CheckCircle, AlertTriangle, Clock, ShieldAlert } from "lucide-react";
+import { MessageSquare, Apple, Activity, BookOpen, ArrowLeft, Sparkles, XCircle, CheckCircle, AlertTriangle, Clock, ShieldAlert, Bot, Send, ChevronLeft } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import Hero from "@/components/Hero";
 import StatsCard from "@/components/StatsCard";
 import ArticleCard from "@/components/ArticleCard";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getNewsImage } from "@/lib/newsImages";
 import type { News as NewsType } from "@shared/schema";
 
 interface PaginatedResponse {
@@ -19,9 +17,9 @@ interface PaginatedResponse {
 }
 
 const getVerdictFromTitle = (title: string) => {
-  if (title.includes("❌")) return { label: "خرافة", icon: XCircle, color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300", iconColor: "text-red-600 dark:text-red-400" };
-  if (title.includes("✅")) return { label: "صحيح", icon: CheckCircle, color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300", iconColor: "text-green-600 dark:text-green-400" };
-  if (title.includes("⚠️")) return { label: "صحيح جزئياً", icon: AlertTriangle, color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300", iconColor: "text-orange-600 dark:text-orange-400" };
+  if (title.includes("❌")) return { label: "خرافة", icon: XCircle, chipClass: "bg-red-500/20 text-red-200 border border-red-400/30", iconColor: "text-red-300" };
+  if (title.includes("✅")) return { label: "صحيح", icon: CheckCircle, chipClass: "bg-green-500/20 text-green-200 border border-green-400/30", iconColor: "text-green-300" };
+  if (title.includes("⚠️")) return { label: "صحيح جزئياً", icon: AlertTriangle, chipClass: "bg-orange-500/20 text-orange-200 border border-orange-400/30", iconColor: "text-orange-300" };
   return null;
 };
 
@@ -69,7 +67,7 @@ export default function Home() {
   ];
 
   const { data: debunksData, isLoading: debunksLoading } = useQuery<PaginatedResponse>({
-    queryKey: ["/api/news?page=1&perPage=4&category=debunk"],
+    queryKey: ["/api/news?page=1&perPage=3&category=debunk"],
   });
 
   const latestDebunks = debunksData?.news || [];
@@ -78,6 +76,136 @@ export default function Home() {
     <div className="flex flex-col">
       <Hero />
 
+      {/* ── Debunk Block ── */}
+      <section
+        className="relative py-16 md:py-20 overflow-hidden"
+        dir="rtl"
+        style={{
+          background: "linear-gradient(135deg, #1e1040 0%, #0f2d3d 50%, #162436 100%)",
+        }}
+      >
+        {/* decorative glowing orbs */}
+        <div className="pointer-events-none absolute -top-24 right-0 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: "radial-gradient(circle, #7c3aed, transparent 70%)" }} />
+        <div className="pointer-events-none absolute bottom-0 left-10 w-72 h-72 rounded-full opacity-15 blur-3xl" style={{ background: "radial-gradient(circle, #0891b2, transparent 70%)" }} />
+
+        <div className="relative container mx-auto px-4">
+          <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-10 items-center">
+
+            {/* Left column – CTA */}
+            <div className="space-y-6 text-white">
+              {/* AI badge */}
+              <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold border border-violet-400/40 bg-violet-500/20 text-violet-200">
+                <Bot className="h-3.5 w-3.5" />
+                مدعوم بالذكاء الاصطناعي · AI-Powered
+              </div>
+
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-3">
+                  تفنيد الشائعات
+                  <span className="block text-violet-300">الصحية بالذكاء الاصطناعي</span>
+                </h2>
+                <p className="text-slate-300 text-lg leading-relaxed">
+                  انشر الحقيقة، لا الشائعة — أرسل لنا ما سمعته ونحللها بالذكاء الاصطناعي ليردّ فريقنا الطبي بتفنيد علمي موثق.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link href="/ask">
+                  <Button
+                    size="lg"
+                    className="gap-2 bg-violet-600 hover:bg-violet-500 text-white border-0 h-12 px-6 font-semibold"
+                    data-testid="button-cta-submit-rumor"
+                  >
+                    <Send className="h-4 w-4" />
+                    أرسل شائعة للتحقق منها
+                  </Button>
+                </Link>
+                <Link href="/news?category=debunk">
+                  <Button
+                    size="lg"
+                    variant="ghost"
+                    className="gap-2 text-slate-300 hover:text-white hover:bg-white/10 h-12 px-6"
+                    data-testid="button-view-all-debunks"
+                  >
+                    عرض جميع الشائعات المُفنَّدة
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            {/* Right column – Debunk cards */}
+            <div className="space-y-3" dir="rtl">
+              {debunksLoading ? (
+                <>
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl p-4 border border-white/10 bg-white/5"
+                    >
+                      <Skeleton className="h-5 w-24 mb-3 bg-white/10" />
+                      <Skeleton className="h-4 w-full mb-2 bg-white/10" />
+                      <Skeleton className="h-3 w-1/3 bg-white/10" />
+                    </div>
+                  ))}
+                </>
+              ) : latestDebunks.length > 0 ? (
+                <>
+                  {latestDebunks.map((item) => {
+                    const verdict = getVerdictFromTitle(item.title);
+                    const cleanTitle = getCleanDebunkTitle(item.title);
+                    const href = item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
+                    const VerdictIcon = verdict?.icon;
+                    return (
+                      <Link key={item.id} href={href}>
+                        <div
+                          className="group rounded-xl p-4 border border-white/10 bg-white/5 hover:bg-white/10 hover:border-violet-400/40 transition-all cursor-pointer"
+                          data-testid={`debunk-card-${item.id}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* verdict chip */}
+                            {verdict && (
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold shrink-0 mt-0.5 ${verdict.chipClass}`}
+                                data-testid={`badge-verdict-${item.id}`}
+                              >
+                                {VerdictIcon && <VerdictIcon className={`h-3 w-3 ${verdict.iconColor}`} />}
+                                {verdict.label}
+                              </span>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm font-semibold text-white line-clamp-2 leading-snug group-hover:text-violet-200 transition-colors">
+                                {cleanTitle}
+                              </h3>
+                              <div className="flex items-center gap-1 mt-1.5 text-xs text-slate-400">
+                                <Clock className="h-3 w-3 shrink-0" />
+                                {formatDate(item.publishedAt)}
+                              </div>
+                            </div>
+                            <ChevronLeft className="h-4 w-4 text-slate-500 group-hover:text-violet-300 transition-colors shrink-0 mt-1" />
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </>
+              ) : (
+                <div
+                  className="rounded-xl p-10 border border-white/10 bg-white/5 text-center"
+                  data-testid="debunks-empty"
+                >
+                  <ShieldAlert className="h-10 w-10 mx-auto mb-3 text-violet-400 opacity-60" />
+                  <p className="text-slate-300 font-medium mb-1">لا توجد شائعات مفنَّدة بعد</p>
+                  <p className="text-slate-500 text-sm">كن أول من يرسل شائعة للتحليل</p>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ── Why Capsule ── */}
       <section className="py-16 md:py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto mb-12">
@@ -121,6 +249,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── Latest Articles ── */}
       <section className="py-16 md:py-20">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto mb-12">
@@ -165,92 +294,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-16 md:py-20 bg-violet-50/50 dark:bg-violet-950/10 border-y border-violet-100 dark:border-violet-900/30" dir="rtl">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between max-w-6xl mx-auto mb-10">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-violet-100 dark:bg-violet-900/30 px-4 py-2 text-sm font-medium text-violet-700 dark:text-violet-300 mb-3">
-                <ShieldAlert className="h-4 w-4" />
-                تفنيد الشائعات الصحية
-              </div>
-              <h2 className="text-2xl md:text-3xl font-bold">أحدث الشائعات المُفنَّدة</h2>
-              <p className="text-muted-foreground mt-1">نكشف الحقيقة وراء الشائعات الصحية المنتشرة</p>
-            </div>
-            <Link href="/news?category=debunk">
-              <Button variant="outline" className="gap-2 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/30" data-testid="button-view-all-debunks">
-                عرض الكل
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-
-          {debunksLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
-              {[1, 2, 3, 4].map((i) => (
-                <Card key={i} className="overflow-hidden">
-                  <Skeleton className="aspect-video w-full" />
-                  <CardContent className="p-4">
-                    <Skeleton className="h-5 w-1/3 mb-3" />
-                    <Skeleton className="h-4 w-full mb-2" />
-                    <Skeleton className="h-4 w-3/4" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : latestDebunks.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
-              {latestDebunks.map((item) => {
-                const verdict = getVerdictFromTitle(item.title);
-                const cleanTitle = getCleanDebunkTitle(item.title);
-                const href = item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
-                const VerdictIcon = verdict?.icon;
-                return (
-                  <Link key={item.id} href={href}>
-                    <Card
-                      className="hover-elevate cursor-pointer transition-all overflow-hidden h-full border-violet-100 dark:border-violet-900/30"
-                      data-testid={`debunk-card-${item.id}`}
-                    >
-                      <div className="relative">
-                        <img
-                          src={getNewsImage(item)}
-                          alt={cleanTitle}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full aspect-video object-cover"
-                        />
-                        {verdict && (
-                          <span
-                            className={`absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold shadow-lg z-10 ${verdict.color}`}
-                            data-testid={`badge-verdict-${item.id}`}
-                          >
-                            {VerdictIcon && <VerdictIcon className="h-3.5 w-3.5" />}
-                            {verdict.label}
-                          </span>
-                        )}
-                      </div>
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold text-sm line-clamp-3 mb-3 leading-relaxed">
-                          {cleanTitle}
-                        </h3>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="w-3 h-3" />
-                          {formatDate(item.publishedAt)}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground max-w-6xl mx-auto" data-testid="debunks-empty">
-              <ShieldAlert className="w-12 h-12 mx-auto mb-3 opacity-40" />
-              <p>لا توجد شائعات مفنَّدة بعد</p>
-            </div>
-          )}
-        </div>
-      </section>
-
+      {/* ── Final CTA ── */}
       <section className="py-16 md:py-20 bg-primary/5 border-y">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center space-y-6">
