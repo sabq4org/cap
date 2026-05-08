@@ -280,25 +280,25 @@ export default function Landing() {
           className="relative py-14 md:py-18 overflow-hidden -mx-6 mt-6"
           dir="rtl"
           style={{
-            background: "linear-gradient(135deg, #1e1040 0%, #0f2d3d 50%, #162436 100%)",
+            background: "linear-gradient(135deg, #052e16 0%, #064e3b 50%, #0a3728 100%)",
           }}
         >
-          <div className="pointer-events-none absolute -top-24 right-0 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: "radial-gradient(circle, #7c3aed, transparent 70%)" }} />
-          <div className="pointer-events-none absolute bottom-0 left-10 w-72 h-72 rounded-full opacity-15 blur-3xl" style={{ background: "radial-gradient(circle, #0891b2, transparent 70%)" }} />
+          <div className="pointer-events-none absolute -top-24 right-0 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: "radial-gradient(circle, #16a34a, transparent 70%)" }} />
+          <div className="pointer-events-none absolute bottom-0 left-10 w-72 h-72 rounded-full opacity-15 blur-3xl" style={{ background: "radial-gradient(circle, #059669, transparent 70%)" }} />
 
           <div className="relative px-6">
             <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 items-center">
 
               {/* CTA column */}
               <div className="space-y-6 text-white">
-                <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold border border-violet-400/40 bg-violet-500/20 text-violet-200">
+                <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold border border-green-400/40 bg-green-500/20 text-green-200">
                   <Bot className="h-3.5 w-3.5" />
                   مدعوم بالذكاء الاصطناعي · AI-Powered
                 </div>
                 <div>
                   <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-3">
                     تفنيد الشائعات
-                    <span className="block text-violet-300">الصحية بالذكاء الاصطناعي</span>
+                    <span className="block text-green-300">الصحية بالذكاء الاصطناعي</span>
                   </h2>
                   <p className="text-slate-300 text-lg leading-relaxed">
                     انشر الحقيقة، لا الشائعة — أرسل لنا ما سمعته ونحللها بالذكاء الاصطناعي ليردّ فريقنا الطبي بتفنيد علمي موثق.
@@ -308,7 +308,7 @@ export default function Landing() {
                   <Link href="/ask">
                     <Button
                       size="lg"
-                      className="gap-2 bg-violet-600 hover:bg-violet-500 text-white border-0 h-12 px-6 font-semibold"
+                      className="gap-2 bg-green-600 hover:bg-green-500 text-white border-0 h-12 px-6 font-semibold"
                       data-testid="button-cta-submit-rumor"
                     >
                       <Send className="h-4 w-4" />
@@ -381,7 +381,7 @@ export default function Landing() {
                           <button
                             key={i}
                             onClick={() => { setVisible(false); setTimeout(() => { setCurrentSet(i); setVisible(true); }, 350); }}
-                            className={`rounded-full transition-all ${i === currentSet ? "w-5 h-2 bg-violet-400" : "w-2 h-2 bg-white/30"}`}
+                            className={`rounded-full transition-all ${i === currentSet ? "w-5 h-2 bg-green-400" : "w-2 h-2 bg-white/30"}`}
                             data-testid={`debunk-dot-${i}`}
                           />
                         ))}
