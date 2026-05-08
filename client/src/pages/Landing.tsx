@@ -360,9 +360,6 @@ export default function Landing() {
                       <p className="text-sm font-semibold text-yellow-50 leading-snug line-clamp-3 group-hover:text-yellow-200 transition-colors">
                         {item.title}
                       </p>
-                      <span className="text-xs text-yellow-400/60">
-                        {item.source || ""}
-                      </span>
                     </div>
                   </div>
                 </Link>
