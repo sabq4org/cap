@@ -36,6 +36,9 @@ import {
   whatsappNewsletters,
   whatsappSettings,
   podcastEpisodes,
+  drugs,
+  type Drug,
+  type InsertDrug,
   type User,
   type UpsertUser,
   type HealthProfile,
@@ -149,6 +152,13 @@ export interface IStorage {
   deleteNews(id: string): Promise<boolean>;
   softDeleteNews(id: string): Promise<boolean>;
   restoreNews(id: string): Promise<boolean>;
+
+  // Drug encyclopedia operations
+  getDrugs(limit?: number): Promise<Drug[]>;
+  getDrugById(id: string): Promise<Drug | undefined>;
+  searchDrugs(query: string): Promise<Drug[]>;
+  upsertDrug(drug: InsertDrug): Promise<Drug>;
+  incrementDrugViewCount(id: string): Promise<void>;
 
   // Category operations
   getCategories(activeOnly?: boolean): Promise<Category[]>;
@@ -2513,6 +2523,47 @@ export class DatabaseStorage implements IStorage {
       page: safePage,
       totalPages,
     };
+  }
+
+  // ─── Drug Encyclopedia ───────────────────────────────────────────
+  async getDrugs(limit = 20): Promise<Drug[]> {
+    return db.select().from(drugs).orderBy(desc(drugs.viewCount)).limit(limit);
+  }
+
+  async getDrugById(id: string): Promise<Drug | undefined> {
+    const [drug] = await db.select().from(drugs).where(eq(drugs.id, id));
+    return drug;
+  }
+
+  async searchDrugs(query: string): Promise<Drug[]> {
+    const q = query.toLowerCase().trim();
+    const all = await db.select().from(drugs).orderBy(desc(drugs.viewCount));
+    return all.filter(d =>
+      d.nameAr?.toLowerCase().includes(q) ||
+      d.nameEn?.toLowerCase().includes(q) ||
+      d.genericName?.toLowerCase().includes(q)
+    );
+  }
+
+  async upsertDrug(drug: InsertDrug): Promise<Drug> {
+    const existing = await db.select().from(drugs)
+      .where(eq(drugs.nameAr, drug.nameAr))
+      .limit(1);
+    if (existing.length > 0) {
+      const [updated] = await db.update(drugs)
+        .set({ ...drug, updatedAt: new Date() })
+        .where(eq(drugs.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(drugs).values(drug).returning();
+    return created;
+  }
+
+  async incrementDrugViewCount(id: string): Promise<void> {
+    await db.update(drugs)
+      .set({ viewCount: sql`${drugs.viewCount} + 1` })
+      .where(eq(drugs.id, id));
   }
 }
 

@@ -137,6 +137,12 @@ export default function Header() {
                 })}
               </div>
               <DropdownMenuSeparator />
+              <Link href="/drugs">
+                <DropdownMenuItem className="flex items-center justify-center gap-2 py-2 cursor-pointer text-primary font-medium hover:bg-primary/5" data-testid="link-drugs-dropdown">
+                  <Pill className="h-4 w-4" />
+                  موسوعة الأدوية
+                </DropdownMenuItem>
+              </Link>
               <Link href="/ask-capsule">
                 <DropdownMenuItem className="flex items-center justify-center gap-2 py-2 cursor-pointer text-violet-700 dark:text-violet-400 font-medium hover:bg-violet-50 dark:hover:bg-violet-950/30" data-testid="link-ask-capsule-dropdown">
                   <FlaskConical className="h-4 w-4" />

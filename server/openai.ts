@@ -1885,4 +1885,66 @@ export async function generateSocialContent(
   };
 }
 
+// Generate drug information in Arabic using AI
+export async function generateDrugInfo(drugName: string): Promise<{
+  nameAr: string;
+  nameEn: string;
+  genericName: string;
+  category: string;
+  description: string;
+  uses: string[];
+  sideEffects: string[];
+  contraindications: string[];
+  dosage: string;
+  warnings: string[];
+  interactions: string[];
+  pregnancy: string;
+  storage: string;
+} | null> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `أنت صيدلاني خبير. مهمتك تقديم معلومات دقيقة وشاملة عن الأدوية باللغة العربية.
+قدّم المعلومات بصيغة JSON فقط دون أي نص إضافي.`,
+        },
+        {
+          role: "user",
+          content: `قدّم معلومات شاملة عن الدواء: "${drugName}"
+أجب بـ JSON فقط بهذا الهيكل بالضبط:
+{
+  "nameAr": "الاسم التجاري بالعربية",
+  "nameEn": "الاسم التجاري بالإنجليزية",
+  "genericName": "المادة الفعّالة",
+  "category": "تصنيف الدواء (مضاد حيوي / مسكن / إلخ)",
+  "description": "وصف موجز للدواء في جملتين",
+  "uses": ["استخدام 1", "استخدام 2", "استخدام 3"],
+  "sideEffects": ["عرَض جانبي 1", "عرَض جانبي 2", "عرَض جانبي 3"],
+  "contraindications": ["موانع استخدام 1", "موانع استخدام 2"],
+  "dosage": "الجرعة المعتادة للبالغين",
+  "warnings": ["تحذير 1", "تحذير 2"],
+  "interactions": ["تفاعل مع دواء 1", "تفاعل مع دواء 2"],
+  "pregnancy": "معلومات الاستخدام أثناء الحمل والرضاعة",
+  "storage": "طريقة التخزين الصحيحة"
+}
+إذا لم يكن الدواء معروفاً أو لم تجد معلومات كافية أجب بـ: null`,
+        },
+      ],
+      temperature: 0.3,
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) return null;
+    const parsed = JSON.parse(content);
+    if (!parsed || !parsed.nameAr) return null;
+    return parsed;
+  } catch (e) {
+    console.error("generateDrugInfo error:", e);
+    return null;
+  }
+}
+
 export default openai;

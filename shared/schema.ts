@@ -1169,3 +1169,32 @@ export const whatsappSettings = pgTable("whatsapp_settings", {
 
 export type WhatsappSettings = typeof whatsappSettings.$inferSelect;
 
+// ─── Drug Encyclopedia ───────────────────────────────────────────────
+export const drugs = pgTable("drugs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nameAr: varchar("name_ar").notNull(),
+  nameEn: varchar("name_en"),
+  genericName: varchar("generic_name"),
+  category: varchar("category"),
+  description: text("description"),
+  uses: jsonb("uses").$type<string[]>().default([]),
+  sideEffects: jsonb("side_effects").$type<string[]>().default([]),
+  contraindications: jsonb("contraindications").$type<string[]>().default([]),
+  dosage: text("dosage"),
+  warnings: jsonb("warnings").$type<string[]>().default([]),
+  interactions: jsonb("interactions").$type<string[]>().default([]),
+  pregnancy: text("pregnancy"),
+  storage: text("storage"),
+  aiGenerated: boolean("ai_generated").default(true),
+  viewCount: integer("view_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_drugs_name_ar").on(table.nameAr),
+  index("idx_drugs_name_en").on(table.nameEn),
+]);
+
+export const insertDrugSchema = createInsertSchema(drugs).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertDrug = z.infer<typeof insertDrugSchema>;
+export type Drug = typeof drugs.$inferSelect;
+

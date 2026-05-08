@@ -36,6 +36,7 @@ import AdminRumors from "@/pages/AdminRumors";
 import AdminPodcast from "@/pages/AdminPodcast";
 import Podcast from "@/pages/Podcast";
 import Capsule from "@/pages/Capsule";
+import Drugs from "@/pages/Drugs";
 import NotFound from "@/pages/not-found";
 import WhatsAppSubscribe from "@/pages/WhatsAppSubscribe";
 import ArchiveChatbot from "@/components/ArchiveChatbot";
@@ -66,6 +67,7 @@ function Router() {
       <Route path="/n/:shortCode" component={NewsDetail} />
       <Route path="/keyword/:keyword" component={KeywordPage} />
       <Route path="/ask-capsule" component={AskCapsule} />
+      <Route path="/drugs" component={Drugs} />
       <Route path="/whatsapp" component={WhatsAppSubscribe} />
       <Route path="/ask-capsule/status/:id" component={RumorStatus} />
       <Route path="/podcast" component={Podcast} />

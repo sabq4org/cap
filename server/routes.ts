@@ -5274,6 +5274,81 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     }
   });
 
+  // ─── Drug Encyclopedia API ────────────────────────────────────────
+
+  // GET /api/drugs — list popular drugs
+  app.get('/api/drugs', async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+      const result = await storage.getDrugs(limit);
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ message: "فشل جلب الأدوية" });
+    }
+  });
+
+  // GET /api/drugs/search?q=... — search existing drugs in DB
+  app.get('/api/drugs/search', async (req, res) => {
+    try {
+      const q = (req.query.q as string || '').trim();
+      if (!q) return res.json([]);
+      const result = await storage.searchDrugs(q);
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ message: "فشل البحث" });
+    }
+  });
+
+  // GET /api/drugs/:id — get drug by id + increment views
+  app.get('/api/drugs/:id', async (req, res) => {
+    try {
+      const drug = await storage.getDrugById(req.params.id);
+      if (!drug) return res.status(404).json({ message: "الدواء غير موجود" });
+      await storage.incrementDrugViewCount(req.params.id);
+      res.json(drug);
+    } catch (e) {
+      res.status(500).json({ message: "فشل جلب الدواء" });
+    }
+  });
+
+  // POST /api/drugs/generate — AI-generate drug info and cache it
+  const drugGenLimiter = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
+  app.post('/api/drugs/generate', drugGenLimiter, async (req, res) => {
+    try {
+      const { name } = req.body;
+      if (!name || typeof name !== 'string' || name.trim().length < 2) {
+        return res.status(400).json({ message: "يرجى إدخال اسم الدواء" });
+      }
+      const trimmedName = name.trim().slice(0, 100);
+
+      // Check if already in DB first
+      const existing = await storage.searchDrugs(trimmedName);
+      const exactMatch = existing.find(d =>
+        d.nameAr.toLowerCase() === trimmedName.toLowerCase() ||
+        d.nameEn?.toLowerCase() === trimmedName.toLowerCase()
+      );
+      if (exactMatch) {
+        await storage.incrementDrugViewCount(exactMatch.id);
+        return res.json(exactMatch);
+      }
+
+      // Generate via AI
+      const { generateDrugInfo } = await import('./openai');
+      const info = await generateDrugInfo(trimmedName);
+      if (!info) return res.status(404).json({ message: "لم يتم التعرف على هذا الدواء. تأكد من الاسم وأعد المحاولة." });
+
+      const saved = await storage.upsertDrug({
+        ...info,
+        aiGenerated: true,
+        viewCount: 1,
+      });
+      res.json(saved);
+    } catch (e) {
+      console.error("Drug generate error:", e);
+      res.status(500).json({ message: "حدث خطأ أثناء توليد المعلومات" });
+    }
+  });
+
   // ==========================================
 
   const httpServer = createServer(app);
