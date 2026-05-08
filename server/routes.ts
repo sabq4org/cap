@@ -32,7 +32,7 @@ import {
   insertRumorSubmissionSchema,
 } from "@shared/schema";
 import { objectStorageClient } from "./replit_integrations/object_storage";
-import { randomUUID } from "crypto";
+import { randomUUID, createHmac, timingSafeEqual } from "crypto";
 import sharp from "sharp";
 import rateLimit from "express-rate-limit";
 
@@ -44,6 +44,40 @@ const rumorSubmissionLimiter = rateLimit({
   message: { message: "لقد تجاوزت الحد المسموح به من الطلبات. يُسمح بـ 5 طلبات فقط في الساعة. يرجى المحاولة لاحقاً." },
   statusCode: 429,
 });
+
+const whatsappSubscribeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "لقد تجاوزت الحد المسموح به من طلبات الاشتراك. يُسمح بـ 5 طلبات فقط في الساعة." },
+  statusCode: 429,
+});
+
+const whatsappUnsubscribeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "لقد تجاوزت الحد المسموح به من الطلبات. يرجى المحاولة لاحقاً." },
+  statusCode: 429,
+});
+
+// Per-phone cooldown: track the last time a welcome/confirmation WhatsApp
+// message was dispatched to a given phone number.  Any phone that already
+// received a message within the cooldown window is silently skipped so that
+// the subscribe endpoint cannot be scripted to flood arbitrary numbers.
+const WHATSAPP_PHONE_SEND_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+const whatsappPhoneLastSent = new Map<string, number>();
+
+function canSendToPhone(phone: string): boolean {
+  const last = whatsappPhoneLastSent.get(phone);
+  if (last !== undefined && Date.now() - last < WHATSAPP_PHONE_SEND_COOLDOWN_MS) {
+    return false;
+  }
+  whatsappPhoneLastSent.set(phone, Date.now());
+  return true;
+}
 
 function escapeXml(str: string): string {
   return str
@@ -4652,7 +4686,9 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   // ─── WhatsApp Newsletter API ────────────────────────────────────────────────
 
   // Public: Subscribe to WhatsApp newsletter
-  app.post("/api/whatsapp/subscribe", async (req, res) => {
+  app.post("/api/whatsapp/subscribe", whatsappSubscribeLimiter, async (req, res) => {
+    // Always return the same generic response to avoid a phone-number existence oracle
+    const GENERIC_OK = { message: "إذا كان الرقم صالحاً، ستصلك رسالة واتساب خلال دقيقة للتأكيد" };
     try {
       const { phone, name, interests } = req.body;
       if (!phone || typeof phone !== "string") {
@@ -4666,21 +4702,24 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
       const existing = await storage.getWhatsappSubscriberByPhone(cleanPhone);
       if (existing) {
         if (existing.isActive && existing.status === "active") {
-          return res.status(409).json({ message: "هذا الرقم مشترك بالفعل" });
+          // Already subscribed — don't change state, don't reveal existence
+          return res.status(200).json(GENERIC_OK);
         }
-        const updated = await storage.updateWhatsappSubscriber(existing.id, {
+        await storage.updateWhatsappSubscriber(existing.id, {
           isActive: true,
           status: "pending",
           name: name || existing.name,
           interests: interests || existing.interests,
-          unsubscribedAt: null as any,
+          unsubscribedAt: null,
         });
-        const { sendWhatsAppMessage, formatWelcomeMessage } = await import("./whatsappService");
-        await sendWhatsAppMessage({ to: cleanPhone, body: formatWelcomeMessage(name) });
-        return res.json({ message: "تم إعادة تفعيل اشتراكك", subscriber: updated });
+        if (canSendToPhone(cleanPhone)) {
+          const { sendWhatsAppMessage, formatWelcomeMessage } = await import("./whatsappService");
+          await sendWhatsAppMessage({ to: cleanPhone, body: formatWelcomeMessage(name) });
+        }
+        return res.status(200).json(GENERIC_OK);
       }
 
-      const subscriber = await storage.createWhatsappSubscriber({
+      await storage.createWhatsappSubscriber({
         phone: cleanPhone,
         name: name || null,
         interests: interests || [],
@@ -4688,38 +4727,60 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
         isActive: true,
       });
 
-      const { sendWhatsAppMessage, formatWelcomeMessage } = await import("./whatsappService");
-      await sendWhatsAppMessage({ to: cleanPhone, body: formatWelcomeMessage(name) });
+      if (canSendToPhone(cleanPhone)) {
+        const { sendWhatsAppMessage, formatWelcomeMessage } = await import("./whatsappService");
+        await sendWhatsAppMessage({ to: cleanPhone, body: formatWelcomeMessage(name) });
+      }
 
-      res.status(201).json({ message: "تم الاشتراك بنجاح، يرجى تأكيد اشتراكك عبر الرسالة المرسلة", subscriber });
+      return res.status(200).json(GENERIC_OK);
     } catch (error: any) {
       console.error("[WhatsApp Subscribe]", error.message);
-      res.status(500).json({ message: "حدث خطأ، يرجى المحاولة مرة أخرى" });
+      // Return generic success to avoid leaking internal errors
+      return res.status(200).json(GENERIC_OK);
     }
   });
 
-  // Public: Unsubscribe (can also be triggered by webhook "stop" keyword)
-  app.post("/api/whatsapp/unsubscribe", async (req, res) => {
-    try {
-      const { phone } = req.body;
-      if (!phone) return res.status(400).json({ message: "رقم الهاتف مطلوب" });
-      const cleanPhone = phone.replace(/\s/g, "");
-      const subscriber = await storage.getWhatsappSubscriberByPhone(cleanPhone);
-      if (!subscriber) return res.status(404).json({ message: "لم يتم العثور على اشتراك بهذا الرقم" });
-      await storage.updateWhatsappSubscriber(subscriber.id, {
-        isActive: false,
-        status: "unsubscribed",
-        unsubscribedAt: new Date(),
-      });
-      res.json({ message: "تم إلغاء اشتراكك بنجاح" });
-    } catch (error: any) {
-      res.status(500).json({ message: "حدث خطأ" });
-    }
+  // Public: Unsubscribe initiation — does NOT directly change subscriber state.
+  // Ownership proof is required: the actual opt-out is handled by the verified
+  // inbound WhatsApp webhook when the subscriber sends "إيقاف" / "stop".
+  // This endpoint only informs the caller how to unsubscribe.
+  app.post("/api/whatsapp/unsubscribe", whatsappUnsubscribeLimiter, async (req, res) => {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ message: "رقم الهاتف مطلوب" });
+    // Return the same message regardless of whether the number is in the DB
+    return res.json({
+      message: "لإلغاء اشتراكك، أرسل كلمة «إيقاف» عبر واتساب إلى الرقم الذي أرسلت منه النشرة الصحية.",
+    });
   });
 
   // WhatsApp webhook for inbound messages (stop/نعم keywords)
   app.post("/api/whatsapp/webhook", async (req, res) => {
     try {
+      // Validate X-Hub-Signature-256 — fail-closed: if WHATSAPP_APP_SECRET is not
+      // configured the endpoint rejects all requests rather than accepting them.
+      const appSecret = process.env.WHATSAPP_APP_SECRET;
+      if (!appSecret) {
+        return res.sendStatus(403);
+      }
+      const sigHeader = req.headers["x-hub-signature-256"] as string | undefined;
+      if (!sigHeader) {
+        return res.sendStatus(403);
+      }
+      const rawBody = req.rawBody as Buffer | undefined;
+      if (!rawBody) {
+        return res.sendStatus(400);
+      }
+      const expectedSig = "sha256=" + createHmac("sha256", appSecret).update(rawBody).digest("hex");
+      let sigMatch = false;
+      try {
+        sigMatch = timingSafeEqual(Buffer.from(sigHeader), Buffer.from(expectedSig));
+      } catch {
+        sigMatch = false;
+      }
+      if (!sigMatch) {
+        return res.sendStatus(403);
+      }
+
       const body = req.body;
       const entry = body?.entry?.[0];
       const changes = entry?.changes?.[0];
