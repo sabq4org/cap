@@ -12,7 +12,8 @@ import {
   insertGenerationSettingsSchema, 
   insertImageGenerationSchema, 
   insertInfographicTemplateSchema, 
-  insertInfographicJobSchema 
+  insertInfographicJobSchema,
+  type User,
 } from "@shared/schema";
 import { fetchAllActiveSources, fetchRSSSource, seedDefaultSources, seedDefaultKeywords, classifyPendingItems, cleanupNonHealthItems } from "./radarService";
 import { refreshHealthTrends } from "./trendService";
@@ -725,6 +726,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
+      if (user) {
+        const { passwordHash: _omit, ...safeUser }: User = user;
+        return res.json(safeUser);
+      }
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -2313,6 +2318,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/chat/sessions/:sessionId/messages', isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const session = await storage.getChatSession(req.params.sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      if (session.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const messages = await storage.getChatMessages(req.params.sessionId);
       res.json(messages);
     } catch (error) {
@@ -2326,6 +2339,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { sessionId, content } = req.body;
       if (!sessionId || !content) {
         return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const userId = req.user.claims.sub;
+      const session = await storage.getChatSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      if (session.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
       }
 
       // Save user message
