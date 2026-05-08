@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,12 +22,35 @@ import {
   Brain,
   AlertTriangle,
   Eye,
-  Flame
+  Flame,
+  Bot,
+  Send,
+  XCircle,
+  CheckCircle,
+  ShieldAlert
 } from "lucide-react";
 import { isAiGeneratedImage } from "@/components/AIImageBadge";
 import { getNewsImage, getNewsFallbackImage, newsImages } from "@/lib/newsImages";
 import AdBanner from "@/components/AdBanner";
 import type { News, Article } from "@shared/schema";
+
+interface PaginatedResponse {
+  news: News[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+const getVerdictFromTitle = (title: string) => {
+  if (title.includes("❌")) return { label: "خرافة", icon: XCircle, chipClass: "bg-red-500/20 text-red-200 border border-red-400/30", iconColor: "text-red-300" };
+  if (title.includes("✅")) return { label: "صحيح", icon: CheckCircle, chipClass: "bg-green-500/20 text-green-200 border border-green-400/30", iconColor: "text-green-300" };
+  if (title.includes("⚠️")) return { label: "صحيح جزئياً", icon: AlertTriangle, chipClass: "bg-orange-500/20 text-orange-200 border border-orange-400/30", iconColor: "text-orange-300" };
+  return null;
+};
+
+const getCleanDebunkTitle = (title: string) => {
+  return title.replace(/^تفنيد\s*\|\s*[❌✅⚠️]\s*/, "").trim();
+};
 
 const categoryLabels: Record<string, string> = {
   "health": "صحة عامة",
@@ -73,6 +96,39 @@ export default function Landing() {
   const { data: trendingNews } = useQuery<News[]>({
     queryKey: ["/api/news/trending"],
   });
+
+  const { data: debunksData, isLoading: debunksLoading } = useQuery<PaginatedResponse>({
+    queryKey: ["/api/news?page=1&perPage=6&category=debunk"],
+  });
+
+  const allDebunks = debunksData?.news || [];
+  const CARDS_PER_PAGE = 3;
+  const totalSets = Math.max(1, Math.ceil(allDebunks.length / CARDS_PER_PAGE));
+  const [currentSet, setCurrentSet] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const isPaused = useRef(false);
+
+  useEffect(() => {
+    if (allDebunks.length <= CARDS_PER_PAGE) return;
+    let fadeTimeout: ReturnType<typeof setTimeout> | null = null;
+    const interval = setInterval(() => {
+      if (isPaused.current) return;
+      setVisible(false);
+      fadeTimeout = setTimeout(() => {
+        setCurrentSet((prev) => (prev + 1) % totalSets);
+        setVisible(true);
+      }, 350);
+    }, 4500);
+    return () => {
+      clearInterval(interval);
+      if (fadeTimeout !== null) clearTimeout(fadeTimeout);
+    };
+  }, [allDebunks.length, totalSets]);
+
+  const latestDebunks = allDebunks.slice(
+    currentSet * CARDS_PER_PAGE,
+    currentSet * CARDS_PER_PAGE + CARDS_PER_PAGE
+  );
 
   const formatDate = (date: Date | string) => {
     const d = new Date(date);
@@ -218,6 +274,131 @@ export default function Landing() {
         ) : null}
 
         <AdBanner position="below_featured" className="mt-4" />
+
+        {/* ── Debunk Block ── */}
+        <section
+          className="relative py-14 md:py-18 overflow-hidden -mx-6 mt-6"
+          dir="rtl"
+          style={{
+            background: "linear-gradient(135deg, #1e1040 0%, #0f2d3d 50%, #162436 100%)",
+          }}
+        >
+          <div className="pointer-events-none absolute -top-24 right-0 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: "radial-gradient(circle, #7c3aed, transparent 70%)" }} />
+          <div className="pointer-events-none absolute bottom-0 left-10 w-72 h-72 rounded-full opacity-15 blur-3xl" style={{ background: "radial-gradient(circle, #0891b2, transparent 70%)" }} />
+
+          <div className="relative px-6">
+            <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 items-center">
+
+              {/* CTA column */}
+              <div className="space-y-6 text-white">
+                <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold border border-violet-400/40 bg-violet-500/20 text-violet-200">
+                  <Bot className="h-3.5 w-3.5" />
+                  مدعوم بالذكاء الاصطناعي · AI-Powered
+                </div>
+                <div>
+                  <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-3">
+                    تفنيد الشائعات
+                    <span className="block text-violet-300">الصحية بالذكاء الاصطناعي</span>
+                  </h2>
+                  <p className="text-slate-300 text-lg leading-relaxed">
+                    انشر الحقيقة، لا الشائعة — أرسل لنا ما سمعته ونحللها بالذكاء الاصطناعي ليردّ فريقنا الطبي بتفنيد علمي موثق.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link href="/ask">
+                    <Button
+                      size="lg"
+                      className="gap-2 bg-violet-600 hover:bg-violet-500 text-white border-0 h-12 px-6 font-semibold"
+                      data-testid="button-cta-submit-rumor"
+                    >
+                      <Send className="h-4 w-4" />
+                      أرسل شائعة للتحقق منها
+                    </Button>
+                  </Link>
+                  <Link href="/news?category=debunk">
+                    <Button
+                      size="lg"
+                      variant="ghost"
+                      className="gap-2 text-slate-300 hover:text-white hover:bg-white/10 h-12 px-6"
+                      data-testid="button-view-all-debunks"
+                    >
+                      عرض جميع الشائعات المُفنَّدة
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Cards column */}
+              <div
+                className="space-y-3"
+                dir="rtl"
+                onMouseEnter={() => { isPaused.current = true; }}
+                onMouseLeave={() => { isPaused.current = false; }}
+                style={{ transition: "opacity 0.35s ease", opacity: visible ? 1 : 0 }}
+              >
+                {debunksLoading ? (
+                  <>
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="rounded-xl p-4 border border-white/10 bg-white/5">
+                        <Skeleton className="h-5 w-24 mb-3 bg-white/10" />
+                        <Skeleton className="h-4 w-full mb-2 bg-white/10" />
+                        <Skeleton className="h-3 w-1/3 bg-white/10" />
+                      </div>
+                    ))}
+                  </>
+                ) : latestDebunks.length > 0 ? (
+                  <>
+                    {latestDebunks.map((item) => {
+                      const verdict = getVerdictFromTitle(item.title);
+                      const VerdictIcon = verdict?.icon;
+                      const cleanTitle = getCleanDebunkTitle(item.title);
+                      return (
+                        <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
+                          <div
+                            className="rounded-xl p-4 border border-white/10 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                            data-testid={`debunk-card-${item.id}`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                {verdict && VerdictIcon && (
+                                  <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full mb-2 ${verdict.chipClass}`}>
+                                    <VerdictIcon className={`h-3 w-3 ${verdict.iconColor}`} />
+                                    {verdict.label}
+                                  </span>
+                                )}
+                                <p className="text-white font-medium text-sm leading-snug line-clamp-2">{cleanTitle}</p>
+                                <p className="text-slate-400 text-xs mt-1">{formatDate(item.publishedAt)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                    {totalSets > 1 && (
+                      <div className="flex justify-center gap-2 pt-1" data-testid="debunk-dots">
+                        {Array.from({ length: totalSets }).map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => { setVisible(false); setTimeout(() => { setCurrentSet(i); setVisible(true); }, 350); }}
+                            className={`rounded-full transition-all ${i === currentSet ? "w-5 h-2 bg-violet-400" : "w-2 h-2 bg-white/30"}`}
+                            data-testid={`debunk-dot-${i}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-10 text-slate-400" data-testid="debunks-empty">
+                    <ShieldAlert className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                    <p className="font-medium">لا توجد شائعات مُفنَّدة بعد</p>
+                    <p className="text-slate-500 text-sm">كن أول من يرسل شائعة للتحليل</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div className="mt-8">
           <div className="flex items-center justify-between mb-6">
