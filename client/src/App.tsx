@@ -56,6 +56,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/portal">{isAuthenticated ? <Home /> : <Login />}</Route>
       <Route path="/assistant">{isAuthenticated ? <Assistant /> : <Login />}</Route>
+      <Route path="/ask">{isAuthenticated ? <Assistant /> : <Login />}</Route>
       <Route path="/nutrition" component={Nutrition} />
       <Route path="/profile">{isAuthenticated ? <Profile /> : <Login />}</Route>
       <Route path="/capsule" component={Capsule} />
