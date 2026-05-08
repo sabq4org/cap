@@ -894,7 +894,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.status(401).json({ message: "غير مصرح" });
   };
 
-  app.delete("/api/admin/clear-news", isAdminAuthenticated, async (req, res) => {
+  // Middleware restricted to super_admin role only
+  const isSuperAdmin = (req: any, res: any, next: any) => {
+    if (!req.session?.adminAuthenticated) return res.status(401).json({ message: "غير مصرح" });
+    const role = (req.session as any).adminRole;
+    const perms: string[] = (req.session as any).adminPermissions || [];
+    if (role === "super_admin" || perms.includes("*")) return next();
+    return res.status(403).json({ message: "هذه العملية للمدير العام فقط" });
+  };
+
+  // Middleware factory: requires a specific admin permission key
+  const requireAdminPermission = (permission: string) => (req: any, res: any, next: any) => {
+    if (!req.session?.adminAuthenticated) return res.status(401).json({ message: "غير مصرح" });
+    const perms: string[] = (req.session as any).adminPermissions || [];
+    if (perms.includes("*") || perms.includes(permission)) return next();
+    return res.status(403).json({ message: "ليس لديك صلاحية للقيام بهذه العملية" });
+  };
+
+  app.delete("/api/admin/clear-news", isSuperAdmin, async (req, res) => {
     try {
       const { pool } = await import("./db");
       const r1 = await pool.query("DELETE FROM radar_items");
@@ -948,7 +965,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/articles', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/articles', requireAdminPermission('publish_news'), async (req, res) => {
     try {
       const articleData = insertArticleSchema.parse(req.body);
       const article = await storage.createArticle(articleData);
@@ -959,7 +976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/articles/:id', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/articles/:id', requireAdminPermission('edit_news'), async (req, res) => {
     try {
       const { id } = req.params;
       const validatedData = insertArticleSchema.partial().parse(req.body);
@@ -974,7 +991,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/articles/:id', isAdminAuthenticated, async (req, res) => {
+  app.delete('/api/articles/:id', requireAdminPermission('delete_news'), async (req, res) => {
     try {
       const { id } = req.params;
       const deleted = await storage.deleteArticle(id);
@@ -989,7 +1006,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Social content generation for articles
-  app.post('/api/articles/:id/social-content', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/articles/:id/social-content', requireAdminPermission('publish_news'), async (req, res) => {
     try {
       const { id } = req.params;
       const article = await storage.getArticleById(id);
@@ -1011,7 +1028,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Social content generation for news
-  app.post('/api/news/:id/social-content', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/news/:id/social-content', requireAdminPermission('publish_news'), async (req, res) => {
     try {
       const { id } = req.params;
       const newsItem = await storage.getNewsById(id);
@@ -1075,7 +1092,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/admin/categories', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/categories', requireAdminPermission('manage_categories'), async (req, res) => {
     try {
       const { slug, nameAr, nameEn, color, icon, description, sortOrder, isActive } = req.body;
       if (!slug || !nameAr) {
@@ -1105,7 +1122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/admin/categories/:id', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/admin/categories/:id', requireAdminPermission('manage_categories'), async (req, res) => {
     try {
       const { id } = req.params;
       const updateData = req.body;
@@ -1121,7 +1138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/admin/categories/:id', isAdminAuthenticated, async (req, res) => {
+  app.delete('/api/admin/categories/:id', requireAdminPermission('manage_categories'), async (req, res) => {
     try {
       const { id } = req.params;
       const deleted = await storage.deleteCategory(id);
@@ -1136,7 +1153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Auto-categorize uncategorized news using AI
-  app.post('/api/admin/auto-categorize', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/auto-categorize', requireAdminPermission('manage_categories'), async (req, res) => {
     try {
       const allCategories = await storage.getCategories(true);
       if (allCategories.length === 0) {
@@ -1206,7 +1223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }>();
 
   // Admin: Start auto-classify job for 'misc' category
-  app.post('/api/admin/auto-classify-misc', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/auto-classify-misc', requireAdminPermission('manage_categories'), async (req, res) => {
     try {
       const allCategories = await storage.getCategories(true);
       if (allCategories.length === 0) {
@@ -1315,14 +1332,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Get classify job progress
-  app.get('/api/admin/auto-classify-misc/progress/:jobId', isAdminAuthenticated, (req, res) => {
+  app.get('/api/admin/auto-classify-misc/progress/:jobId', requireAdminPermission('manage_categories'), (req, res) => {
     const job = classifyJobs.get(req.params.jobId);
     if (!job) return res.status(404).json({ message: "لم يُعثر على المهمة" });
     res.json(job);
   });
 
   // Admin: Category stats (news + article count per category slug)
-  app.get('/api/admin/category-stats', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/category-stats', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const allNews = await storage.getAllNewsForAdmin();
       const allArticles = await storage.getArticles(undefined, 5000, true);
@@ -1346,7 +1363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/referrer-stats', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/referrer-stats', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const raw = parseInt(req.query.days as string);
       const days = Number.isNaN(raw) ? 30 : Math.max(1, Math.min(365, raw));
@@ -1358,7 +1375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/country-stats', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/country-stats', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const raw = parseInt(req.query.days as string);
       const days = Number.isNaN(raw) ? 30 : Math.max(1, Math.min(365, raw));
@@ -1370,7 +1387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/stats', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/stats', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const stats = await storage.getDashboardStats();
       res.json(stats);
@@ -1380,7 +1397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/charts', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/charts', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const days = Math.min(90, Math.max(1, parseInt(String(req.query.days || '7')) || 7));
       const data = await storage.getChartData(days);
@@ -1396,7 +1413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ───────────────────────────────────────────────────────────────────────────
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
-  app.post("/api/admin/capsule/fact-check", isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/capsule/fact-check', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const schema = z.object({ text: z.string().min(10).max(10000) });
       const { text } = schema.parse(req.body);
@@ -1435,7 +1452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/capsule/simplify", isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/capsule/simplify', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const schema = z.object({ text: z.string().min(10).max(10000) });
       const { text } = schema.parse(req.body);
@@ -1524,7 +1541,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   // ────────────────────────────────────────────────────────────────────────────
 
-  app.post("/api/admin/capsule/fetch-url", isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/capsule/fetch-url', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const schema = z.object({ url: z.string().url() });
       const { url } = schema.parse(req.body);
@@ -1635,7 +1652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/capsule/extract-pdf", isAdminAuthenticated, upload.single("pdf"), async (req, res) => {
+  app.post('/api/admin/capsule/extract-pdf', requireAdminPermission('ai_content'), upload.single("pdf"), async (req, res) => {
     let parser: any = null;
     try {
       if (!req.file) {
@@ -1673,7 +1690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/capsule/history", isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/capsule/history', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const limit = Math.min(Number(req.query.limit) || 50, 100);
       const logs = await storage.getCapsuleLogs(limit);
@@ -1685,7 +1702,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   // ───────────────────────────────────────────────────────────────────────────
 
-  app.get('/api/admin/ai-insights', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/ai-insights', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const analyticsData = await storage.getAnalyticsForAI();
       const insights = await generateEditorialInsights(analyticsData);
@@ -1697,7 +1714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Get all news for dashboard (includes drafts, scheduled, deleted)
-  app.get('/api/admin/news', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/news', requireAdminPermission('publish_news'), async (req, res) => {
     try {
       const status = req.query.status as string | undefined;
       const page = req.query.page ? parseInt(req.query.page as string) : undefined;
@@ -1726,7 +1743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Soft delete news (move to trash)
-  app.post('/api/admin/news/:id/trash', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/news/:id/trash', requireAdminPermission('delete_news'), async (req, res) => {
     try {
       const success = await storage.softDeleteNews(req.params.id);
       if (!success) {
@@ -1740,7 +1757,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Restore news from trash
-  app.post('/api/admin/news/:id/restore', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/news/:id/restore', requireAdminPermission('edit_news'), async (req, res) => {
     try {
       const success = await storage.restoreNews(req.params.id);
       if (!success) {
@@ -1754,7 +1771,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Permanently delete news
-  app.delete('/api/admin/news/:id/permanent', isAdminAuthenticated, async (req, res) => {
+  app.delete('/api/admin/news/:id/permanent', requireAdminPermission('delete_news'), async (req, res) => {
     try {
       const success = await storage.deleteNews(req.params.id);
       if (!success) {
@@ -1768,7 +1785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk delete news
-  app.post('/api/admin/news/bulk-delete', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/news/bulk-delete', requireAdminPermission('delete_news'), async (req, res) => {
     try {
       const { ids, permanent } = req.body;
       if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -1916,7 +1933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create news (admin)
-  app.post('/api/news', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/news', requireAdminPermission('publish_news'), async (req, res) => {
     try {
       const { title, subtitle, content, summary, category, source, imageUrl, imageAlt, seoTitle, seoDescription, keywords, publishedAt, status, scheduledAt, isFeatured } = req.body;
       // For drafts, only title is required. For publishing, require title, content, and category
@@ -1967,7 +1984,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/news/:id', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/news/:id', requireAdminPermission('edit_news'), async (req, res) => {
     try {
       const { id } = req.params;
       const { title, subtitle, content, summary, category, source, imageUrl, imageAlt, seoTitle, seoDescription, keywords, status, scheduledAt, isFeatured, isBreaking } = req.body;
@@ -2005,7 +2022,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/news/:id', isAdminAuthenticated, async (req, res) => {
+  app.delete('/api/news/:id', requireAdminPermission('delete_news'), async (req, res) => {
     try {
       const { id } = req.params;
       const deleted = await storage.deleteNews(id);
@@ -2020,7 +2037,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // WordPress Import API
-  app.post('/api/import/wordpress', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/import/wordpress', requireAdminPermission('import_wordpress'), async (req, res) => {
     try {
       const { siteUrl, perPage = 10, page = 1, importImages = true, category = 'health' } = req.body;
       
@@ -2208,7 +2225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Preview WordPress posts before import
-  app.post('/api/import/wordpress/preview', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/import/wordpress/preview', requireAdminPermission('import_wordpress'), async (req, res) => {
     try {
       const { siteUrl, perPage = 10, page = 1 } = req.body;
       
@@ -2388,7 +2405,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Generate news metadata using AI
-  app.post('/api/admin/generate-news-meta', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/generate-news-meta', requireAdminPermission('publish_news'), async (req, res) => {
     try {
       const { content } = req.body;
       if (!content || content.length < 50) {
@@ -2443,30 +2460,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { username, password } = req.body;
     const bcrypt = await import("bcryptjs");
     const { pool } = await import("./db");
-
-    // Check hardcoded super admin
-    if (username === "admin" && password === "Lamar@2013") {
-      (req.session as any).adminAuthenticated = true;
-      (req.session as any).adminRole = "super_admin";
-      (req.session as any).adminPermissions = ["*"];
-      (req.session as any).adminUsername = "admin";
-      (req.session as any).adminDisplayName = "محمد الحيدر";
-      try {
-        const existing = await storage.getUser("admin");
-        if (!existing) {
-          await storage.upsertUser({
-            id: "admin", email: "admin@capsulah.com",
-            firstName: "مدير", lastName: "النظام",
-            role: "super_admin", authProvider: "local",
-          });
-        }
-      } catch (e) { console.error("Admin user seed error:", e); }
-      req.session.save((err) => {
-        if (err) console.error("Session save error:", err);
-        return res.json({ success: true, message: "تم تسجيل الدخول بنجاح", role: "super_admin" });
-      });
-      return;
-    }
 
     // Check admin_accounts table
     try {
@@ -2547,14 +2540,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── Admin Accounts CRUD (super_admin only) ────────────────────────────────
-  const isSuperAdmin = (req: any, res: any, next: any) => {
-    if (!req.session?.adminAuthenticated) return res.status(401).json({ message: "غير مصرح" });
-    const role = (req.session as any).adminRole;
-    const perms: string[] = (req.session as any).adminPermissions || [];
-    if (role === "super_admin" || perms.includes("*")) return next();
-    return res.status(403).json({ message: "هذه الصفحة للمدير العام فقط" });
-  };
-
   app.get('/api/admin/accounts', isSuperAdmin, async (req, res) => {
     const { pool } = await import("./db");
     const result = await pool.query(
@@ -2621,7 +2606,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─────────────────────────────────────────────────────────────────────────
 
   // Get all users (admin only)
-  app.get('/api/admin/users', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/users', requireAdminPermission('manage_users'), async (req, res) => {
     try {
       const users = await storage.getAllUsers();
       res.json(users);
@@ -2632,7 +2617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user role
-  app.patch('/api/admin/users/:userId/role', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/admin/users/:userId/role', isSuperAdmin, async (req, res) => {
     try {
       const { userId } = req.params;
       const { role } = req.body;
@@ -2655,7 +2640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Toggle user status (active/inactive)
-  app.patch('/api/admin/users/:userId/status', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/admin/users/:userId/status', isSuperAdmin, async (req, res) => {
     try {
       const { userId } = req.params;
       const { isActive } = req.body;
@@ -2673,7 +2658,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user profile (name and email)
-  app.patch('/api/admin/users/:userId/profile', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/admin/users/:userId/profile', isSuperAdmin, async (req, res) => {
     try {
       const { userId } = req.params;
       const { firstName, lastName, email } = req.body;
@@ -2694,7 +2679,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==========================================
 
   // Radar Sources
-  app.get('/api/radar/sources', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/radar/sources', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const activeOnly = req.query.active === 'true';
       const sources = await storage.getRadarSources(activeOnly);
@@ -2705,7 +2690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/radar/sources', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/sources', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const validation = insertRadarSourceSchema.safeParse(req.body);
       if (!validation.success) {
@@ -2719,7 +2704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/radar/sources/:id', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/radar/sources/:id', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const validation = insertRadarSourceSchema.partial().safeParse(req.body);
       if (!validation.success) {
@@ -2736,7 +2721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/radar/sources/:id', isAdminAuthenticated, async (req, res) => {
+  app.delete('/api/radar/sources/:id', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const source = await storage.getRadarSource(req.params.id);
       if (source?.url) {
@@ -2751,7 +2736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Radar Keywords
-  app.get('/api/radar/keywords', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/radar/keywords', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const category = req.query.category as string | undefined;
       const keywords = await storage.getRadarKeywords(category);
@@ -2762,7 +2747,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/radar/keywords', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/keywords', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const validation = insertRadarKeywordSchema.safeParse(req.body);
       if (!validation.success) {
@@ -2776,7 +2761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/radar/keywords/:id', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/radar/keywords/:id', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const validation = insertRadarKeywordSchema.partial().safeParse(req.body);
       if (!validation.success) {
@@ -2793,7 +2778,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/radar/keywords/:id', isAdminAuthenticated, async (req, res) => {
+  app.delete('/api/radar/keywords/:id', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       await storage.deleteRadarKeyword(req.params.id);
       res.json({ success: true });
@@ -2804,7 +2789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Radar Items (collected news)
-  app.get('/api/radar/items', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/radar/items', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const options = {
         status: req.query.status as string | undefined,
@@ -2822,7 +2807,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/radar/items/stats', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/radar/items/stats', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const stats = await storage.getRadarItemsStats();
       res.json(stats);
@@ -2832,7 +2817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/radar/items/:id', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/radar/items/:id', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const item = await storage.getRadarItem(req.params.id);
       if (!item) {
@@ -2845,7 +2830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/radar/items/:id/breaking', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/radar/items/:id/breaking', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const { isBreaking } = req.body;
       if (typeof isBreaking !== 'boolean') {
@@ -2860,7 +2845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/radar/items/:id/status', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/radar/items/:id/status', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const statusUpdateSchema = z.object({
         status: z.enum(["pending", "approved", "rejected", "published", "archived"]),
@@ -2883,7 +2868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Radar Alerts
-  app.get('/api/radar/alerts', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/radar/alerts', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const activeOnly = req.query.active === 'true';
       const alerts = await storage.getRadarAlerts(activeOnly);
@@ -2894,7 +2879,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/radar/alerts', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/alerts', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const validation = insertRadarAlertSchema.safeParse(req.body);
       if (!validation.success) {
@@ -2908,7 +2893,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/radar/alerts/:id', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/radar/alerts/:id', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const validation = insertRadarAlertSchema.partial().safeParse(req.body);
       if (!validation.success) {
@@ -2925,7 +2910,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/radar/alerts/:id', isAdminAuthenticated, async (req, res) => {
+  app.delete('/api/radar/alerts/:id', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       await storage.deleteRadarAlert(req.params.id);
       res.json({ success: true });
@@ -2936,7 +2921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Radar Notifications
-  app.get('/api/radar/notifications', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/radar/notifications', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const unreadOnly = req.query.unread === 'true';
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
@@ -2948,7 +2933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/radar/notifications/:id/read', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/radar/notifications/:id/read', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       await storage.markNotificationRead(req.params.id);
       res.json({ success: true });
@@ -2958,7 +2943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/radar/notifications/mark-all-read', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/notifications/mark-all-read', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       await storage.markAllNotificationsRead();
       res.json({ success: true });
@@ -2969,7 +2954,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Fetch logs
-  app.get('/api/radar/logs', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/radar/logs', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const sourceId = req.query.sourceId as string | undefined;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
@@ -2982,7 +2967,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Fetch news from all active sources
-  app.post('/api/radar/fetch', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/fetch', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const result = await fetchAllActiveSources();
       res.json(result);
@@ -2993,7 +2978,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Fetch from a specific source
-  app.post('/api/radar/sources/:id/fetch', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/sources/:id/fetch', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const source = await storage.getRadarSource(req.params.id);
       if (!source) {
@@ -3008,7 +2993,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Classify pending items with AI
-  app.post('/api/radar/classify', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/classify', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const limit = req.body.limit || 10;
       const classified = await classifyPendingItems(limit);
@@ -3020,7 +3005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Seed default sources and keywords
-  app.post('/api/radar/seed', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/seed', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const sourcesAdded = await seedDefaultSources();
       const keywordsAdded = await seedDefaultKeywords();
@@ -3032,7 +3017,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // حذف الأخبار غير الصحية من الرادار
-  app.post('/api/radar/items/batch-delete', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/items/batch-delete', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const { ids } = req.body;
       if (!Array.isArray(ids) || ids.length === 0) {
@@ -3046,7 +3031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/radar/cleanup-non-health', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/cleanup-non-health', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const result = await cleanupNonHealthItems();
       res.json(result);
@@ -3056,7 +3041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/radar/cleanup-reviewed', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/cleanup-reviewed', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const deleted = await storage.deleteReviewedRadarItems();
       res.json({ deleted, message: `تم حذف ${deleted} خبر مراجع` });
@@ -3067,7 +3052,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Convert radar item to news article
-  app.post('/api/radar/items/:id/publish', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/items/:id/publish', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const item = await storage.getRadarItem(req.params.id);
       if (!item) {
@@ -3103,7 +3088,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =====================================================
 
   // Translate and process a single radar item with AI
-  app.post('/api/radar/items/:id/translate', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/items/:id/translate', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const item = await storage.getRadarItem(req.params.id);
       if (!item) {
@@ -3159,7 +3144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evaluate importance of multiple news items
-  app.post('/api/radar/evaluate', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/evaluate', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const { itemIds } = req.body;
       if (!itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
@@ -3208,7 +3193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Translate, process and publish radar item with image download
-  app.post('/api/radar/items/:id/process-and-publish', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/items/:id/process-and-publish', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const item = await storage.getRadarItem(req.params.id);
       if (!item) {
@@ -3299,7 +3284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Batch translate multiple items
-  app.post('/api/radar/batch-translate', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/radar/batch-translate', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const { itemIds } = req.body;
       if (!itemIds || !Array.isArray(itemIds)) {
@@ -3364,7 +3349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =====================================================
 
   // Get generation settings
-  app.get('/api/admin/generation/settings', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/generation/settings', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       let settings = await storage.getGenerationSettings();
       if (!settings) {
@@ -3386,7 +3371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update generation settings
-  app.put('/api/admin/generation/settings', isAdminAuthenticated, async (req, res) => {
+  app.put('/api/admin/generation/settings', isSuperAdmin, async (req, res) => {
     try {
       const { id, createdAt, updatedAt, ...updateData } = req.body;
       const settings = await storage.upsertGenerationSettings(updateData);
@@ -3398,7 +3383,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get monthly usage
-  app.get('/api/admin/generation/usage', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/generation/usage', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const now = new Date();
       const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -3417,7 +3402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate prompt from content
-  app.post('/api/admin/generation/generate-prompt', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/generation/generate-prompt', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const { title, content, generationType } = req.body;
       if (!title || !content) {
@@ -3432,7 +3417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate image
-  app.post('/api/admin/generation/image', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/generation/image', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const { prompt, newsId, articleId, quality, size, generationType } = req.body;
       
@@ -3546,7 +3531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get image generations history
-  app.get('/api/admin/generation/images', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/generation/images', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const { newsId, status, limit } = req.query;
       const generations = await storage.getImageGenerations({
@@ -3561,7 +3546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get single generation
-  app.get('/api/admin/generation/images/:id', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/generation/images/:id', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const generation = await storage.getImageGeneration(req.params.id);
       if (!generation) {
@@ -3579,7 +3564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =====================================================
 
   // Get infographic templates
-  app.get('/api/admin/infographic/templates', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/infographic/templates', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const activeOnly = req.query.activeOnly !== 'false';
       const templates = await storage.getInfographicTemplates(activeOnly);
@@ -3591,7 +3576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create infographic template
-  app.post('/api/admin/infographic/templates', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/infographic/templates', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const template = await storage.createInfographicTemplate(req.body);
       res.json(template);
@@ -3602,7 +3587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update infographic template
-  app.put('/api/admin/infographic/templates/:id', isAdminAuthenticated, async (req, res) => {
+  app.put('/api/admin/infographic/templates/:id', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const template = await storage.updateInfographicTemplate(req.params.id, req.body);
       if (!template) {
@@ -3616,7 +3601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete infographic template
-  app.delete('/api/admin/infographic/templates/:id', isAdminAuthenticated, async (req, res) => {
+  app.delete('/api/admin/infographic/templates/:id', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       await storage.deleteInfographicTemplate(req.params.id);
       res.json({ success: true });
@@ -3627,7 +3612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Extract infographic data from raw text
-  app.post('/api/admin/infographic/extract-from-text', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/infographic/extract-from-text', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const { text } = req.body;
       if (!text || typeof text !== 'string' || text.trim().length < 20) {
@@ -3642,7 +3627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate infographic as AI image (Nano Banana 2)
-  app.post('/api/admin/infographic/generate-ai-image', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/infographic/generate-ai-image', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const data = req.body;
       if (!data?.title) {
@@ -3683,7 +3668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate infographic
-  app.post('/api/admin/infographic/generate', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/infographic/generate', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const { templateId, newsId, title, contentData, customPrompt, width, height } = req.body;
       
@@ -3781,7 +3766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get infographic jobs history
-  app.get('/api/admin/infographic/jobs', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/infographic/jobs', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const { status, limit } = req.query;
       const jobs = await storage.getInfographicJobs({
@@ -3795,7 +3780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get single infographic job
-  app.get('/api/admin/infographic/jobs/:id', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/infographic/jobs/:id', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const job = await storage.getInfographicJob(req.params.id);
       if (!job) {
@@ -3809,7 +3794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Seed default infographic templates
-  app.post('/api/admin/infographic/seed-templates', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/infographic/seed-templates', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const templates = [
         {
@@ -3886,7 +3871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==========================================
   // Google News Search API
   // ==========================================
-  app.get('/api/admin/google-news', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/google-news', requireAdminPermission('publish_news'), async (req, res) => {
     try {
       const query = (req.query.q as string) || 'أخبار صحية';
       const page = parseInt(req.query.page as string) || 1;
@@ -3932,7 +3917,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Import a single Google News result as news article
-  app.post('/api/admin/google-news/import', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/google-news/import', requireAdminPermission('publish_news'), async (req, res) => {
     try {
       const { title, link, snippet, source, imageUrl, category } = req.body;
 
@@ -4026,7 +4011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==========================================
   // Nano Banana Image Generation (Gemini)
   // ==========================================
-  app.post('/api/admin/generate-image-ai', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/generate-image-ai', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const { title, content, summary, category, style, mood } = req.body;
 
@@ -4112,7 +4097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: trigger podcast generation
-  app.post('/api/admin/podcast/generate', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/podcast/generate', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const { generatePodcastEpisode } = await import('./podcastService');
       const today = new Date().toISOString().split('T')[0];
@@ -4141,7 +4126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: regenerate an existing episode
-  app.post('/api/admin/podcast/episodes/:id/regenerate', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/podcast/episodes/:id/regenerate', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const { generatePodcastEpisode } = await import('./podcastService');
       const episode = await storage.getPodcastEpisode(req.params.id);
@@ -4162,7 +4147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: delete episode
-  app.delete('/api/admin/podcast/episodes/:id', isAdminAuthenticated, async (req, res) => {
+  app.delete('/api/admin/podcast/episodes/:id', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const deleted = await storage.deletePodcastEpisode(req.params.id);
       if (!deleted) return res.status(404).json({ message: 'الحلقة غير موجودة' });
@@ -4203,7 +4188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ──────────────────────────────────────────────────────────────────────────
 
   // ─── Admin image upload endpoint ──────────────────────────────────────────
-  app.post('/api/admin/upload-image', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/upload-image', requireAdminPermission('ai_images'), async (req, res) => {
     try {
       const { base64, mimeType } = req.body;
       if (!base64 || !mimeType) {
@@ -4438,7 +4423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/admin/rumors — admin list with optional status filter
-  app.get("/api/admin/rumors", isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/rumors', requireAdminPermission('publish_news'), async (req, res) => {
     try {
       const status = req.query.status as string | undefined;
       const rumors = await storage.getRumorSubmissions(status);
@@ -4450,7 +4435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/admin/rumors/:id
-  app.get("/api/admin/rumors/:id", isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/rumors/:id', requireAdminPermission('publish_news'), async (req, res) => {
     try {
       const rumor = await storage.getRumorSubmissionById(req.params.id);
       if (!rumor) return res.status(404).json({ message: "الشائعة غير موجودة" });
@@ -4461,7 +4446,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PATCH /api/admin/rumors/:id — edit notes, reject, or approve + publish
-  app.patch("/api/admin/rumors/:id", isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/admin/rumors/:id', requireAdminPermission('edit_news'), async (req, res) => {
     try {
       const rumor = await storage.getRumorSubmissionById(req.params.id);
       if (!rumor) return res.status(404).json({ message: "الشائعة غير موجودة" });
@@ -4609,7 +4594,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // POST /api/admin/rumors/:id/regenerate — re-run AI debunk
-  app.post("/api/admin/rumors/:id/regenerate", isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/rumors/:id/regenerate', requireAdminPermission('edit_news'), async (req, res) => {
     const rumorId = req.params.id;
 
     // Step 1: Fetch the rumor
@@ -4785,7 +4770,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: Get all subscribers
-  app.get("/api/admin/whatsapp/subscribers", isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/whatsapp/subscribers', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const { status, isActive } = req.query;
       const filters: any = {};
@@ -4799,7 +4784,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: Get subscriber stats
-  app.get("/api/admin/whatsapp/stats", isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/whatsapp/stats', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const stats = await storage.getWhatsappSubscriberStats();
       res.json(stats);
@@ -4809,7 +4794,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: Update subscriber status
-  app.patch("/api/admin/whatsapp/subscribers/:id", isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/admin/whatsapp/subscribers/:id', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const { id } = req.params;
       const updated = await storage.updateWhatsappSubscriber(id, req.body);
@@ -4820,7 +4805,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: Get newsletters
-  app.get("/api/admin/whatsapp/newsletters", isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/whatsapp/newsletters', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const newsletters = await storage.getWhatsappNewsletters();
       res.json(newsletters);
@@ -4830,7 +4815,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: Generate newsletter content with AI
-  app.post("/api/admin/whatsapp/generate-newsletter", isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/whatsapp/generate-newsletter', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const { interests } = req.body;
       const recentNews = await storage.getNews(undefined, 20);
@@ -4847,7 +4832,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: Send newsletter manually (or schedule for later)
-  app.post("/api/admin/whatsapp/send-newsletter", isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/whatsapp/send-newsletter', isSuperAdmin, async (req, res) => {
     try {
       const { title, content, interests, scheduledAtMs } = req.body;
       if (!title || !content) return res.status(400).json({ message: "العنوان والمحتوى مطلوبان" });
@@ -4920,7 +4905,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: Cancel a scheduled newsletter
-  app.delete("/api/admin/whatsapp/newsletters/:id", isAdminAuthenticated, async (req, res) => {
+  app.delete('/api/admin/whatsapp/newsletters/:id', isSuperAdmin, async (req, res) => {
     try {
       const canceled = await storage.cancelScheduledNewsletter(req.params.id);
       if (!canceled) {
@@ -4934,7 +4919,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: Get/Update WhatsApp settings
-  app.get("/api/admin/whatsapp/settings", isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/whatsapp/settings', requireAdminPermission('ai_content'), async (req, res) => {
     try {
       const settings = await storage.getWhatsappSettings();
       const { getApiMode } = await import("./whatsappService");
@@ -4944,7 +4929,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     }
   });
 
-  app.patch("/api/admin/whatsapp/settings", isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/admin/whatsapp/settings', isSuperAdmin, async (req, res) => {
     try {
       const settings = await storage.upsertWhatsappSettings(req.body);
       res.json(settings);
@@ -5006,7 +4991,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: list all ads
-  app.get('/api/admin/ads', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/ads', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const ads = await storage.getAdvertisements();
       res.json(ads);
@@ -5017,7 +5002,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: create ad
-  app.post('/api/admin/ads', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/ads', isSuperAdmin, async (req, res) => {
     try {
       const ad = await storage.createAdvertisement(req.body);
       res.status(201).json(ad);
@@ -5028,7 +5013,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: update ad
-  app.patch('/api/admin/ads/:id', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/admin/ads/:id', isSuperAdmin, async (req, res) => {
     try {
       const id = req.params.id;
       const updates = req.body;
@@ -5059,7 +5044,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: delete ad
-  app.delete('/api/admin/ads/:id', isAdminAuthenticated, async (req, res) => {
+  app.delete('/api/admin/ads/:id', isSuperAdmin, async (req, res) => {
     try {
       await storage.deleteAdvertisement(req.params.id);
       res.json({ success: true });
@@ -5070,7 +5055,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: reset impression and click counters for an ad
-  app.patch('/api/admin/ads/:id/reset-stats', isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/admin/ads/:id/reset-stats', isSuperAdmin, async (req, res) => {
     try {
       const updated = await storage.resetAdStats(req.params.id);
       if (!updated) return res.status(404).json({ message: "Ad not found" });
@@ -5082,7 +5067,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: get daily stats for a specific ad
-  app.get('/api/admin/ads/:id/stats', isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/ads/:id/stats', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const days = parseInt(req.query.days as string) || 30;
       const stats = await storage.getAdStats(req.params.id, days);
@@ -5094,7 +5079,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: manually trigger expired-ad cleanup
-  app.post('/api/admin/ads/deactivate-expired', isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/ads/deactivate-expired', isSuperAdmin, async (req, res) => {
     try {
       const count = await storage.deactivateExpiredAds();
       res.json({ deactivated: count });
@@ -5130,7 +5115,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   // Health Trend Radar API endpoints
   // ==========================================
 
-  app.get("/api/admin/trends", isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/trends', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const trends = await storage.getHealthTrends(limit);
@@ -5140,7 +5125,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     }
   });
 
-  app.get("/api/admin/trends/alerts", isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/trends/alerts', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const unreadOnly = req.query.unread === "true";
       const alerts = await storage.getTrendAlerts(unreadOnly);
@@ -5151,7 +5136,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     }
   });
 
-  app.patch("/api/admin/trends/alerts/:id/read", isAdminAuthenticated, async (req, res) => {
+  app.patch('/api/admin/trends/alerts/:id/read', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       await storage.markTrendAlertRead(req.params.id);
       res.json({ success: true });
@@ -5160,7 +5145,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     }
   });
 
-  app.post("/api/admin/trends/alerts/read-all", isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/trends/alerts/read-all', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       await storage.markAllTrendAlertsRead();
       res.json({ success: true });
@@ -5169,7 +5154,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     }
   });
 
-  app.post("/api/admin/trends/refresh", isAdminAuthenticated, async (req, res) => {
+  app.post('/api/admin/trends/refresh', isSuperAdmin, async (req, res) => {
     try {
       const region = (req.body.region as string) || "SA";
       const result = await refreshHealthTrends(region);
@@ -5179,7 +5164,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     }
   });
 
-  app.get("/api/admin/trends/weekly-report", isAdminAuthenticated, async (req, res) => {
+  app.get('/api/admin/trends/weekly-report', requireAdminPermission('view_analytics'), async (req, res) => {
     try {
       const { generateWeeklyTrendReport } = await import("./trendService");
       const region = (req.query.region as string) || "SA";
