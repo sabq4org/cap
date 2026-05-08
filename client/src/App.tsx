@@ -13,6 +13,7 @@ import Assistant from "@/pages/Assistant";
 import Nutrition from "@/pages/Nutrition";
 import Profile from "@/pages/Profile";
 import Articles from "@/pages/Articles";
+import ArticleDetail from "@/pages/ArticleDetail";
 import News from "@/pages/News";
 import NewsDetail from "@/pages/NewsDetail";
 import KeywordPage from "@/pages/KeywordPage";
@@ -62,6 +63,7 @@ function Router() {
       <Route path="/profile">{isAuthenticated ? <Profile /> : <Login />}</Route>
       <Route path="/capsule" component={Capsule} />
       <Route path="/articles" component={Articles} />
+      <Route path="/articles/:slug" component={ArticleDetail} />
       <Route path="/news" component={News} />
       <Route path="/news/:id" component={NewsDetail} />
       <Route path="/n/:shortCode" component={NewsDetail} />

@@ -459,6 +459,9 @@ export class DatabaseStorage implements IStorage {
 
   // Article operations
   async getArticles(category?: string, limit: number = 50, includeAll: boolean = false): Promise<Article[]> {
+    const now = new Date();
+    const publicCondition = sql`(${articles.status} = 'published' OR (${articles.status} = 'scheduled' AND ${articles.scheduledAt} IS NOT NULL AND ${articles.scheduledAt} <= ${now}))`;
+
     if (category) {
       if (includeAll) {
         return await db
@@ -471,12 +474,7 @@ export class DatabaseStorage implements IStorage {
       return await db
         .select()
         .from(articles)
-        .where(
-          and(
-            eq(articles.status, "published"),
-            eq(articles.category, category)
-          )
-        )
+        .where(and(publicCondition, eq(articles.category, category)))
         .orderBy(desc(articles.publishedAt))
         .limit(limit);
     }
@@ -492,9 +490,25 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(articles)
-      .where(eq(articles.status, "published"))
+      .where(publicCondition)
       .orderBy(desc(articles.publishedAt))
       .limit(limit);
+  }
+
+  async promoteOverdueScheduledArticles(): Promise<number> {
+    const now = new Date();
+    const overdue = await db
+      .select()
+      .from(articles)
+      .where(sql`${articles.status} = 'scheduled' AND ${articles.scheduledAt} IS NOT NULL AND ${articles.scheduledAt} <= ${now}`);
+    if (overdue.length === 0) return 0;
+    for (const item of overdue) {
+      await db
+        .update(articles)
+        .set({ status: 'published', publishedAt: item.scheduledAt ?? now })
+        .where(eq(articles.id, item.id));
+    }
+    return overdue.length;
   }
 
   async getArticleBySlug(slug: string): Promise<Article | undefined> {

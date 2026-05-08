@@ -986,10 +986,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: fetch any article by id (incl. drafts/scheduled) for editing
+  app.get('/api/admin/articles/:id', requireAdminPermission('edit_news'), async (req, res) => {
+    try {
+      const article = await storage.getArticleById(req.params.id);
+      if (!article) {
+        return res.status(404).json({ message: "Article not found" });
+      }
+      res.json(article);
+    } catch (error) {
+      console.error("Error fetching admin article:", error);
+      res.status(500).json({ message: "Failed to fetch article" });
+    }
+  });
+
   app.get('/api/articles/:slug', async (req, res) => {
     try {
       const article = await storage.getArticleBySlug(req.params.slug);
       if (!article) {
+        return res.status(404).json({ message: "Article not found" });
+      }
+      // Public visibility: only return published OR scheduled-due articles
+      const now = new Date();
+      const isPublic =
+        article.status === 'published' ||
+        (article.status === 'scheduled' &&
+          article.scheduledAt &&
+          new Date(article.scheduledAt) <= now);
+      if (!isPublic) {
         return res.status(404).json({ message: "Article not found" });
       }
       res.json(article);
@@ -1001,7 +1025,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/articles', requireAdminPermission('publish_news'), async (req, res) => {
     try {
-      const articleData = insertArticleSchema.parse(req.body);
+      const body: any = { ...req.body };
+      if (body.scheduledAt) body.scheduledAt = new Date(body.scheduledAt);
+      if (body.publishedAt) body.publishedAt = new Date(body.publishedAt);
+      // Scheduling: when status === 'scheduled', mirror scheduledAt to publishedAt for ordering
+      if (body.status === 'scheduled' && body.scheduledAt) {
+        body.publishedAt = body.scheduledAt;
+      } else if (body.status === 'published' && !body.publishedAt) {
+        body.publishedAt = new Date();
+      }
+      const articleData = insertArticleSchema.parse(body);
       const article = await storage.createArticle(articleData);
       res.status(201).json(article);
     } catch (error) {
@@ -1013,7 +1046,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/articles/:id', requireAdminPermission('edit_news'), async (req, res) => {
     try {
       const { id } = req.params;
-      const validatedData = insertArticleSchema.partial().parse(req.body);
+      const body: any = { ...req.body };
+      if (body.scheduledAt !== undefined) {
+        body.scheduledAt = body.scheduledAt ? new Date(body.scheduledAt) : null;
+        if (body.status === 'scheduled' && body.scheduledAt) {
+          body.publishedAt = body.scheduledAt;
+        }
+      }
+      if (body.publishedAt !== undefined && body.publishedAt) {
+        body.publishedAt = new Date(body.publishedAt);
+      }
+      const validatedData = insertArticleSchema.partial().parse(body);
       const article = await storage.updateArticle(id, validatedData);
       if (!article) {
         return res.status(404).json({ message: "Article not found" });
@@ -2473,6 +2516,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error processing chat message:", error);
       res.status(500).json({ message: "Failed to process message" });
+    }
+  });
+
+  // Admin: Generate full medical article content using AI (title, excerpt, content, tags, SEO)
+  app.post('/api/admin/generate-article-content', requireAdminPermission('publish_news'), async (req, res) => {
+    try {
+      const { brief } = req.body;
+      if (!brief || String(brief).trim().length < 10) {
+        return res.status(400).json({ message: "الموجز قصير جداً (10 أحرف على الأقل)" });
+      }
+      const { generateArticleContent } = await import('./openai');
+      const result = await generateArticleContent(String(brief));
+      if (!result.title || !result.content) {
+        return res.status(500).json({ message: "فشل توليد المقال، حاول مرة أخرى" });
+      }
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error generating article content:", error?.message || error);
+      res.status(500).json({ message: "فشل توليد المقال" });
     }
   });
 

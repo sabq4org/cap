@@ -204,9 +204,16 @@ export const articles = pgTable("articles", {
   tags: jsonb("tags").$type<string[]>().default([]),
   readTime: integer("read_time").notNull(),
   reviewedBy: varchar("reviewed_by").notNull(),
+  author: varchar("author"),
+  imageUrl: varchar("image_url"),
+  imageAlt: varchar("image_alt"),
+  seoTitle: varchar("seo_title"),
+  seoDescription: text("seo_description"),
+  keywords: jsonb("keywords").$type<string[]>().default([]),
   medicalReviewDate: timestamp("medical_review_date"),
   sources: jsonb("sources").$type<Array<{ title: string; url: string }>>().default([]),
-  status: varchar("status").notNull().default("draft"), // draft, published
+  status: varchar("status").notNull().default("draft"), // draft, published, scheduled
+  scheduledAt: timestamp("scheduled_at"),
   publishedAt: timestamp("published_at"),
   socialContentGenerated: boolean("social_content_generated").default(false),
   socialContentGeneratedAt: timestamp("social_content_generated_at"),

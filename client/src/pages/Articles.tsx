@@ -6,14 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { articles as articlesTable } from "@shared/schema";
-import newsImage1 from "@assets/stock_images/medical_health_healt_fdb22ee1.jpg";
-import newsImage2 from "@assets/stock_images/medical_health_healt_2bc2bc37.jpg";
-import newsImage3 from "@assets/stock_images/medical_health_healt_af440b4a.jpg";
-import newsImage4 from "@assets/stock_images/medical_health_healt_981aee81.jpg";
-import newsImage5 from "@assets/stock_images/medical_health_healt_8bccc8a3.jpg";
-import newsImage6 from "@assets/stock_images/medical_health_healt_46b1b20f.jpg";
-
-const articleImages = [newsImage1, newsImage2, newsImage3, newsImage4, newsImage5, newsImage6];
 
 type Article = typeof articlesTable.$inferSelect;
 
@@ -31,7 +23,7 @@ export default function Articles() {
     const matchesSearch = article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (article.excerpt || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = !selectedCategory || selectedCategory === "الكل" || article.category === selectedCategory;
-    return matchesSearch && matchesCategory && article.status === "published";
+    return matchesSearch && matchesCategory;
   });
 
   return (
@@ -86,15 +78,18 @@ export default function Articles() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredArticles.map((article, index) => (
+              {filteredArticles.map((article) => (
                 <ArticleCard
                   key={article.id}
+                  slug={article.slug}
                   title={article.title}
                   excerpt={article.excerpt || ""}
                   category={article.category}
                   readTime={article.readTime}
                   reviewedBy={article.reviewedBy}
-                  imageUrl={articleImages[index % articleImages.length]}
+                  author={article.author}
+                  imageUrl={article.imageUrl || undefined}
+                  imageAlt={article.imageAlt || undefined}
                 />
               ))}
             </div>

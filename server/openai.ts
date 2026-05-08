@@ -165,6 +165,97 @@ export async function analyzeNutrition(
   }
 }
 
+// Generate full medical article (title, excerpt, content, tags, SEO) from a topic/brief
+export async function generateArticleContent(brief: string): Promise<{
+  title: string;
+  excerpt: string;
+  content: string;
+  tags: string[];
+  readTime: number;
+  seoTitle: string;
+  seoDescription: string;
+  keywords: string[];
+}> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `أنت كاتب مقالات طبية محترف باللغة العربية الفصحى. تكتب مقالات صحية موثوقة ومراجعة، بأسلوب واضح ومفيد للقارئ العربي. استخدم HTML بسيطاً (<h2>, <h3>, <p>, <ul>, <li>, <strong>) لتنسيق المقال.`
+        },
+        {
+          role: "user",
+          content: `اكتب مقالاً طبياً متكاملاً حول الموضوع التالي. المقال يجب أن يكون بين 600 و 900 كلمة، مقسم إلى عناوين فرعية واضحة، ويتضمن نصائح عملية. الموضوع/الموجز:\n\n${brief.substring(0, 2000)}`
+        }
+      ],
+      max_completion_tokens: 3000,
+      tools: [{
+        type: "function",
+        function: {
+          name: "save_article_content",
+          description: "حفظ محتوى المقال الطبي الكامل",
+          parameters: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "عنوان المقال (8-14 كلمة)" },
+              excerpt: { type: "string", description: "ملخص قصير (150-220 حرف)" },
+              content: { type: "string", description: "محتوى المقال الكامل بصيغة HTML بسيطة" },
+              tags: { type: "array", items: { type: "string" }, description: "4-7 وسوم عربية" },
+              readTime: { type: "integer", description: "وقت القراءة بالدقائق" },
+              seoTitle: { type: "string", description: "عنوان SEO (50-60 حرف)" },
+              seoDescription: { type: "string", description: "وصف SEO (150-160 حرف)" },
+              keywords: { type: "array", items: { type: "string" }, description: "5-8 كلمات مفتاحية" }
+            },
+            required: ["title", "excerpt", "content", "tags", "readTime", "seoTitle", "seoDescription", "keywords"]
+          }
+        }
+      }],
+      tool_choice: { type: "function", function: { name: "save_article_content" } }
+    });
+
+    const toolCall = response.choices[0]?.message?.tool_calls?.[0];
+    const argsString = toolCall && 'function' in toolCall ? toolCall.function?.arguments : undefined;
+    if (argsString) {
+      const parsed = JSON.parse(argsString) as {
+        title?: string;
+        excerpt?: string;
+        content?: string;
+        tags?: string[];
+        readTime?: number;
+        seoTitle?: string;
+        seoDescription?: string;
+        keywords?: string[];
+      };
+      if (!parsed.title || !parsed.content) throw new Error("AI returned empty article");
+      return {
+        title: parsed.title,
+        excerpt: parsed.excerpt || "",
+        content: parsed.content,
+        tags: parsed.tags || [],
+        readTime: parsed.readTime || 5,
+        seoTitle: parsed.seoTitle || "",
+        seoDescription: parsed.seoDescription || "",
+        keywords: parsed.keywords || [],
+      };
+    }
+    throw new Error("No tool call returned");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[generateArticleContent] Error:", message);
+    return {
+      title: "",
+      excerpt: "",
+      content: "",
+      tags: [],
+      readTime: 5,
+      seoTitle: "",
+      seoDescription: "",
+      keywords: [],
+    };
+  }
+}
+
 // Generate news metadata from content
 export async function generateNewsMeta(content: string): Promise<{
   title: string;

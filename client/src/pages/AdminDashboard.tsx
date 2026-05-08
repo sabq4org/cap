@@ -31,7 +31,27 @@ import logoImage from "@assets/LOGO-L_1769253692563.png";
 import { AdminDashboardOverview } from "@/components/admin/AdminDashboardOverview";
 import { useUpload } from "@/hooks/use-upload";
 import { SocialContentModal } from "@/components/SocialContentModal";
+import AIImageGenerator from "@/components/AIImageGenerator";
 import type { SocialContent } from "@shared/schema";
+
+interface ArticleFormPayload {
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  category: string;
+  tags: string[];
+  readTime: number;
+  reviewedBy: string;
+  author: string;
+  imageUrl: string;
+  imageAlt: string;
+  seoTitle: string;
+  seoDescription: string;
+  keywords: string[];
+  status: "draft" | "published" | "scheduled";
+  scheduledAt: string | null;
+}
 
 interface StatCard {
   title: string;
@@ -287,7 +307,7 @@ export default function AdminDashboard() {
       if (id) {
         setEditingArticleId(id);
         setShowArticleForm(true);
-        fetch(`/api/articles/${id}`)
+        fetch(`/api/admin/articles/${id}`, { credentials: 'include' })
           .then(res => res.ok ? res.json() : null)
           .then(article => {
             if (article) {
@@ -300,8 +320,21 @@ export default function AdminDashboard() {
                 tags: article.tags || [],
                 readTime: article.readTime || 5,
                 reviewedBy: article.reviewedBy || "",
+                author: article.author || "",
+                imageUrl: article.imageUrl || "",
+                imageAlt: article.imageAlt || "",
+                seoTitle: article.seoTitle || "",
+                seoDescription: article.seoDescription || "",
+                keywords: article.keywords || [],
                 status: article.status || "draft",
               });
+              if (article.status === 'scheduled' && article.scheduledAt) {
+                setArticlePublishMode('schedule');
+                setArticleScheduledDateTime(isoToSaudiInput(article.scheduledAt));
+              } else {
+                setArticlePublishMode('now');
+                setArticleScheduledDateTime("");
+              }
             }
           })
           .catch(() => {});
@@ -375,8 +408,19 @@ export default function AdminDashboard() {
     tags: [] as string[],
     readTime: 5,
     reviewedBy: "",
-    status: "draft" as "draft" | "published",
+    author: "",
+    imageUrl: "",
+    imageAlt: "",
+    seoTitle: "",
+    seoDescription: "",
+    keywords: [] as string[],
+    status: "draft" as "draft" | "published" | "scheduled",
   });
+  const [articlePublishMode, setArticlePublishMode] = useState<'now' | 'schedule'>('now');
+  const [articleScheduledDateTime, setArticleScheduledDateTime] = useState("");
+  const [newArticleKeyword, setNewArticleKeyword] = useState("");
+  const [isGeneratingArticle, setIsGeneratingArticle] = useState(false);
+  const [articleAiBrief, setArticleAiBrief] = useState("");
 
   // WordPress Import State
   const [wpSiteUrl, setWpSiteUrl] = useState("");
@@ -843,11 +887,8 @@ export default function AdminDashboard() {
 
   // Article mutations
   const createArticleMutation = useMutation({
-    mutationFn: async (data: typeof articleFormData) => {
-      const res = await apiRequest("POST", "/api/articles", {
-        ...data,
-        publishedAt: data.status === "published" ? new Date().toISOString() : null,
-      });
+    mutationFn: async (data: ArticleFormPayload) => {
+      const res = await apiRequest("POST", "/api/articles", data);
       return res.json();
     },
     onSuccess: () => {
@@ -869,7 +910,7 @@ export default function AdminDashboard() {
   });
 
   const updateArticleMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: typeof articleFormData }) => {
+    mutationFn: async ({ id, data }: { id: string; data: ArticleFormPayload }) => {
       const res = await apiRequest("PATCH", `/api/articles/${id}`, data);
       return res.json();
     },
@@ -1113,8 +1154,18 @@ export default function AdminDashboard() {
       tags: [],
       readTime: 5,
       reviewedBy: "",
+      author: "",
+      imageUrl: "",
+      imageAlt: "",
+      seoTitle: "",
+      seoDescription: "",
+      keywords: [],
       status: "draft",
     });
+    setArticlePublishMode('now');
+    setArticleScheduledDateTime("");
+    setArticleAiBrief("");
+    setNewArticleKeyword("");
   };
 
   const handleEditArticle = (article: any) => {
@@ -1127,8 +1178,21 @@ export default function AdminDashboard() {
       tags: article.tags || [],
       readTime: article.readTime || 5,
       reviewedBy: article.reviewedBy || "",
+      author: article.author || "",
+      imageUrl: article.imageUrl || "",
+      imageAlt: article.imageAlt || "",
+      seoTitle: article.seoTitle || "",
+      seoDescription: article.seoDescription || "",
+      keywords: article.keywords || [],
       status: article.status || "draft",
     });
+    if (article.status === 'scheduled' && article.scheduledAt) {
+      setArticlePublishMode('schedule');
+      setArticleScheduledDateTime(isoToSaudiInput(article.scheduledAt));
+    } else {
+      setArticlePublishMode('now');
+      setArticleScheduledDateTime("");
+    }
     setEditingArticleId(article.id);
     setLocation(`/admin/articles/edit/${article.id}`);
   };
@@ -1148,11 +1212,103 @@ export default function AdminDashboard() {
       });
       return;
     }
-    
+    if (articlePublishMode === 'schedule' && articleScheduledDateTime.length < 16) {
+      toast({
+        title: "تاريخ الجدولة مطلوب",
+        description: "يرجى تحديد التاريخ والوقت قبل الجدولة",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Build payload with status/scheduling overrides
+    const payloadStatus: "draft" | "published" | "scheduled" =
+      articleFormData.status === 'draft'
+        ? 'draft'
+        : (articlePublishMode === 'schedule' ? 'scheduled' : 'published');
+    const payloadScheduledAt = articlePublishMode === 'schedule' && articleFormData.status !== 'draft'
+      ? saudiInputToISO(articleScheduledDateTime)
+      : null;
+    const payload: ArticleFormPayload = {
+      ...articleFormData,
+      status: payloadStatus,
+      scheduledAt: payloadScheduledAt,
+    };
     if (editingArticleId) {
-      updateArticleMutation.mutate({ id: editingArticleId, data: articleFormData });
+      updateArticleMutation.mutate({ id: editingArticleId, data: payload });
     } else {
-      createArticleMutation.mutate(articleFormData);
+      createArticleMutation.mutate(payload);
+    }
+  };
+
+  const handleGenerateArticleAI = async () => {
+    const brief = articleAiBrief.trim() || articleFormData.title.trim();
+    if (!brief || brief.length < 10) {
+      toast({
+        title: "أدخل موجز/عنوان أولاً",
+        description: "اكتب موجزاً أو عنواناً (10 أحرف على الأقل) قبل التوليد",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsGeneratingArticle(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/generate-article-content", { brief });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "فشل التوليد");
+      setArticleFormData(prev => ({
+        ...prev,
+        title: data.title || prev.title,
+        slug: prev.slug || generateSlug(data.title || prev.title),
+        excerpt: data.excerpt || prev.excerpt,
+        content: data.content || prev.content,
+        tags: data.tags?.length ? data.tags : prev.tags,
+        readTime: data.readTime || prev.readTime,
+        seoTitle: data.seoTitle || prev.seoTitle,
+        seoDescription: data.seoDescription || prev.seoDescription,
+        keywords: data.keywords?.length ? data.keywords : prev.keywords,
+      }));
+      toast({ title: "تم توليد المقال", description: "راجع المحتوى قبل النشر" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "حدث خطأ";
+      toast({ title: "خطأ في التوليد", description: message, variant: "destructive" });
+    } finally {
+      setIsGeneratingArticle(false);
+    }
+  };
+
+  const handleArticleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "خطأ", description: "يرجى اختيار ملف صورة", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "الصورة كبيرة جداً", description: "الحد الأقصى 10 ميجابايت", variant: "destructive" });
+      return;
+    }
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch('/api/admin/upload-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64, mimeType: file.type }),
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'فشل الرفع');
+      setArticleFormData(prev => ({ ...prev, imageUrl: data.imageUrl }));
+      toast({ title: "تم رفع الصورة بنجاح" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "فشل الرفع";
+      toast({ title: "خطأ في رفع الصورة", description: message, variant: "destructive" });
+    } finally {
+      e.target.value = '';
     }
   };
 
@@ -4191,6 +4347,20 @@ export default function AdminDashboard() {
           <Button
             variant="outline"
             className="gap-2 flex-1 sm:flex-none"
+            onClick={handleGenerateArticleAI}
+            disabled={isGeneratingArticle}
+            data-testid="button-generate-article-ai"
+          >
+            {isGeneratingArticle ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            توليد المقال بالذكاء الاصطناعي
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2 flex-1 sm:flex-none"
             disabled={!editingArticleId}
             onClick={() => {
               if (editingArticleId) {
@@ -4204,6 +4374,27 @@ export default function AdminDashboard() {
           </Button>
         </div>
       </div>
+
+      {/* AI brief input */}
+      <Card>
+        <CardContent className="pt-4 space-y-2">
+          <Label htmlFor="article-ai-brief" className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            موجز للتوليد الذكي (اختياري)
+          </Label>
+          <Textarea
+            id="article-ai-brief"
+            value={articleAiBrief}
+            onChange={(e) => setArticleAiBrief(e.target.value)}
+            placeholder="مثال: اكتب مقالاً عن فوائد المشي اليومي للقلب والصحة النفسية..."
+            rows={2}
+            data-testid="input-article-ai-brief"
+          />
+          <p className="text-xs text-muted-foreground">
+            اكتب موجزاً مختصراً ثم اضغط زر "توليد المقال" لتوليد العنوان والمحتوى وSEO تلقائياً.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Form */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
@@ -4274,7 +4465,7 @@ export default function AdminDashboard() {
               <div className="space-y-2">
                 <Label>الحالة</Label>
                 <Select
-                  value={articleFormData.status}
+                  value={articleFormData.status === 'scheduled' ? 'published' : articleFormData.status}
                   onValueChange={(value: "draft" | "published") => setArticleFormData(prev => ({ ...prev, status: value }))}
                 >
                   <SelectTrigger data-testid="select-article-status">
@@ -4285,6 +4476,63 @@ export default function AdminDashboard() {
                     <SelectItem value="published">منشور</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              {articleFormData.status !== 'draft' && (
+                <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                  <Label className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    وقت النشر
+                  </Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={articlePublishMode === 'now' ? 'default' : 'outline'}
+                      className="flex-1"
+                      onClick={() => setArticlePublishMode('now')}
+                      data-testid="button-article-publish-now"
+                    >
+                      نشر فوري
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={articlePublishMode === 'schedule' ? 'default' : 'outline'}
+                      className="flex-1"
+                      onClick={() => {
+                        setArticlePublishMode('schedule');
+                        if (!articleScheduledDateTime) {
+                          const future = new Date(Date.now() + 60 * 60 * 1000);
+                          setArticleScheduledDateTime(isoToSaudiInput(future.toISOString()));
+                        }
+                      }}
+                      data-testid="button-article-publish-schedule"
+                    >
+                      جدولة
+                    </Button>
+                  </div>
+                  {articlePublishMode === 'schedule' && (
+                    <div className="space-y-1">
+                      <Input
+                        type="datetime-local"
+                        value={articleScheduledDateTime}
+                        onChange={(e) => setArticleScheduledDateTime(e.target.value)}
+                        data-testid="input-article-scheduled-at"
+                      />
+                      <p className="text-[11px] text-muted-foreground">بتوقيت الرياض (UTC+3)</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="article-author">الكاتب</Label>
+                <Input
+                  id="article-author"
+                  value={articleFormData.author}
+                  onChange={(e) => setArticleFormData(prev => ({ ...prev, author: e.target.value }))}
+                  placeholder="اسم الكاتب"
+                  data-testid="input-article-author"
+                />
               </div>
               <div className="space-y-2">
                 <Label>الفئة *</Label>
@@ -4377,6 +4625,172 @@ export default function AdminDashboard() {
                     </button>
                   </Badge>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Featured Image Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ImagePlus className="h-4 w-4 text-primary" />
+                الصورة الرئيسية
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {articleFormData.imageUrl ? (
+                <div className="relative">
+                  <img
+                    src={articleFormData.imageUrl}
+                    alt={articleFormData.imageAlt || 'صورة المقال'}
+                    className="w-full h-40 object-cover rounded-md border"
+                    data-testid="img-article-featured-preview"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="destructive"
+                    className="absolute top-2 left-2 h-7 w-7"
+                    onClick={() => setArticleFormData(prev => ({ ...prev, imageUrl: '' }))}
+                    data-testid="button-remove-article-image"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex h-40 items-center justify-center rounded-md border border-dashed bg-muted/30">
+                  <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <Label
+                  htmlFor="article-image-upload"
+                  className="cursor-pointer inline-flex items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm hover-elevate"
+                  data-testid="label-upload-article-image"
+                >
+                  <Upload className="h-4 w-4" />
+                  رفع صورة
+                </Label>
+                <input
+                  id="article-image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleArticleImageUpload}
+                  data-testid="input-upload-article-image"
+                />
+                <AIImageGenerator
+                  title={articleFormData.title}
+                  content={articleFormData.excerpt || articleFormData.content?.replace(/<[^>]+>/g, '').slice(0, 500)}
+                  onImageGenerated={(url) => setArticleFormData(prev => ({ ...prev, imageUrl: url }))}
+                  showQuickGenerate={true}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="article-image-url">أو الصق رابط الصورة</Label>
+                <Input
+                  id="article-image-url"
+                  value={articleFormData.imageUrl}
+                  onChange={(e) => setArticleFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  placeholder="https://..."
+                  dir="ltr"
+                  data-testid="input-article-image-url"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="article-image-alt">نص بديل (Alt)</Label>
+                <Input
+                  id="article-image-alt"
+                  value={articleFormData.imageAlt}
+                  onChange={(e) => setArticleFormData(prev => ({ ...prev, imageAlt: e.target.value }))}
+                  placeholder="وصف مختصر للصورة"
+                  data-testid="input-article-image-alt"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* SEO Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Globe className="h-4 w-4 text-primary" />
+                إعدادات SEO
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="article-seo-title">عنوان SEO</Label>
+                <Input
+                  id="article-seo-title"
+                  value={articleFormData.seoTitle}
+                  onChange={(e) => setArticleFormData(prev => ({ ...prev, seoTitle: e.target.value }))}
+                  placeholder="عنوان محسّن لمحركات البحث"
+                  maxLength={70}
+                  data-testid="input-article-seo-title"
+                />
+                <p className="text-[11px] text-muted-foreground">{articleFormData.seoTitle.length}/70</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="article-seo-description">وصف SEO</Label>
+                <Textarea
+                  id="article-seo-description"
+                  value={articleFormData.seoDescription}
+                  onChange={(e) => setArticleFormData(prev => ({ ...prev, seoDescription: e.target.value }))}
+                  placeholder="وصف محسّن لمحركات البحث (150-160 حرف)"
+                  rows={3}
+                  maxLength={200}
+                  data-testid="input-article-seo-description"
+                />
+                <p className="text-[11px] text-muted-foreground">{articleFormData.seoDescription.length}/200</p>
+              </div>
+              <div className="space-y-2">
+                <Label>الكلمات المفتاحية</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newArticleKeyword}
+                    onChange={(e) => setNewArticleKeyword(e.target.value)}
+                    placeholder="أضف كلمة مفتاحية"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newArticleKeyword.trim()) {
+                        e.preventDefault();
+                        if (!articleFormData.keywords.includes(newArticleKeyword.trim())) {
+                          setArticleFormData(prev => ({ ...prev, keywords: [...prev.keywords, newArticleKeyword.trim()] }));
+                        }
+                        setNewArticleKeyword("");
+                      }
+                    }}
+                    data-testid="input-article-keyword"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      if (newArticleKeyword.trim() && !articleFormData.keywords.includes(newArticleKeyword.trim())) {
+                        setArticleFormData(prev => ({ ...prev, keywords: [...prev.keywords, newArticleKeyword.trim()] }));
+                        setNewArticleKeyword("");
+                      }
+                    }}
+                    data-testid="button-add-article-keyword"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {articleFormData.keywords.map((kw, idx) => (
+                    <Badge key={idx} variant="secondary" className="gap-1" data-testid={`badge-article-keyword-${idx}`}>
+                      {kw}
+                      <button
+                        type="button"
+                        onClick={() => setArticleFormData(prev => ({ ...prev, keywords: prev.keywords.filter((_, i) => i !== idx) }))}
+                        className="hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>

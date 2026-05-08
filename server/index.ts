@@ -286,6 +286,20 @@ async function fixCategoriesArabic() {
     runScheduler();
     setInterval(runScheduler, 60 * 1000);
 
+    // Background scheduler: promote overdue scheduled articles every 60 seconds
+    const runArticleScheduler = async () => {
+      try {
+        const promoted = await storage.promoteOverdueScheduledArticles();
+        if (promoted > 0) {
+          log(`[Scheduler] نُشر ${promoted} مقال مجدول تلقائياً`);
+        }
+      } catch (err) {
+        console.error("[Scheduler] خطأ في نشر المقالات المجدولة:", err);
+      }
+    };
+    runArticleScheduler();
+    setInterval(runArticleScheduler, 60 * 1000);
+
     // Background scheduler: deactivate expired ads every 5 minutes
     const runAdExpiry = async () => {
       try {
