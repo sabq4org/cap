@@ -311,7 +311,7 @@ export default function Landing() {
                 <h2 className="text-2xl md:text-3xl font-bold text-yellow-300" style={{ fontFamily: "'IBM Plex Sans Arabic', sans-serif", textShadow: "0 0 20px rgba(212,175,55,0.4)" }}>
                   ضيوف الرحمن
                 </h2>
-                <p className="text-yellow-200/60 text-sm mt-0.5">تغطية موسم الحج · موسم الحج</p>
+                <p className="text-yellow-200/60 text-sm mt-0.5">تغطية موسم الحج</p>
               </div>
             </div>
             <Link href="/keyword/موسم الحج">
