@@ -283,6 +283,78 @@ export default function Landing() {
       </div>
       </div>
 
+      {/* ── Latest News ── */}
+      <div className="px-4 md:px-6 pb-6">
+      <div className="container mx-auto max-w-7xl">
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+              <TrendingUp className="h-6 w-6 text-primary" />
+              آخر الأخبار
+            </h2>
+            <Link href="/news">
+              <Button variant="ghost" size="sm" data-testid="button-all-news">
+                المزيد <ArrowLeft className="h-4 w-4 mr-1" />
+              </Button>
+            </Link>
+          </div>
+          {newsLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              {[...Array(20)].map((_, i) => (
+                <Skeleton key={i} className="h-28 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : latestNews.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              {latestNews.map((item, index) => (
+                <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
+                  <Card className={`hover-elevate overflow-hidden cursor-pointer h-full ${item.isBreaking ? "ring-2 ring-red-500 bg-red-50/60 dark:bg-red-950/20 shadow-red-100 dark:shadow-red-950/30" : ""}`} data-testid={`card-latest-news-${item.id}`}>
+                    <div className="relative">
+                      <img 
+                        src={getNewsImage(item)} 
+                        alt={item.title}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-24 md:h-28 object-cover"
+                      />
+                      {item.isBreaking && (
+                        <span className="absolute top-1.5 right-1.5 inline-flex items-center gap-0.5 bg-red-600 text-white px-1.5 py-0.5 rounded text-[10px] font-bold animate-pulse shadow-lg z-10">
+                          <AlertTriangle className="h-3 w-3" />
+                          عاجل
+                        </span>
+                      )}
+                    </div>
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                        {item.isBreaking && (
+                          <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 text-sm">
+                            عاجل
+                          </Badge>
+                        )}
+                        <Badge className={`${categoryColors[item.category] || ""} text-sm`}>
+                          {categoryLabels[item.category] || item.category}
+                        </Badge>
+                        {isAiGeneratedImage(item.imageUrl) && (
+                          <Brain className="h-3.5 w-3.5 text-sky-500" />
+                        )}
+                      </div>
+                      <h4 className={`font-semibold text-xs md:text-sm line-clamp-2 mb-1 ${item.isBreaking ? "text-red-700 dark:text-red-400" : ""}`}>
+                        {item.title}
+                      </h4>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {formatDate(item.publishedAt)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+      </div>
+
       {/* ── Hajj Block — ضيوف الرحمن ── */}
       {(hajjLoading || hajjNews.length > 0) && (
       <section
@@ -484,73 +556,6 @@ export default function Landing() {
 
       <div className="px-4 md:px-6 pb-6">
       <div className="container mx-auto max-w-7xl">
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
-              <TrendingUp className="h-6 w-6 text-primary" />
-              آخر الأخبار
-            </h2>
-            <Link href="/news">
-              <Button variant="ghost" size="sm" data-testid="button-all-news">
-                المزيد <ArrowLeft className="h-4 w-4 mr-1" />
-              </Button>
-            </Link>
-          </div>
-          {newsLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {[...Array(20)].map((_, i) => (
-                <Skeleton key={i} className="h-28 w-full rounded-lg" />
-              ))}
-            </div>
-          ) : latestNews.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {latestNews.map((item, index) => (
-                <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
-                  <Card className={`hover-elevate overflow-hidden cursor-pointer h-full ${item.isBreaking ? "ring-2 ring-red-500 bg-red-50/60 dark:bg-red-950/20 shadow-red-100 dark:shadow-red-950/30" : ""}`} data-testid={`card-latest-news-${item.id}`}>
-                    <div className="relative">
-                      <img 
-                        src={getNewsImage(item)} 
-                        alt={item.title}
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full h-24 md:h-28 object-cover"
-                      />
-                      {item.isBreaking && (
-                        <span className="absolute top-1.5 right-1.5 inline-flex items-center gap-0.5 bg-red-600 text-white px-1.5 py-0.5 rounded text-[10px] font-bold animate-pulse shadow-lg z-10">
-                          <AlertTriangle className="h-3 w-3" />
-                          عاجل
-                        </span>
-                      )}
-                    </div>
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                        {item.isBreaking && (
-                          <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 text-sm">
-                            عاجل
-                          </Badge>
-                        )}
-                        <Badge className={`${categoryColors[item.category] || ""} text-sm`}>
-                          {categoryLabels[item.category] || item.category}
-                        </Badge>
-                        {isAiGeneratedImage(item.imageUrl) && (
-                          <Brain className="h-3.5 w-3.5 text-sky-500" />
-                        )}
-                      </div>
-                      <h4 className={`font-semibold text-xs md:text-sm line-clamp-2 mb-1 ${item.isBreaking ? "text-red-700 dark:text-red-400" : ""}`}>
-                        {item.title}
-                      </h4>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {formatDate(item.publishedAt)}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
         {/* ── WhatsApp Subscribe Banner ──────────────────────────── */}
         <Link href="/whatsapp">
           <div
