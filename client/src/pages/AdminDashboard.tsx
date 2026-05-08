@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import logoImage from "@assets/LOGO-L_1769253692563.png";
 import { AdminDashboardOverview } from "@/components/admin/AdminDashboardOverview";
+import { useUpload } from "@/hooks/use-upload";
 import { SocialContentModal } from "@/components/SocialContentModal";
 import type { SocialContent } from "@shared/schema";
 
@@ -2125,6 +2126,25 @@ export default function AdminDashboard() {
     });
     const { toast } = useToast();
 
+    const { uploadFile, isUploading: isUploadingAdImage } = useUpload({
+      onSuccess: (response) => {
+        setAdForm(f => ({ ...f, imageUrl: response.objectPath }));
+        toast({ title: "تم رفع الصورة", description: "تم رفع صورة الإعلان بنجاح" });
+      },
+      onError: (error) => {
+        console.error('Error uploading ad image:', error);
+        toast({ title: "خطأ في الرفع", description: "حدث خطأ أثناء رفع الصورة", variant: "destructive" });
+      },
+    });
+
+    const handleAdImageUpload = async (file: File) => {
+      if (!file.type.startsWith('image/')) {
+        toast({ title: "خطأ", description: "يرجى اختيار ملف صورة صالح", variant: "destructive" });
+        return;
+      }
+      await uploadFile(file);
+    };
+
     const { data: ads, isLoading: adsLoading } = useQuery<any[]>({
       queryKey: ['/api/admin/ads'],
     });
@@ -2221,9 +2241,63 @@ export default function AdminDashboard() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>رابط الصورة</Label>
-                  <Input value={adForm.imageUrl} onChange={e => setAdForm(f => ({ ...f, imageUrl: e.target.value }))} placeholder="https://..." data-testid="input-ad-image-url" />
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>صورة الإعلان</Label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="ad-image-upload"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAdImageUpload(file);
+                        e.target.value = '';
+                      }}
+                      data-testid="file-input-ad-image"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isUploadingAdImage}
+                      onClick={() => document.getElementById('ad-image-upload')?.click()}
+                      data-testid="button-upload-ad-image"
+                    >
+                      {isUploadingAdImage ? (
+                        <><Loader2 className="h-4 w-4 animate-spin ml-1" /> جاري الرفع...</>
+                      ) : (
+                        <><Upload className="h-4 w-4 ml-1" /> رفع صورة</>
+                      )}
+                    </Button>
+                    <Input
+                      value={adForm.imageUrl}
+                      onChange={e => setAdForm(f => ({ ...f, imageUrl: e.target.value }))}
+                      placeholder="أو ألصق رابط الصورة https://..."
+                      className="flex-1 min-w-[200px]"
+                      data-testid="input-ad-image-url"
+                    />
+                  </div>
+                  {adForm.imageUrl && (
+                    <div className="mt-2 flex items-start gap-2">
+                      <img
+                        src={adForm.imageUrl}
+                        alt="معاينة الإعلان"
+                        className="h-20 w-32 object-cover rounded-md border"
+                        data-testid="img-ad-preview"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => setAdForm(f => ({ ...f, imageUrl: "" }))}
+                        data-testid="button-remove-ad-image"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>رابط الإعلان</Label>
