@@ -48,6 +48,39 @@ async function setupMatawsPermissions() {
   } catch (e) { console.error("[Init] خطأ في تحديث matawa:", e); }
 }
 
+async function ensureAdminAccount() {
+  const { pool } = await import("./db");
+  try {
+    const { rows } = await pool.query(
+      `SELECT id FROM admin_accounts WHERE role = 'super_admin' LIMIT 1`
+    );
+    if (rows.length > 0) return; // super_admin already exists
+
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (!adminPassword) {
+      console.warn("[Init] ⚠️ لا يوجد حساب super_admin ومتغير ADMIN_PASSWORD غير مضبوط — تخطّي إنشاء الحساب");
+      return;
+    }
+
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.hash(adminPassword, 12);
+    const allPermissions = [
+      "publish_news","edit_news","delete_news","manage_categories",
+      "view_analytics","manage_users","ai_content","ai_images",
+      "manage_radar","import_wordpress"
+    ];
+    await pool.query(
+      `INSERT INTO admin_accounts (username, password_hash, display_name, role, permissions, is_active)
+       VALUES ($1, $2, $3, 'super_admin', $4, true)
+       ON CONFLICT (username) DO NOTHING`,
+      ["admin", hash, "المدير العام", allPermissions]
+    );
+    log("[Init] ✅ تم إنشاء حساب المدير العام (admin) تلقائياً");
+  } catch (e) {
+    console.error("[Init] خطأ في إنشاء حساب المدير (غير حرج):", e);
+  }
+}
+
 async function fillMissingCreatedBy() {
   // لا نعدل الأخبار الموجودة - فقط نترك NULL كما هي (الـ Frontend يعرض "مستورد")
   console.log("[Init] ✅ بيانات الناشر جاهزة");
@@ -147,6 +180,13 @@ async function fixCategoriesArabic() {
       await fixCategoriesArabic();
     } catch (err) {
       console.error('[Init] خطأ في تحديث التصنيفات (غير حرج):', err);
+    }
+
+    // Ensure a super_admin account always exists (idempotent — skips if already present)
+    try {
+      await ensureAdminAccount();
+    } catch (err) {
+      console.error('[Init] خطأ في التحقق من حساب المدير (غير حرج):', err);
     }
 
     // Retroactively mark translated news (runs on every startup, idempotent)
