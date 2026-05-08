@@ -1,6 +1,7 @@
 import { MessageSquare, Apple, Activity, BookOpen, ArrowLeft, Sparkles, XCircle, CheckCircle, AlertTriangle, Clock, ShieldAlert, Bot, Send, ChevronLeft } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useRef } from "react";
 import Hero from "@/components/Hero";
 import StatsCard from "@/components/StatsCard";
 import ArticleCard from "@/components/ArticleCard";
@@ -67,10 +68,38 @@ export default function Home() {
   ];
 
   const { data: debunksData, isLoading: debunksLoading } = useQuery<PaginatedResponse>({
-    queryKey: ["/api/news?page=1&perPage=3&category=debunk"],
+    queryKey: ["/api/news?page=1&perPage=6&category=debunk"],
   });
 
-  const latestDebunks = debunksData?.news || [];
+  const allDebunks = debunksData?.news || [];
+  const CARDS_PER_PAGE = 3;
+  const totalSets = Math.max(1, Math.ceil(allDebunks.length / CARDS_PER_PAGE));
+
+  const [currentSet, setCurrentSet] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const isPaused = useRef(false);
+
+  useEffect(() => {
+    if (allDebunks.length <= CARDS_PER_PAGE) return;
+    let fadeTimeout: ReturnType<typeof setTimeout> | null = null;
+    const interval = setInterval(() => {
+      if (isPaused.current) return;
+      setVisible(false);
+      fadeTimeout = setTimeout(() => {
+        setCurrentSet((prev) => (prev + 1) % totalSets);
+        setVisible(true);
+      }, 350);
+    }, 4500);
+    return () => {
+      clearInterval(interval);
+      if (fadeTimeout !== null) clearTimeout(fadeTimeout);
+    };
+  }, [allDebunks.length, totalSets]);
+
+  const latestDebunks = allDebunks.slice(
+    currentSet * CARDS_PER_PAGE,
+    currentSet * CARDS_PER_PAGE + CARDS_PER_PAGE
+  );
 
   return (
     <div className="flex flex-col">
@@ -135,7 +164,13 @@ export default function Home() {
             </div>
 
             {/* Right column – Debunk cards */}
-            <div className="space-y-3" dir="rtl">
+            <div
+              className="space-y-3"
+              dir="rtl"
+              onMouseEnter={() => { isPaused.current = true; }}
+              onMouseLeave={() => { isPaused.current = false; }}
+              style={{ transition: "opacity 0.35s ease", opacity: visible ? 1 : 0 }}
+            >
               {debunksLoading ? (
                 <>
                   {[1, 2, 3].map((i) => (
@@ -197,6 +232,23 @@ export default function Home() {
                   <ShieldAlert className="h-10 w-10 mx-auto mb-3 text-violet-400 opacity-60" />
                   <p className="text-slate-300 font-medium mb-1">لا توجد شائعات مفنَّدة بعد</p>
                   <p className="text-slate-500 text-sm">كن أول من يرسل شائعة للتحليل</p>
+                </div>
+              )}
+
+              {/* Dot indicators — only when there are multiple sets */}
+              {allDebunks.length > CARDS_PER_PAGE && (
+                <div className="flex justify-center gap-2 pt-1" data-testid="debunk-dots">
+                  {Array.from({ length: totalSets }).map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setVisible(false);
+                        setTimeout(() => { setCurrentSet(i); setVisible(true); }, 350);
+                      }}
+                      data-testid={`debunk-dot-${i}`}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${i === currentSet ? "w-5 bg-violet-400" : "w-1.5 bg-white/25 hover:bg-white/50"}`}
+                    />
+                  ))}
                 </div>
               )}
             </div>
