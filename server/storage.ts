@@ -39,6 +39,10 @@ import {
   drugs,
   type Drug,
   type InsertDrug,
+  authors,
+  type Author,
+  type InsertAuthor,
+  type AuthorStatus,
   type User,
   type UpsertUser,
   type HealthProfile,
@@ -159,6 +163,16 @@ export interface IStorage {
   searchDrugs(query: string): Promise<Drug[]>;
   upsertDrug(drug: InsertDrug): Promise<Drug>;
   incrementDrugViewCount(id: string): Promise<void>;
+
+  // Authors operations
+  getAuthors(status?: AuthorStatus): Promise<Author[]>;
+  getAuthorById(id: string): Promise<Author | undefined>;
+  getAuthorBySlug(slug: string): Promise<Author | undefined>;
+  getAuthorByEmail(email: string): Promise<Author | undefined>;
+  createAuthor(author: InsertAuthor & { slug: string }): Promise<Author>;
+  updateAuthorStatus(id: string, status: AuthorStatus, reviewedBy: string, reviewNotes?: string): Promise<Author | undefined>;
+  updateAuthor(id: string, data: Partial<InsertAuthor>): Promise<Author | undefined>;
+  deleteAuthor(id: string): Promise<boolean>;
 
   // Category operations
   getCategories(activeOnly?: boolean): Promise<Category[]>;
@@ -2578,6 +2592,55 @@ export class DatabaseStorage implements IStorage {
     await db.update(drugs)
       .set({ viewCount: sql`${drugs.viewCount} + 1` })
       .where(eq(drugs.id, id));
+  }
+
+  // ─── Authors ──────────────────────────────────────────────────
+  async getAuthors(status?: AuthorStatus): Promise<Author[]> {
+    if (status) {
+      return db.select().from(authors).where(eq(authors.status, status)).orderBy(desc(authors.createdAt));
+    }
+    return db.select().from(authors).orderBy(desc(authors.createdAt));
+  }
+
+  async getAuthorById(id: string): Promise<Author | undefined> {
+    const [a] = await db.select().from(authors).where(eq(authors.id, id));
+    return a;
+  }
+
+  async getAuthorBySlug(slug: string): Promise<Author | undefined> {
+    const [a] = await db.select().from(authors).where(eq(authors.slug, slug));
+    return a;
+  }
+
+  async getAuthorByEmail(email: string): Promise<Author | undefined> {
+    const [a] = await db.select().from(authors).where(eq(authors.email, email));
+    return a;
+  }
+
+  async createAuthor(author: InsertAuthor & { slug: string }): Promise<Author> {
+    const [created] = await db.insert(authors).values(author).returning();
+    return created;
+  }
+
+  async updateAuthorStatus(id: string, status: AuthorStatus, reviewedBy: string, reviewNotes?: string): Promise<Author | undefined> {
+    const [updated] = await db.update(authors)
+      .set({ status, reviewedBy, reviewNotes, reviewedAt: new Date(), updatedAt: new Date() })
+      .where(eq(authors.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateAuthor(id: string, data: Partial<InsertAuthor>): Promise<Author | undefined> {
+    const [updated] = await db.update(authors)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(authors.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAuthor(id: string): Promise<boolean> {
+    const result = await db.delete(authors).where(eq(authors.id, id)).returning();
+    return result.length > 0;
   }
 }
 

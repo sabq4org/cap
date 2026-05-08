@@ -38,6 +38,10 @@ import AdminPodcast from "@/pages/AdminPodcast";
 import Podcast from "@/pages/Podcast";
 import Capsule from "@/pages/Capsule";
 import Drugs from "@/pages/Drugs";
+import Authors from "@/pages/Authors";
+import AuthorProfile from "@/pages/AuthorProfile";
+import AuthorRegister from "@/pages/AuthorRegister";
+import AdminAuthors from "@/pages/AdminAuthors";
 import NotFound from "@/pages/not-found";
 import WhatsAppSubscribe from "@/pages/WhatsAppSubscribe";
 import ArchiveChatbot from "@/components/ArchiveChatbot";
@@ -70,6 +74,9 @@ function Router() {
       <Route path="/keyword/:keyword" component={KeywordPage} />
       <Route path="/ask-capsule" component={AskCapsule} />
       <Route path="/drugs" component={Drugs} />
+      <Route path="/authors" component={Authors} />
+      <Route path="/authors/register" component={AuthorRegister} />
+      <Route path="/authors/:slug" component={AuthorProfile} />
       <Route path="/whatsapp" component={WhatsAppSubscribe} />
       <Route path="/ask-capsule/status/:id" component={RumorStatus} />
       <Route path="/podcast" component={Podcast} />
@@ -107,6 +114,7 @@ function AdminRouter() {
       <Route path="/admin/ads" component={AdminDashboard} />
       <Route path="/admin/whatsapp" component={AdminWhatsApp} />
       <Route path="/admin/podcast" component={AdminPodcast} />
+      <Route path="/admin/authors" component={AdminAuthors} />
     </Switch>
   );
 }

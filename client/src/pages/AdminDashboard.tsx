@@ -11,7 +11,7 @@ import {
   Activity, Utensils, Heart, Settings, ChevronLeft, BarChart3,
   Calendar, Clock, ArrowUpRight, ArrowDownRight, Sparkles, Menu, X,
   Save, Loader2, ChevronRight, Image, Upload, ImagePlus, Download, Globe, Check, AlertCircle, CheckSquare, Square, Star, Shield, Apple, Radar, Wand2, LayoutTemplate, ChevronsLeft, ChevronsRight, ArrowUpDown, Rss, AlertTriangle, MessageCircle,
-  Megaphone, RefreshCw, ToggleLeft, ToggleRight, ExternalLink, Link2, Weight, Timer, RotateCcw, MousePointerClick, FlaskConical, Share2
+  Megaphone, RefreshCw, ToggleLeft, ToggleRight, ExternalLink, Link2, Weight, Timer, RotateCcw, MousePointerClick, FlaskConical, Share2, UserPlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -1632,6 +1632,7 @@ export default function AdminDashboard() {
               <SidebarItem icon={FlaskConical} label="مفنّد الشائعات" onClick={() => setLocation('/admin/rumors')} />
               <SidebarItem icon={Megaphone} label="الإعلانات" active={activeSection === 'ads'} onClick={() => navigateTo('ads')} />
               <SidebarItem icon={MessageCircle} label="كبسولة الصباح (واتساب)" onClick={() => setLocation('/admin/whatsapp')} />
+              <SidebarItem icon={UserPlus} label="الكتّاب" onClick={() => setLocation('/admin/authors')} />
             </div>
           </div>
 

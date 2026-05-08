@@ -5412,6 +5412,129 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // ==========================================
+  // Authors / Writers
+  // ==========================================
+
+  const authorRegLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false });
+
+  const slugifyAuthor = (name: string): string => {
+    const base = name
+      .trim()
+      .toLowerCase()
+      .replace(/[\s\u00A0]+/g, '-')
+      .replace(/[^\u0600-\u06FFa-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    return base || `author-${Date.now()}`;
+  };
+
+  // Strip private fields (email, phone, credentials, review notes) before sending to public
+  const toPublicAuthor = (a: any) => ({
+    id: a.id,
+    slug: a.slug,
+    fullName: a.fullName,
+    profileImageUrl: a.profileImageUrl,
+    bio: a.bio,
+    specialty: a.specialty,
+    jobTitle: a.jobTitle,
+    qualification: a.qualification,
+    organization: a.organization,
+    yearsExperience: a.yearsExperience,
+    twitterUrl: a.twitterUrl,
+    linkedinUrl: a.linkedinUrl,
+    websiteUrl: a.websiteUrl,
+    articleCount: a.articleCount,
+    createdAt: a.createdAt,
+  });
+
+  // GET /api/authors — list approved authors (public)
+  app.get('/api/authors', async (req, res) => {
+    try {
+      const result = await storage.getAuthors('approved');
+      res.json(result.map(toPublicAuthor));
+    } catch (e) {
+      res.status(500).json({ message: "فشل جلب الكتّاب" });
+    }
+  });
+
+  // GET /api/authors/:slug — public profile
+  app.get('/api/authors/:slug', async (req, res) => {
+    try {
+      const author = await storage.getAuthorBySlug(req.params.slug);
+      if (!author || author.status !== 'approved') {
+        return res.status(404).json({ message: "الكاتب غير موجود" });
+      }
+      res.json(toPublicAuthor(author));
+    } catch (e) {
+      res.status(500).json({ message: "فشل جلب البيانات" });
+    }
+  });
+
+  // POST /api/authors/register — public registration (rate-limited, status=pending)
+  app.post('/api/authors/register', authorRegLimiter, async (req, res) => {
+    try {
+      const { insertAuthorSchema } = await import('@shared/schema');
+      const parsed = insertAuthorSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.flatten() });
+      }
+      const data = parsed.data;
+      const existing = await storage.getAuthorByEmail(data.email);
+      if (existing) {
+        return res.status(409).json({ message: "هذا البريد مسجّل مسبقاً" });
+      }
+      let slug = slugifyAuthor(data.fullName);
+      let attempt = 0;
+      while (await storage.getAuthorBySlug(slug)) {
+        attempt++;
+        slug = `${slugifyAuthor(data.fullName)}-${attempt}`;
+        if (attempt > 20) break;
+      }
+      const created = await storage.createAuthor({ ...data, slug });
+      res.status(201).json({ message: "تم استلام طلبك، سيتم مراجعته خلال 48 ساعة", author: { id: created.id, slug: created.slug } });
+    } catch (e) {
+      console.error("Author register error:", e);
+      res.status(500).json({ message: "فشل التسجيل" });
+    }
+  });
+
+  // ─── Admin endpoints ───
+  app.get('/api/admin/authors', isAdminAuthenticated, async (req, res) => {
+    try {
+      const status = req.query.status as any;
+      const result = await storage.getAuthors(status || undefined);
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ message: "فشل الجلب" });
+    }
+  });
+
+  app.patch('/api/admin/authors/:id/status', isAdminAuthenticated, async (req: any, res) => {
+    try {
+      const { status, reviewNotes } = req.body;
+      if (!['pending', 'approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "حالة غير صحيحة" });
+      }
+      const reviewer = req.session?.adminUsername || 'admin';
+      const updated = await storage.updateAuthorStatus(req.params.id, status, reviewer, reviewNotes);
+      if (!updated) return res.status(404).json({ message: "غير موجود" });
+      res.json(updated);
+    } catch (e) {
+      res.status(500).json({ message: "فشل التحديث" });
+    }
+  });
+
+  app.delete('/api/admin/authors/:id', isAdminAuthenticated, async (req, res) => {
+    try {
+      const ok = await storage.deleteAuthor(req.params.id);
+      if (!ok) return res.status(404).json({ message: "غير موجود" });
+      res.json({ message: "تم الحذف" });
+    } catch (e) {
+      res.status(500).json({ message: "فشل الحذف" });
+    }
+  });
+
+  // ==========================================
 
   const httpServer = createServer(app);
 

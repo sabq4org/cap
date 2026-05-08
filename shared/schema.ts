@@ -1205,3 +1205,56 @@ export const insertDrugSchema = createInsertSchema(drugs).omit({ id: true, creat
 export type InsertDrug = z.infer<typeof insertDrugSchema>;
 export type Drug = typeof drugs.$inferSelect;
 
+// ─── Authors / Writers ───────────────────────────────────────────
+export const authorStatusEnum = ["pending", "approved", "rejected"] as const;
+export type AuthorStatus = typeof authorStatusEnum[number];
+
+export const authors = pgTable("authors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: varchar("slug").notNull().unique(),
+  fullName: varchar("full_name").notNull(),
+  email: varchar("email").notNull().unique(),
+  phone: varchar("phone"),
+  profileImageUrl: varchar("profile_image_url"),
+  bio: text("bio").notNull(),
+  specialty: varchar("specialty").notNull(),
+  jobTitle: varchar("job_title"),
+  qualification: varchar("qualification"),
+  organization: varchar("organization"),
+  yearsExperience: integer("years_experience"),
+  twitterUrl: varchar("twitter_url"),
+  linkedinUrl: varchar("linkedin_url"),
+  websiteUrl: varchar("website_url"),
+  credentialsImageUrl: varchar("credentials_image_url"),
+  status: varchar("status").notNull().default("pending"),
+  reviewNotes: text("review_notes"),
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  articleCount: integer("article_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_authors_status").on(table.status),
+  index("idx_authors_slug").on(table.slug),
+]);
+
+export const insertAuthorSchema = createInsertSchema(authors).omit({
+  id: true,
+  slug: true,
+  status: true,
+  reviewNotes: true,
+  reviewedBy: true,
+  reviewedAt: true,
+  articleCount: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  fullName: z.string().min(2, "الاسم قصير جداً").max(100),
+  email: z.string().email("بريد إلكتروني غير صحيح"),
+  bio: z.string().min(20, "السيرة قصيرة جداً (20 حرف على الأقل)").max(1000),
+  specialty: z.string().min(2).max(100),
+  yearsExperience: z.number().int().min(0).max(80).optional().nullable(),
+});
+export type InsertAuthor = z.infer<typeof insertAuthorSchema>;
+export type Author = typeof authors.$inferSelect;
+
