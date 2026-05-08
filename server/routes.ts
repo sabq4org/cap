@@ -5509,6 +5509,35 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     }
   });
 
+  app.post('/api/admin/authors', isAdminAuthenticated, async (req: any, res) => {
+    try {
+      const { insertAuthorSchema } = await import('@shared/schema');
+      const parsed = insertAuthorSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.flatten() });
+      }
+      const data = parsed.data;
+      const existing = await storage.getAuthorByEmail(data.email);
+      if (existing) {
+        return res.status(409).json({ message: "هذا البريد مسجّل مسبقاً" });
+      }
+      let slug = slugifyAuthor(data.fullName);
+      let attempt = 0;
+      while (await storage.getAuthorBySlug(slug)) {
+        attempt++;
+        slug = `${slugifyAuthor(data.fullName)}-${attempt}`;
+        if (attempt > 20) break;
+      }
+      const reviewer = req.session?.adminUsername || 'admin';
+      const created = await storage.createAuthor({ ...data, slug });
+      const approved = await storage.updateAuthorStatus(created.id, 'approved', reviewer, 'تمت الإضافة من قِبل الإدارة');
+      res.status(201).json(approved || created);
+    } catch (e) {
+      console.error("Admin create author error:", e);
+      res.status(500).json({ message: "فشل الإنشاء" });
+    }
+  });
+
   app.patch('/api/admin/authors/:id/status', isAdminAuthenticated, async (req: any, res) => {
     try {
       const { status, reviewNotes } = req.body;
