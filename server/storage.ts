@@ -829,14 +829,18 @@ export class DatabaseStorage implements IStorage {
     const allNews = await db
       .select()
       .from(news)
+      .where(eq(news.status, 'published'))
       .orderBy(desc(news.publishedAt));
     
     const lowerKeyword = keyword.toLowerCase();
     return allNews.filter(item => {
-      if (item.keywords && Array.isArray(item.keywords)) {
-        return (item.keywords as string[]).some(k => k.toLowerCase() === lowerKeyword);
-      }
-      return false;
+      const inKeywords = item.keywords && Array.isArray(item.keywords)
+        ? (item.keywords as string[]).some(k => k.toLowerCase().includes(lowerKeyword))
+        : false;
+      const inTitle = item.title?.toLowerCase().includes(lowerKeyword) ?? false;
+      const inSummary = item.summary?.toLowerCase().includes(lowerKeyword) ?? false;
+      const inContent = item.content?.toLowerCase().includes(lowerKeyword) ?? false;
+      return inKeywords || inTitle || inSummary || inContent;
     });
   }
 

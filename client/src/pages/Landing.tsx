@@ -101,6 +101,11 @@ export default function Landing() {
     queryKey: ["/api/news?page=1&perPage=6&category=debunk"],
   });
 
+  const { data: hajjNewsRaw, isLoading: hajjLoading } = useQuery<News[]>({
+    queryKey: ["/api/news/keyword/موسم الحج"],
+  });
+  const hajjNews = (hajjNewsRaw || []).slice(0, 8);
+
   const allDebunks = debunksData?.news || [];
   const CARDS_PER_PAGE = 3;
   const totalSets = Math.max(1, Math.ceil(allDebunks.length / CARDS_PER_PAGE));
@@ -277,6 +282,96 @@ export default function Landing() {
         <AdBanner position="below_featured" className="mt-4" />
       </div>
       </div>
+
+      {/* ── Hajj Block — ضيوف الرحمن ── */}
+      {(hajjLoading || hajjNews.length > 0) && (
+      <section
+        className="py-10 md:py-14 relative overflow-hidden"
+        dir="rtl"
+        style={{ background: "linear-gradient(160deg, #0d2a1a 0%, #1a3d28 35%, #0f2318 65%, #1b2f0e 100%)" }}
+      >
+        {/* Decorative geometric overlay */}
+        <div className="absolute inset-0 opacity-[0.06]" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23D4AF37' fill-opacity='1'%3E%3Cpath d='M30 0l8.66 15H21.34L30 0zm0 60l-8.66-15h17.32L30 60zM0 30l15-8.66v17.32L0 30zm60 0l-15 8.66V21.34L60 30z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }} />
+        {/* Gold shimmer top border */}
+        <div className="absolute top-0 inset-x-0 h-[3px]" style={{ background: "linear-gradient(90deg, transparent, #D4AF37, #F5D06B, #D4AF37, transparent)" }} />
+        {/* Gold shimmer bottom border */}
+        <div className="absolute bottom-0 inset-x-0 h-[3px]" style={{ background: "linear-gradient(90deg, transparent, #D4AF37, #F5D06B, #D4AF37, transparent)" }} />
+
+        <div className="container mx-auto max-w-7xl px-4 md:px-6 relative z-10">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              {/* Crescent & star emblem */}
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-yellow-500/40 bg-yellow-500/10 text-2xl shrink-0">
+                🕌
+              </div>
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold text-yellow-300" style={{ fontFamily: "'IBM Plex Sans Arabic', sans-serif", textShadow: "0 0 20px rgba(212,175,55,0.4)" }}>
+                  ضيوف الرحمن
+                </h2>
+                <p className="text-yellow-200/60 text-sm mt-0.5">تغطية موسم الحج · موسم الحج</p>
+              </div>
+            </div>
+            <Link href="/keyword/موسم الحج">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/10 hover:text-yellow-200 bg-transparent"
+                data-testid="button-hajj-view-all"
+              >
+                المزيد
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+
+          {/* Cards grid */}
+          {hajjLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-48 rounded-xl bg-white/10" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="hajj-grid">
+              {hajjNews.map((item) => (
+                <Link
+                  key={item.id}
+                  href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}
+                  data-testid={`card-hajj-${item.id}`}
+                >
+                  <div className="group rounded-xl overflow-hidden border border-yellow-500/20 bg-white/5 hover:bg-white/10 hover:border-yellow-400/40 transition-all duration-300 cursor-pointer h-full flex flex-col"
+                    style={{ backdropFilter: "blur(4px)" }}>
+                    {/* Image */}
+                    <div className="relative aspect-video overflow-hidden">
+                      <img
+                        src={getNewsImage(item)}
+                        alt={item.title}
+                        loading="lazy"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => { (e.target as HTMLImageElement).src = getNewsFallbackImage(item.category); }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    </div>
+                    {/* Title */}
+                    <div className="p-3 flex-1 flex flex-col justify-between gap-2">
+                      <p className="text-sm font-semibold text-yellow-50 leading-snug line-clamp-3 group-hover:text-yellow-200 transition-colors">
+                        {item.title}
+                      </p>
+                      <span className="text-xs text-yellow-400/60">
+                        {item.source || ""}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+      )}
 
       {/* ── Debunk Block — full width light green ── */}
       <section className="py-10 md:py-14 mt-6 bg-green-50 dark:bg-green-950/20 border-y border-green-100 dark:border-green-900/30" dir="rtl">
