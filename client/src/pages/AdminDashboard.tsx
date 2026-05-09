@@ -2272,372 +2272,6 @@ export default function AdminDashboard() {
     </div>
   );
 
-  // Ads Section Component
-  const AdsSection = () => {
-    const [selectedAdId, setSelectedAdId] = useState<string | null>(null);
-    const [statsDays, setStatsDays] = useState<7 | 30>(30);
-    const [showAdForm, setShowAdForm] = useState(false);
-    const [editingAd, setEditingAd] = useState<any>(null);
-    const [adForm, setAdForm] = useState({
-      title: "", imageUrl: "", linkUrl: "", position: "sidebar", isActive: true, notes: "",
-    });
-    const { toast } = useToast();
-
-    const { uploadFile, isUploading: isUploadingAdImage } = useUpload({
-      onSuccess: (response) => {
-        setAdForm(f => ({ ...f, imageUrl: response.objectPath }));
-        toast({ title: "تم رفع الصورة", description: "تم رفع صورة الإعلان بنجاح" });
-      },
-      onError: (error) => {
-        console.error('Error uploading ad image:', error);
-        toast({ title: "خطأ في الرفع", description: "حدث خطأ أثناء رفع الصورة", variant: "destructive" });
-      },
-    });
-
-    const handleAdImageUpload = async (file: File) => {
-      if (!file.type.startsWith('image/')) {
-        toast({ title: "خطأ", description: "يرجى اختيار ملف صورة صالح", variant: "destructive" });
-        return;
-      }
-      await uploadFile(file);
-    };
-
-    const { data: ads, isLoading: adsLoading } = useQuery<any[]>({
-      queryKey: ['/api/admin/ads'],
-    });
-
-    const { data: stats, isLoading: statsLoading } = useQuery<any[]>({
-      queryKey: ['/api/admin/ads', selectedAdId, 'stats', statsDays],
-      queryFn: async () => {
-        if (!selectedAdId) return [];
-        const res = await fetch(`/api/admin/ads/${selectedAdId}/stats?days=${statsDays}`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Failed');
-        return res.json();
-      },
-      enabled: !!selectedAdId,
-    });
-
-    const deleteMutation = useMutation({
-      mutationFn: (id: string) => apiRequest('DELETE', `/api/admin/ads/${id}`),
-      onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/admin/ads'] }); toast({ title: "تم حذف الإعلان" }); if (selectedAdId) setSelectedAdId(null); },
-    });
-
-    const saveMutation = useMutation({
-      mutationFn: (data: any) => editingAd
-        ? apiRequest('PATCH', `/api/admin/ads/${editingAd.id}`, data)
-        : apiRequest('POST', '/api/admin/ads', data),
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/api/admin/ads'] });
-        toast({ title: editingAd ? "تم تحديث الإعلان" : "تم إنشاء الإعلان" });
-        setShowAdForm(false); setEditingAd(null);
-        setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "sidebar", isActive: true, notes: "" });
-      },
-    });
-
-    const selectedAd = ads?.find((a: any) => a.id === selectedAdId);
-
-    const fillDateRange = (rawStats: any[], days: number): any[] => {
-      const result: any[] = [];
-      for (let i = days - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().slice(0, 10);
-        const existing = rawStats?.find((s: any) => s.date === dateStr);
-        result.push({ date: dateStr, impressions: existing?.impressions ?? 0, clicks: existing?.clicks ?? 0 });
-      }
-      return result;
-    };
-
-    const chartData = fillDateRange(stats ?? [], statsDays).map((row) => ({
-      ...row,
-      ctr: row.impressions > 0 ? +((row.clicks / row.impressions) * 100).toFixed(1) : 0,
-      label: row.date.slice(5), // MM-DD
-    }));
-
-    const totalImpressions = chartData.reduce((s, r) => s + r.impressions, 0);
-    const totalClicks = chartData.reduce((s, r) => s + r.clicks, 0);
-    const avgCtr = totalImpressions > 0 ? +((totalClicks / totalImpressions) * 100).toFixed(1) : 0;
-
-    return (
-      <div className="space-y-6" data-testid="ads-section">
-        {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <BarChart3 className="h-6 w-6 text-primary" />
-              إدارة الإعلانات
-            </h1>
-            <p className="text-muted-foreground text-sm mt-0.5">تتبع أداء الإعلانات وإحصائياتها اليومية</p>
-          </div>
-          <Button onClick={() => { setEditingAd(null); setAdForm({ title: "", imageUrl: "", linkUrl: "", position: "sidebar", isActive: true, notes: "" }); setShowAdForm(true); }} data-testid="button-create-ad">
-            <Plus className="h-4 w-4 ml-1" /> إعلان جديد
-          </Button>
-        </div>
-
-        {/* Ad form */}
-        {showAdForm && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{editingAd ? "تعديل الإعلان" : "إعلان جديد"}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>العنوان *</Label>
-                  <Input value={adForm.title} onChange={e => setAdForm(f => ({ ...f, title: e.target.value }))} placeholder="عنوان الإعلان" data-testid="input-ad-title" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>الموقع</Label>
-                  <Select value={adForm.position} onValueChange={v => setAdForm(f => ({ ...f, position: v }))}>
-                    <SelectTrigger data-testid="select-ad-position"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sidebar">الشريط الجانبي</SelectItem>
-                      <SelectItem value="header">الرأس</SelectItem>
-                      <SelectItem value="footer">التذييل</SelectItem>
-                      <SelectItem value="inline">داخل المحتوى</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5 md:col-span-2">
-                  <Label>صورة الإعلان</Label>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      id="ad-image-upload"
-                      className="hidden"
-                      onChange={e => {
-                        const file = e.target.files?.[0];
-                        if (file) handleAdImageUpload(file);
-                        e.target.value = '';
-                      }}
-                      data-testid="file-input-ad-image"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isUploadingAdImage}
-                      onClick={() => document.getElementById('ad-image-upload')?.click()}
-                      data-testid="button-upload-ad-image"
-                    >
-                      {isUploadingAdImage ? (
-                        <><Loader2 className="h-4 w-4 animate-spin ml-1" /> جاري الرفع...</>
-                      ) : (
-                        <><Upload className="h-4 w-4 ml-1" /> رفع صورة</>
-                      )}
-                    </Button>
-                    <Input
-                      value={adForm.imageUrl}
-                      onChange={e => setAdForm(f => ({ ...f, imageUrl: e.target.value }))}
-                      placeholder="أو ألصق رابط الصورة https://..."
-                      className="flex-1 min-w-[200px]"
-                      data-testid="input-ad-image-url"
-                    />
-                  </div>
-                  {adForm.imageUrl && (
-                    <div className="mt-2 flex items-start gap-2">
-                      <img
-                        src={adForm.imageUrl}
-                        alt="معاينة الإعلان"
-                        className="h-20 w-32 object-cover rounded-md border"
-                        data-testid="img-ad-preview"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
-                        onClick={() => setAdForm(f => ({ ...f, imageUrl: "" }))}
-                        data-testid="button-remove-ad-image"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <Label>رابط الإعلان</Label>
-                  <Input value={adForm.linkUrl} onChange={e => setAdForm(f => ({ ...f, linkUrl: e.target.value }))} placeholder="https://..." data-testid="input-ad-link-url" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>ملاحظات</Label>
-                <Textarea value={adForm.notes} onChange={e => setAdForm(f => ({ ...f, notes: e.target.value }))} rows={2} data-testid="input-ad-notes" />
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={adForm.isActive} onCheckedChange={v => setAdForm(f => ({ ...f, isActive: v }))} data-testid="switch-ad-active" />
-                <Label>نشط</Label>
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => { setShowAdForm(false); setEditingAd(null); }} data-testid="button-cancel-ad">إلغاء</Button>
-                <Button disabled={saveMutation.isPending || !adForm.title} onClick={() => saveMutation.mutate(adForm)} data-testid="button-save-ad">
-                  {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Save className="h-4 w-4 ml-1" />}
-                  حفظ
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Ads list */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">قائمة الإعلانات</CardTitle>
-            <CardDescription>اختر إعلاناً لعرض إحصائياته</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {adsLoading ? (
-              <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-            ) : !ads || ads.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8 text-sm">لا توجد إعلانات. أضف إعلاناً جديداً للبدء.</p>
-            ) : (
-              <div className="space-y-2">
-                {ads.map((ad: any) => (
-                  <div
-                    key={ad.id}
-                    data-testid={`card-ad-${ad.id}`}
-                    onClick={() => setSelectedAdId(selectedAdId === ad.id ? null : ad.id)}
-                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedAdId === ad.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
-                  >
-                    {ad.imageUrl && <img src={ad.imageUrl} alt={ad.title} className="w-12 h-12 object-cover rounded-md shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{ad.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <Badge variant={ad.isActive ? "default" : "secondary"} className="text-xs">{ad.isActive ? "نشط" : "غير نشط"}</Badge>
-                        <span className="text-xs text-muted-foreground">{ad.position}</span>
-                        <span className="text-xs text-muted-foreground">مشاهدة: {ad.impressionCount}</span>
-                        <span className="text-xs text-muted-foreground">نقرات: {ad.clickCount}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button size="icon" variant="ghost" className="h-7 w-7" data-testid={`button-edit-ad-${ad.id}`} onClick={e => { e.stopPropagation(); setEditingAd(ad); setAdForm({ title: ad.title, imageUrl: ad.imageUrl || "", linkUrl: ad.linkUrl || "", position: ad.position, isActive: ad.isActive, notes: ad.notes || "" }); setShowAdForm(true); }}>
-                        <Edit className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" data-testid={`button-delete-ad-${ad.id}`} onClick={e => { e.stopPropagation(); if (confirm('حذف هذا الإعلان؟')) deleteMutation.mutate(ad.id); }}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Chart section */}
-        {selectedAd && (
-          <div className="space-y-4">
-            {/* Summary cards */}
-            <div className="grid grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="pt-4 pb-4">
-                  <p className="text-xs text-muted-foreground mb-1">إجمالي المشاهدات</p>
-                  <p className="text-2xl font-bold" data-testid="text-total-impressions">{totalImpressions.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">خلال {statsDays} يوم</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 pb-4">
-                  <p className="text-xs text-muted-foreground mb-1">إجمالي النقرات</p>
-                  <p className="text-2xl font-bold" data-testid="text-total-clicks">{totalClicks.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">خلال {statsDays} يوم</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 pb-4">
-                  <p className="text-xs text-muted-foreground mb-1">معدل النقر CTR</p>
-                  <p className="text-2xl font-bold" data-testid="text-ctr">{avgCtr}%</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">خلال {statsDays} يوم</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Chart */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <div className="w-1 h-5 bg-primary rounded-full" />
-                      أداء الإعلان: {selectedAd.title}
-                    </CardTitle>
-                    <CardDescription>المشاهدات والنقرات يومياً</CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant={statsDays === 7 ? "default" : "outline"} onClick={() => setStatsDays(7)} data-testid="button-stats-7d">7 أيام</Button>
-                    <Button size="sm" variant={statsDays === 30 ? "default" : "outline"} onClick={() => setStatsDays(30)} data-testid="button-stats-30d">30 يوم</Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {statsLoading ? (
-                  <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                      <YAxis yAxisId="left" tick={{ fontSize: 11 }} allowDecimals={false} />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} unit="%" />
-                      <Tooltip
-                        formatter={(value: number, name: string) => {
-                          if (name === 'impressions') return [value, 'مشاهدات'];
-                          if (name === 'clicks') return [value, 'نقرات'];
-                          if (name === 'ctr') return [`${value}%`, 'CTR'];
-                          return [value, name];
-                        }}
-                        labelFormatter={(label) => `التاريخ: ${label}`}
-                      />
-                      <Legend formatter={(value) => value === 'impressions' ? 'مشاهدات' : value === 'clicks' ? 'نقرات' : 'CTR %'} />
-                      <Bar yAxisId="left" dataKey="impressions" fill="#16a34a" radius={[3, 3, 0, 0]} />
-                      <Bar yAxisId="left" dataKey="clicks" fill="#3b82f6" radius={[3, 3, 0, 0]} />
-                      <Bar yAxisId="right" dataKey="ctr" fill="#f59e0b" radius={[3, 3, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Line chart for trend */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <div className="w-1 h-5 bg-blue-500 rounded-full" />
-                  اتجاه CTR عبر الزمن
-                </CardTitle>
-                <CardDescription>نسبة النقر إلى الظهور يومياً</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-                    <defs>
-                      <linearGradient id="ctrGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} unit="%" />
-                    <Tooltip formatter={(value: number) => [`${value}%`, 'CTR']} labelFormatter={(label) => `التاريخ: ${label}`} />
-                    <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#ctrGradient)" dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {!selectedAd && ads && ads.length > 0 && (
-          <div className="text-center text-muted-foreground text-sm py-4">
-            اختر إعلاناً من القائمة أعلاه لعرض إحصائياته التفصيلية
-          </div>
-        )}
-      </div>
-    );
-  };
-
   // News Section Component with status tabs (Redesigned like Sabq)
   const NewsSection = () => {
     // Stats for each status
@@ -5456,6 +5090,24 @@ function AdsSection() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AdFormState>(defaultAdForm);
 
+  const { uploadFile, isUploading: isUploadingImage } = useUpload({
+    onSuccess: (response) => {
+      setForm(f => ({ ...f, imageUrl: response.objectPath }));
+      toast({ title: "تم رفع الصورة بنجاح", description: "أكمل بقية الحقول ثم اضغط حفظ" });
+    },
+    onError: () => {
+      toast({ title: "فشل رفع الصورة", variant: "destructive" });
+    },
+  });
+
+  const handleImageFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "يرجى اختيار ملف صورة صالح", variant: "destructive" });
+      return;
+    }
+    await uploadFile(file);
+  };
+
   const { data: allAds = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/ads"],
   });
@@ -5579,15 +5231,64 @@ function AdsSection() {
               />
             </div>
             <div>
-              <Label htmlFor="ad-image-url">رابط الصورة</Label>
-              <Input
-                id="ad-image-url"
-                value={form.imageUrl}
-                onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
-                placeholder="https://..."
-                dir="ltr"
-                data-testid="input-ad-image-url"
-              />
+              <Label>صورة الإعلان</Label>
+              <div className="flex items-center gap-2 flex-wrap mt-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="ad-image-upload"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageFile(file);
+                    e.target.value = '';
+                  }}
+                  data-testid="file-input-ad-image"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploadingImage}
+                  onClick={() => document.getElementById('ad-image-upload')?.click()}
+                  data-testid="button-upload-ad-image"
+                >
+                  {isUploadingImage ? (
+                    <><Loader2 className="h-4 w-4 animate-spin ml-1" /> جاري الرفع...</>
+                  ) : (
+                    <><Upload className="h-4 w-4 ml-1" /> رفع صورة</>
+                  )}
+                </Button>
+                <Input
+                  id="ad-image-url"
+                  value={form.imageUrl}
+                  onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
+                  placeholder="أو ألصق رابط https://..."
+                  dir="ltr"
+                  className="flex-1 min-w-[200px]"
+                  data-testid="input-ad-image-url"
+                />
+              </div>
+              {form.imageUrl && (
+                <div className="mt-2 flex items-start gap-2">
+                  <img
+                    src={form.imageUrl}
+                    alt="معاينة"
+                    className="h-20 w-32 object-cover rounded-md border"
+                    data-testid="img-ad-preview"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive"
+                    onClick={() => setForm(f => ({ ...f, imageUrl: "" }))}
+                    data-testid="button-remove-ad-image"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
             <div>
               <Label htmlFor="ad-link-url">رابط الإعلان</Label>
