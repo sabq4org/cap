@@ -75,7 +75,7 @@ export function AdBanner({ position, className = "" }: AdBannerProps) {
             <img
               src={currentAd.imageUrl}
               alt={currentAd.title}
-              className="w-full object-cover"
+              className="w-full h-auto block"
               loading="lazy"
               decoding="async"
               data-testid={`ad-image-${currentAd.id}`}
