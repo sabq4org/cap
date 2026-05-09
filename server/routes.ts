@@ -5165,7 +5165,12 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   // Admin: create ad
   app.post('/api/admin/ads', isSuperAdmin, async (req, res) => {
     try {
-      const ad = await storage.createAdvertisement(req.body);
+      const body = { ...req.body };
+      if (body.startsAt) body.startsAt = new Date(body.startsAt);
+      else delete body.startsAt;
+      if (body.expiresAt) body.expiresAt = new Date(body.expiresAt);
+      else delete body.expiresAt;
+      const ad = await storage.createAdvertisement(body);
       res.status(201).json(ad);
     } catch (error) {
       console.error("Error creating ad:", error);
@@ -5177,7 +5182,9 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   app.patch('/api/admin/ads/:id', isSuperAdmin, async (req, res) => {
     try {
       const id = req.params.id;
-      const updates = req.body;
+      const updates = { ...req.body };
+      if ('startsAt' in updates) updates.startsAt = updates.startsAt ? new Date(updates.startsAt) : null;
+      if ('expiresAt' in updates) updates.expiresAt = updates.expiresAt ? new Date(updates.expiresAt) : null;
 
       // If the request tries to activate an ad, check that it hasn't expired
       if (updates.isActive === true) {
