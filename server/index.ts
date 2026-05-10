@@ -43,7 +43,11 @@ app.use((req, res, next) => {
 async function setupMatawsPermissions() {
   const { pool } = await import("./db");
   try {
-    await pool.query(`UPDATE admin_accounts SET permissions = $1::text[] WHERE username = 'matawa'`, [["publish_news","edit_news","delete_news","ai_images","manage_radar"]]);
+    const perms = ["publish_news","edit_news","delete_news","ai_images","manage_radar","view_analytics"];
+    await pool.query(
+      `UPDATE admin_accounts SET permissions = $1::text[] WHERE username = 'matawa'`,
+      [perms]
+    );
     console.log("[Init] ✅ تم تحديث صلاحيات matawa");
   } catch (e) { console.error("[Init] خطأ في تحديث matawa:", e); }
 }
