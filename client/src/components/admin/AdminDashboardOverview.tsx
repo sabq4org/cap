@@ -294,6 +294,7 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
     queryKey: ["/api/admin/charts", chartDays],
     queryFn: async () => {
       const res = await fetch(`/api/admin/charts?days=${chartDays}`, { credentials: "include" });
+      if (!res.ok) return null as unknown as ChartData;
       return res.json();
     },
     refetchInterval: 120_000,
@@ -337,8 +338,8 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
   }, [insights.length]);
 
   // Sparkline data from timeseries
-  const sparkNews = chartData?.timeseries.map(d => d.newsCount) || [];
-  const sparkViews = chartData?.timeseries.map(d => d.views) || [];
+  const sparkNews = chartData?.timeseries?.map(d => d.newsCount) || [];
+  const sparkViews = chartData?.timeseries?.map(d => d.views) || [];
 
   // Donut data
   const donutData = (chartData?.categories || []).map((c, i) => ({
@@ -539,7 +540,7 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={chartData?.timeseries.map((d, i) => ({ ...d, label: timeLabels[i] })) || []}>
+                <AreaChart data={chartData?.timeseries?.map((d, i) => ({ ...d, label: timeLabels[i] })) || []}>
                   <defs>
                     <linearGradient id="gNews" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#16a34a" stopOpacity={0.3} />
@@ -630,7 +631,7 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
               <div className="h-40 flex items-center justify-center">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
-            ) : chartData?.radarSourcesActivity.length ? (
+            ) : chartData?.radarSourcesActivity?.length ? (
               <ResponsiveContainer width="100%" height={170}>
                 <BarChart data={chartData.radarSourcesActivity} layout="vertical" margin={{ right: 10 }}>
                   <XAxis type="number" tick={{ fontSize: 9, fill: "gray" }} axisLine={false} tickLine={false} />
