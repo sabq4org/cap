@@ -945,6 +945,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.status(403).json({ message: "ليس لديك صلاحية للقيام بهذه العملية" });
   };
 
+  // Middleware factory: requires any one of the given admin permission keys
+  const requireAnyAdminPermission = (...permissions: string[]) => (req: any, res: any, next: any) => {
+    if (!req.session?.adminAuthenticated) return res.status(401).json({ message: "غير مصرح" });
+    const perms: string[] = (req.session as any).adminPermissions || [];
+    if (perms.includes("*") || permissions.some(p => perms.includes(p))) return next();
+    return res.status(403).json({ message: "ليس لديك صلاحية للقيام بهذه العملية" });
+  };
+
   app.delete("/api/admin/clear-news", isSuperAdmin, async (req, res) => {
     try {
       const { pool } = await import("./db");
@@ -4322,7 +4330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ──────────────────────────────────────────────────────────────────────────
 
   // ─── Admin image upload endpoint ──────────────────────────────────────────
-  app.post('/api/admin/upload-image', requireAdminPermission('ai_images'), async (req, res) => {
+  app.post('/api/admin/upload-image', requireAnyAdminPermission('ai_images', 'manage_ads'), async (req, res) => {
     try {
       const { base64, mimeType } = req.body;
       if (!base64 || !mimeType) {
@@ -5163,7 +5171,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: create ad
-  app.post('/api/admin/ads', isSuperAdmin, async (req, res) => {
+  app.post('/api/admin/ads', requireAdminPermission('manage_ads'), async (req, res) => {
     try {
       const body = { ...req.body };
       if (body.startsAt) body.startsAt = new Date(body.startsAt);
@@ -5179,7 +5187,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: update ad
-  app.patch('/api/admin/ads/:id', isSuperAdmin, async (req, res) => {
+  app.patch('/api/admin/ads/:id', requireAdminPermission('manage_ads'), async (req, res) => {
     try {
       const id = req.params.id;
       const updates = { ...req.body };
@@ -5212,7 +5220,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: delete ad
-  app.delete('/api/admin/ads/:id', isSuperAdmin, async (req, res) => {
+  app.delete('/api/admin/ads/:id', requireAdminPermission('manage_ads'), async (req, res) => {
     try {
       await storage.deleteAdvertisement(req.params.id);
       res.json({ success: true });
@@ -5223,7 +5231,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: reset impression and click counters for an ad
-  app.patch('/api/admin/ads/:id/reset-stats', isSuperAdmin, async (req, res) => {
+  app.patch('/api/admin/ads/:id/reset-stats', requireAdminPermission('manage_ads'), async (req, res) => {
     try {
       const updated = await storage.resetAdStats(req.params.id);
       if (!updated) return res.status(404).json({ message: "Ad not found" });
@@ -5247,7 +5255,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   });
 
   // Admin: manually trigger expired-ad cleanup
-  app.post('/api/admin/ads/deactivate-expired', isSuperAdmin, async (req, res) => {
+  app.post('/api/admin/ads/deactivate-expired', requireAdminPermission('manage_ads'), async (req, res) => {
     try {
       const count = await storage.deactivateExpiredAds();
       res.json({ deactivated: count });

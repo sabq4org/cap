@@ -29,7 +29,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import logoImage from "@assets/LOGO-L_1769253692563.png";
 import { AdminDashboardOverview } from "@/components/admin/AdminDashboardOverview";
-import { useUpload } from "@/hooks/use-upload";
 import { SocialContentModal } from "@/components/SocialContentModal";
 import AIImageGenerator from "@/components/AIImageGenerator";
 import type { SocialContent } from "@shared/schema";
@@ -5089,23 +5088,33 @@ function AdsSection() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AdFormState>(defaultAdForm);
-
-  const { uploadFile, isUploading: isUploadingImage } = useUpload({
-    onSuccess: (response) => {
-      setForm(f => ({ ...f, imageUrl: response.objectPath }));
-      toast({ title: "تم رفع الصورة بنجاح", description: "أكمل بقية الحقول ثم اضغط حفظ" });
-    },
-    onError: () => {
-      toast({ title: "فشل رفع الصورة", variant: "destructive" });
-    },
-  });
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const handleImageFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       toast({ title: "يرجى اختيار ملف صورة صالح", variant: "destructive" });
       return;
     }
-    await uploadFile(file);
+    setIsUploadingImage(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await apiRequest('POST', '/api/admin/upload-image', { base64, mimeType: file.type });
+      const data = await res.json();
+      setForm(f => ({ ...f, imageUrl: data.imageUrl }));
+      toast({ title: "تم رفع الصورة بنجاح", description: "أكمل بقية الحقول ثم اضغط حفظ" });
+    } catch {
+      toast({ title: "فشل رفع الصورة", variant: "destructive" });
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const { data: allAds = [], isLoading } = useQuery<any[]>({

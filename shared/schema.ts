@@ -934,6 +934,7 @@ export const adminPermissions = [
   { key: "manage_categories",  label: "إدارة التصنيفات" },
   { key: "view_analytics",     label: "عرض الإحصائيات" },
   { key: "manage_users",       label: "إدارة المستخدمين" },
+  { key: "manage_ads",         label: "إدارة الإعلانات" },
 ] as const;
 
 // ── Capsule Logs ─────────────────────────────────────────────────────────────
