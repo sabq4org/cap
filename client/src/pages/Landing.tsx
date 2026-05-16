@@ -334,14 +334,14 @@ export default function Landing() {
             {debunksLoading ? (
               <>
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="rounded-xl bg-slate-800/60 border border-slate-700/60 p-4 space-y-3">
-                    <Skeleton className="h-5 w-24 bg-slate-700" />
-                    <Skeleton className="h-4 w-full bg-slate-700" />
-                    <Skeleton className="h-4 w-3/4 bg-slate-700" />
-                    <div className="border-t border-slate-700/60 pt-3 flex gap-3">
-                      <Skeleton className="h-4 w-16 bg-slate-700" />
-                      <Skeleton className="h-4 w-16 bg-slate-700" />
-                      <Skeleton className="h-4 w-20 bg-slate-700" />
+                  <div key={i} className="rounded-xl bg-green-900/50 border border-green-800/50 p-4 space-y-3">
+                    <Skeleton className="h-5 w-24 bg-green-800" />
+                    <Skeleton className="h-4 w-full bg-green-800" />
+                    <Skeleton className="h-4 w-3/4 bg-green-800" />
+                    <div className="border-t border-green-800/50 pt-3 flex gap-3">
+                      <Skeleton className="h-4 w-16 bg-green-800" />
+                      <Skeleton className="h-4 w-16 bg-green-800" />
+                      <Skeleton className="h-4 w-20 bg-green-800" />
                     </div>
                   </div>
                 ))}
@@ -358,7 +358,7 @@ export default function Landing() {
                 return (
                   <div
                     key={item.id}
-                    className="rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-slate-500 transition-all flex flex-col"
+                    className="rounded-xl bg-green-900/50 border border-green-800/50 hover:border-green-600 transition-all flex flex-col"
                     data-testid={`debunk-card-${item.id}`}
                   >
                     <Link href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`} className="flex-1 p-4 flex flex-col gap-2.5">
@@ -368,14 +368,14 @@ export default function Landing() {
                           {verdict.label}
                         </span>
                       )}
-                      <p className="text-slate-100 font-semibold text-sm leading-snug line-clamp-3 hover:text-white transition-colors">
+                      <p className="text-green-50 font-semibold text-sm leading-snug line-clamp-3 hover:text-white transition-colors">
                         {cleanTitle}
                       </p>
                     </Link>
 
                     {/* Share bar */}
-                    <div className="px-4 pb-3 pt-2 border-t border-slate-700/50 flex items-center gap-3">
-                      <span className="text-slate-500 text-xs ml-auto">شارك:</span>
+                    <div className="px-4 pb-3 pt-2 border-t border-green-800/50 flex items-center gap-3">
+                      <span className="text-green-600 text-xs ml-auto">شارك:</span>
                       <a
                         href={waUrl}
                         target="_blank"
@@ -404,7 +404,7 @@ export default function Landing() {
                       </a>
                       <button
                         onClick={() => handleCopy(item.id, itemUrl)}
-                        className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
+                        className="flex items-center gap-1 text-xs font-medium text-green-500 hover:text-green-200 transition-colors"
                         data-testid={`copy-link-${item.id}`}
                         title="نسخ الرابط"
                       >
@@ -419,10 +419,10 @@ export default function Landing() {
                 );
               })
             ) : (
-              <div className="col-span-3 text-center py-10 text-slate-500" data-testid="debunks-empty">
-                <ShieldAlert className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p className="font-medium text-sm">لا توجد شائعات مُفنَّدة بعد</p>
-                <p className="text-xs mt-1">كن أول من يرسل شائعة للتحليل</p>
+              <div className="col-span-3 text-center py-10 text-green-700" data-testid="debunks-empty">
+                <ShieldAlert className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p className="font-medium text-sm text-green-300">لا توجد شائعات مُفنَّدة بعد</p>
+                <p className="text-xs mt-1 text-green-600">كن أول من يرسل شائعة للتحليل</p>
               </div>
             )}
           </div>
@@ -434,7 +434,7 @@ export default function Landing() {
                 <button
                   key={i}
                   onClick={() => { setVisible(false); setTimeout(() => { setCurrentSet(i); setVisible(true); }, 350); }}
-                  className={`rounded-full transition-all ${i === currentSet ? "w-5 h-2 bg-primary" : "w-2 h-2 bg-slate-600"}`}
+                  className={`rounded-full transition-all ${i === currentSet ? "w-5 h-2 bg-primary" : "w-2 h-2 bg-green-800"}`}
                   data-testid={`debunk-dot-${i}`}
                 />
               ))}
