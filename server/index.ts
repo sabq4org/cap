@@ -61,13 +61,24 @@ app.use((req, res, next) => {
 async function setupMatawsPermissions() {
   const { pool } = await import("./db");
   try {
-    const perms = ["publish_news","edit_news","delete_news","ai_images","manage_radar","view_analytics"];
+    const perms = ["publish_news","edit_news","delete_news","ai_images","manage_radar","view_analytics","manage_ads"];
     await pool.query(
       `UPDATE admin_accounts SET permissions = $1::text[] WHERE username = 'matawa'`,
       [perms]
     );
     console.log("[Init] ✅ تم تحديث صلاحيات matawa");
-  } catch (e) { console.error("[Init] خطأ في تحديث matawa:", e); }
+    // Add manage_ads to any existing admin account missing it
+    await pool.query(
+      `UPDATE admin_accounts SET permissions = array_append(permissions, 'manage_ads')
+       WHERE NOT ('manage_ads' = ANY(permissions)) AND role != 'super_admin'`
+    );
+    // Ensure super_admin account always has manage_ads
+    await pool.query(
+      `UPDATE admin_accounts SET permissions = array_append(permissions, 'manage_ads')
+       WHERE NOT ('manage_ads' = ANY(permissions)) AND role = 'super_admin'`
+    );
+    console.log("[Init] ✅ تم التحقق من صلاحية manage_ads لجميع الحسابات");
+  } catch (e) { console.error("[Init] خطأ في تحديث صلاحية manage_ads:", e); }
 }
 
 async function ensureAdminAccount() {

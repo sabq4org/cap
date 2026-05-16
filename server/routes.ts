@@ -937,19 +937,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.status(403).json({ message: "هذه العملية للمدير العام فقط" });
   };
 
-  // Middleware factory: requires a specific admin permission key
+  // Middleware factory: requires a specific admin permission key.
+  // Super-admin role always passes regardless of the permissions array.
   const requireAdminPermission = (permission: string) => (req: any, res: any, next: any) => {
     if (!req.session?.adminAuthenticated) return res.status(401).json({ message: "غير مصرح" });
+    const role = (req.session as any).adminRole;
     const perms: string[] = (req.session as any).adminPermissions || [];
-    if (perms.includes("*") || perms.includes(permission)) return next();
+    if (role === "super_admin" || perms.includes("*") || perms.includes(permission)) return next();
     return res.status(403).json({ message: "ليس لديك صلاحية للقيام بهذه العملية" });
   };
 
-  // Middleware factory: requires any one of the given admin permission keys
+  // Middleware factory: requires any one of the given admin permission keys.
+  // Super-admin role always passes regardless of the permissions array.
   const requireAnyAdminPermission = (...permissions: string[]) => (req: any, res: any, next: any) => {
     if (!req.session?.adminAuthenticated) return res.status(401).json({ message: "غير مصرح" });
+    const role = (req.session as any).adminRole;
     const perms: string[] = (req.session as any).adminPermissions || [];
-    if (perms.includes("*") || permissions.some(p => perms.includes(p))) return next();
+    if (role === "super_admin" || perms.includes("*") || permissions.some(p => perms.includes(p))) return next();
     return res.status(403).json({ message: "ليس لديك صلاحية للقيام بهذه العملية" });
   };
 
@@ -5159,8 +5163,8 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     }
   });
 
-  // Admin: list all ads
-  app.get('/api/admin/ads', requireAdminPermission('view_analytics'), async (req, res) => {
+  // Admin: list all ads (view_analytics OR manage_ads)
+  app.get('/api/admin/ads', requireAnyAdminPermission('view_analytics', 'manage_ads'), async (req, res) => {
     try {
       const ads = await storage.getAdvertisements();
       res.json(ads);
