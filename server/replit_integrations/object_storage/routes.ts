@@ -13,6 +13,14 @@ const ALLOWED_MIME_TYPES = new Set([
   "application/json",
 ]);
 
+const IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/avif",
+]);
+
 export function registerObjectStorageRoutes(app: Express): void {
   const objectStorageService = new ObjectStorageService();
 
@@ -82,32 +90,36 @@ export function registerObjectStorageRoutes(app: Express): void {
   );
 
   /**
-   * Serve uploaded objects.
+   * Serve uploaded objects publicly (no auth required).
    *
    * GET /objects/:objectPath(*)
    *
-   * Requires authentication to prevent unauthenticated access to private
-   * bucket objects. Security headers are set on every response to prevent
-   * script execution even if an unexpected content type was stored:
-   *   - Content-Disposition: attachment  — forces download, blocks rendering
-   *   - X-Content-Type-Options: nosniff  — prevents MIME-type sniffing
-   *   - Content-Security-Policy: default-src 'none'  — no script execution
-   *   - X-Frame-Options: DENY  — prevents framing
+   * Images are served inline so browsers can render them directly in <img> tags.
+   * Non-image files (PDFs, etc.) are served as attachments (download).
+   * X-Content-Type-Options: nosniff prevents MIME-type sniffing on all files.
    */
   app.get(
     "/objects/:objectPath(*)",
-    isAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const objectFile = await objectStorageService.getObjectEntityFile(
           req.path
         );
 
+        // Determine content type from file extension to set appropriate headers
+        const path = req.path.toLowerCase();
+        const isImage =
+          path.endsWith(".jpg") || path.endsWith(".jpeg") ||
+          path.endsWith(".png") || path.endsWith(".gif") ||
+          path.endsWith(".webp") || path.endsWith(".avif");
+
         res.set({
-          "Content-Disposition": "attachment",
+          "Content-Disposition": isImage ? "inline" : "attachment",
           "X-Content-Type-Options": "nosniff",
           "Content-Security-Policy": "default-src 'none'",
           "X-Frame-Options": "DENY",
+          // Cache images aggressively since they don't change after upload
+          "Cache-Control": isImage ? "public, max-age=31536000, immutable" : "no-store",
         });
 
         await objectStorageService.downloadObject(objectFile, res);

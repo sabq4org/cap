@@ -7,6 +7,24 @@ import { pool } from "./db";
 import { seedDefaultSources, seedDefaultKeywords } from "./radarService";
 import { startTrendRefreshScheduler } from "./trendService";
 
+// Prevent Neon serverless WebSocket errors from crashing the process.
+// The @neondatabase/serverless package has a bug where it tries to set
+// `error.message` on an ErrorEvent that has only a getter, producing an
+// unhandled TypeError on transient WebSocket failures.
+process.on('uncaughtException', (err: Error) => {
+  if (err instanceof TypeError && err.message?.includes('Cannot set property message')) {
+    console.error('[Process] Neon WebSocket transient error (recovered):', err.message);
+    return; // log and continue — do NOT crash
+  }
+  // All other uncaught exceptions should still crash (they are unexpected)
+  console.error('[Process] Uncaught exception — exiting:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason: unknown) => {
+  console.error('[Process] Unhandled promise rejection (non-fatal):', reason);
+});
+
 const app = express();
 
 // Trust proxy headers (Replit's deployment proxy) so req.protocol returns https in production
