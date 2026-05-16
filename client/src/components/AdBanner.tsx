@@ -54,8 +54,9 @@ export function AdBanner({ position, className = "" }: AdBannerProps) {
       className={`relative flex justify-center ${className}`}
       data-testid={`ad-banner-${position}`}
     >
+      {/* inline-block so the wrapper shrinks to the image's natural width */}
       <div
-        className="relative inline-block"
+        className="relative inline-block max-w-full"
         style={{ opacity: visible ? 1 : 0, transition: "opacity 0.4s ease-in-out" }}
       >
         {currentAd.imageUrl ? (
@@ -65,12 +66,13 @@ export function AdBanner({ position, className = "" }: AdBannerProps) {
             rel="noopener noreferrer sponsored"
             data-testid={`ad-link-${currentAd.id}`}
             aria-label={currentAd.title}
-            className="block rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            className="inline-block max-w-full rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
           >
             <img
               src={currentAd.imageUrl}
               alt={currentAd.title}
-              className="max-w-full h-auto block"
+              className="block h-auto max-w-full"
+              style={{ width: "auto" }}
               loading="lazy"
               decoding="async"
               data-testid={`ad-image-${currentAd.id}`}
@@ -82,7 +84,7 @@ export function AdBanner({ position, className = "" }: AdBannerProps) {
             target="_blank"
             rel="noopener noreferrer sponsored"
             data-testid={`ad-link-${currentAd.id}`}
-            className="block p-4 bg-muted rounded-lg text-center text-sm font-medium hover:bg-muted/80 transition-colors"
+            className="inline-block p-4 bg-muted rounded-lg text-center text-sm font-medium hover:bg-muted/80 transition-colors"
           >
             {currentAd.title}
           </a>
