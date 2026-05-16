@@ -7,22 +7,29 @@ import { pool } from "./db";
 import { seedDefaultSources, seedDefaultKeywords } from "./radarService";
 import { startTrendRefreshScheduler } from "./trendService";
 
-// Prevent Neon serverless WebSocket errors from crashing the process.
-// The @neondatabase/serverless package has a bug where it tries to set
-// `error.message` on an ErrorEvent that has only a getter, producing an
-// unhandled TypeError on transient WebSocket failures.
+// Keep the process alive on uncaught exceptions.
+// Crashing on every unexpected error causes deployment outages.
+// We log the error and continue — the server recovers on the next request.
+// Only truly unrecoverable signals (SIGKILL, OOM) should bring the process down.
 process.on('uncaughtException', (err: Error) => {
+  // Neon WebSocket bug: tries to set `error.message` on a read-only ErrorEvent.
+  // This is a known transient issue in @neondatabase/serverless — safe to ignore.
   if (err instanceof TypeError && err.message?.includes('Cannot set property message')) {
     console.error('[Process] Neon WebSocket transient error (recovered):', err.message);
-    return; // log and continue — do NOT crash
+    return;
   }
-  // All other uncaught exceptions should still crash (they are unexpected)
-  console.error('[Process] Uncaught exception — exiting:', err);
-  process.exit(1);
+  // All other uncaught exceptions: log with full stack but do NOT exit.
+  // Exiting here would take the entire server down for what is often a
+  // transient error (bad image, momentary network blip, 3rd-party API hiccup).
+  console.error('[Process] Uncaught exception (recovered — server stays up):', err?.message);
+  console.error(err?.stack ?? '(no stack)');
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
-  console.error('[Process] Unhandled promise rejection (non-fatal):', reason);
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  const stack = reason instanceof Error ? reason.stack : '';
+  console.error('[Process] Unhandled promise rejection (non-fatal):', msg);
+  if (stack) console.error(stack);
 });
 
 const app = express();
