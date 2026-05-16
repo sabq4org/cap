@@ -47,22 +47,15 @@ export function AdBanner({ position, className = "" }: AdBannerProps) {
     }
   }, [ads, currentIndex]);
 
-  const handleClick = () => {
-    if (!currentAd?.linkUrl) return;
-    window.open(currentAd.linkUrl, "_blank", "noopener,noreferrer");
-  };
-
   if (!currentAd) return null;
-
-  const isLeaderboard = position === "above_featured" || position === "below_featured";
 
   return (
     <div
-      className={`relative overflow-hidden rounded-lg ${isLeaderboard ? "w-[320px] h-[100px] md:w-[728px] md:h-[90px] mx-auto" : ""} ${className}`}
+      className={`relative flex justify-center ${className}`}
       data-testid={`ad-banner-${position}`}
     >
       <div
-        className="w-full h-full"
+        className="relative inline-block"
         style={{ opacity: visible ? 1 : 0, transition: "opacity 0.4s ease-in-out" }}
       >
         {currentAd.imageUrl ? (
@@ -70,15 +63,14 @@ export function AdBanner({ position, className = "" }: AdBannerProps) {
             href={currentAd.linkUrl || "#"}
             target="_blank"
             rel="noopener noreferrer sponsored"
-            onClick={handleClick}
             data-testid={`ad-link-${currentAd.id}`}
             aria-label={currentAd.title}
-            className="block w-full h-full rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            className="block rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
           >
             <img
               src={currentAd.imageUrl}
               alt={currentAd.title}
-              className={isLeaderboard ? "w-full h-full object-cover block" : "w-full h-auto block"}
+              className="max-w-full h-auto block"
               loading="lazy"
               decoding="async"
               data-testid={`ad-image-${currentAd.id}`}
@@ -89,7 +81,6 @@ export function AdBanner({ position, className = "" }: AdBannerProps) {
             href={currentAd.linkUrl || "#"}
             target="_blank"
             rel="noopener noreferrer sponsored"
-            onClick={handleClick}
             data-testid={`ad-link-${currentAd.id}`}
             className="block p-4 bg-muted rounded-lg text-center text-sm font-medium hover:bg-muted/80 transition-colors"
           >
@@ -99,30 +90,30 @@ export function AdBanner({ position, className = "" }: AdBannerProps) {
         <span className="absolute top-2 right-2 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded pointer-events-none">
           إعلان
         </span>
-      </div>
 
-      {ads.length > 1 && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1" data-testid="ad-dots">
-          {ads.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                if (timerRef.current) clearTimeout(timerRef.current);
-                setVisible(false);
-                setTimeout(() => {
-                  setCurrentIndex(i);
-                  setVisible(true);
-                }, 400);
-              }}
-              className={`w-1.5 h-1.5 rounded-full transition-all ${
-                i === currentIndex ? "bg-white scale-125" : "bg-white/50"
-              }`}
-              data-testid={`ad-dot-${i}`}
-              aria-label={`إعلان ${i + 1}`}
-            />
-          ))}
-        </div>
-      )}
+        {ads.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1" data-testid="ad-dots">
+            {ads.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  if (timerRef.current) clearTimeout(timerRef.current);
+                  setVisible(false);
+                  setTimeout(() => {
+                    setCurrentIndex(i);
+                    setVisible(true);
+                  }, 400);
+                }}
+                className={`w-1.5 h-1.5 rounded-full transition-all ${
+                  i === currentIndex ? "bg-white scale-125" : "bg-white/50"
+                }`}
+                data-testid={`ad-dot-${i}`}
+                aria-label={`إعلان ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
