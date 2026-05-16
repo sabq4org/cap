@@ -294,7 +294,7 @@ export default function Landing() {
       </div>
 
       {/* ── Debunk Block — below featured ── */}
-      <section className="py-8 md:py-10 bg-slate-900 dark:bg-slate-950" dir="rtl">
+      <section className="py-8 md:py-10 bg-green-950" dir="rtl">
         <div className="container mx-auto max-w-7xl px-4 md:px-6">
           {/* Header row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
