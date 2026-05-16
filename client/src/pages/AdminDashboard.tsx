@@ -1601,7 +1601,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── Navigation ── */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <nav className="p-3 space-y-4">
 
           {/* Main */}
@@ -1653,7 +1653,7 @@ export default function AdminDashboard() {
           </div>
 
         </nav>
-      </ScrollArea>
+      </div>
 
       {/* ── Footer ── */}
       <div className="p-3 border-t bg-muted/30 space-y-1">
@@ -5018,7 +5018,7 @@ export default function AdminDashboard() {
 
       <div className="flex w-full max-w-full">
         {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex w-64 min-h-screen bg-card border-l fixed right-0 top-0 z-40 flex-col">
+        <aside className="hidden lg:flex w-64 h-screen bg-card border-l fixed right-0 top-0 z-40 flex-col">
           <SidebarContent />
         </aside>
 
