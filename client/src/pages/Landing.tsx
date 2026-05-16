@@ -27,7 +27,10 @@ import {
   Send,
   XCircle,
   CheckCircle,
-  ShieldAlert
+  ShieldAlert,
+  Link2,
+  Copy,
+  Check
 } from "lucide-react";
 import { isAiGeneratedImage } from "@/components/AIImageBadge";
 import { getNewsImage, getNewsFallbackImage, newsImages } from "@/lib/newsImages";
@@ -151,6 +154,13 @@ export default function Landing() {
   
   // Carousel state for featured news
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (id: string, url: string) => {
+    navigator.clipboard?.writeText(url).catch(() => {});
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
   
   // Auto-advance carousel every 5 seconds
   useEffect(() => {
@@ -282,6 +292,156 @@ export default function Landing() {
         <AdBanner position="below_featured" className="mt-4" />
       </div>
       </div>
+
+      {/* ── Debunk Block — below featured ── */}
+      <section className="py-8 md:py-10 bg-slate-900 dark:bg-slate-950" dir="rtl">
+        <div className="container mx-auto max-w-7xl px-4 md:px-6">
+          {/* Header row */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold bg-red-500/15 text-red-400 border border-red-500/25 mb-2">
+                <ShieldAlert className="h-3.5 w-3.5" />
+                حقيقة أم خرافة؟
+              </div>
+              <h2 className="text-xl md:text-2xl font-bold text-white leading-tight">
+                تفنيد الشائعات الصحية
+              </h2>
+              <p className="text-slate-400 text-sm mt-0.5">شارك مع أهلك — قد تنقذ حياة</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link href="/ask-capsule">
+                <Button size="sm" className="gap-1.5 h-9" data-testid="button-debunk-submit">
+                  <Send className="h-3.5 w-3.5" />
+                  أرسل شائعة
+                </Button>
+              </Link>
+              <Link href="/news?category=debunk">
+                <Button size="sm" variant="outline" className="h-9 border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white" data-testid="button-debunk-view-all">
+                  عرض الكل
+                  <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* Cards */}
+          <div
+            onMouseEnter={() => { isPaused.current = true; }}
+            onMouseLeave={() => { isPaused.current = false; }}
+            style={{ transition: "opacity 0.35s ease", opacity: visible ? 1 : 0 }}
+            className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3"
+          >
+            {debunksLoading ? (
+              <>
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="rounded-xl bg-slate-800/60 border border-slate-700/60 p-4 space-y-3">
+                    <Skeleton className="h-5 w-24 bg-slate-700" />
+                    <Skeleton className="h-4 w-full bg-slate-700" />
+                    <Skeleton className="h-4 w-3/4 bg-slate-700" />
+                    <div className="border-t border-slate-700/60 pt-3 flex gap-3">
+                      <Skeleton className="h-4 w-16 bg-slate-700" />
+                      <Skeleton className="h-4 w-16 bg-slate-700" />
+                      <Skeleton className="h-4 w-20 bg-slate-700" />
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : latestDebunks.length > 0 ? (
+              latestDebunks.map((item) => {
+                const verdict = getVerdictFromTitle(item.title);
+                const VerdictIcon = verdict?.icon;
+                const cleanTitle = getCleanDebunkTitle(item.title);
+                const itemUrl = `https://capsulah.com${item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}`;
+                const shareText = `${verdict?.label ? verdict.label + ': ' : ''}${cleanTitle}`;
+                const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + itemUrl)}`;
+                const twUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(itemUrl)}`;
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-slate-500 transition-all flex flex-col"
+                    data-testid={`debunk-card-${item.id}`}
+                  >
+                    <Link href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`} className="flex-1 p-4 flex flex-col gap-2.5">
+                      {verdict && VerdictIcon && (
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full w-fit ${verdict.chipClass}`}>
+                          <VerdictIcon className={`h-3.5 w-3.5 ${verdict.iconColor}`} />
+                          {verdict.label}
+                        </span>
+                      )}
+                      <p className="text-slate-100 font-semibold text-sm leading-snug line-clamp-3 hover:text-white transition-colors">
+                        {cleanTitle}
+                      </p>
+                    </Link>
+
+                    {/* Share bar */}
+                    <div className="px-4 pb-3 pt-2 border-t border-slate-700/50 flex items-center gap-3">
+                      <span className="text-slate-500 text-xs ml-auto">شارك:</span>
+                      <a
+                        href={waUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs font-medium text-green-400 hover:text-green-300 transition-colors"
+                        data-testid={`share-whatsapp-${item.id}`}
+                        title="شارك عبر واتساب"
+                      >
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12 0C5.373 0 0 5.373 0 12c0 2.136.558 4.136 1.535 5.873L.057 23.537a.5.5 0 0 0 .605.662l5.913-1.55A11.945 11.945 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.733 9.733 0 0 1-5.031-1.396l-.361-.214-3.735.978.997-3.645-.235-.374A9.709 9.709 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/>
+                        </svg>
+                        واتساب
+                      </a>
+                      <a
+                        href={twUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs font-medium text-sky-400 hover:text-sky-300 transition-colors"
+                        data-testid={`share-twitter-${item.id}`}
+                        title="شارك عبر تويتر"
+                      >
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                        تويتر
+                      </a>
+                      <button
+                        onClick={() => handleCopy(item.id, itemUrl)}
+                        className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
+                        data-testid={`copy-link-${item.id}`}
+                        title="نسخ الرابط"
+                      >
+                        {copiedId === item.id ? (
+                          <><Check className="h-3.5 w-3.5 text-green-400" /><span className="text-green-400">تم النسخ</span></>
+                        ) : (
+                          <><Copy className="h-3.5 w-3.5" />نسخ</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="col-span-3 text-center py-10 text-slate-500" data-testid="debunks-empty">
+                <ShieldAlert className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium text-sm">لا توجد شائعات مُفنَّدة بعد</p>
+                <p className="text-xs mt-1">كن أول من يرسل شائعة للتحليل</p>
+              </div>
+            )}
+          </div>
+
+          {/* pagination dots */}
+          {totalSets > 1 && (
+            <div className="flex justify-center gap-2 mt-4" data-testid="debunk-dots">
+              {Array.from({ length: totalSets }).map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => { setVisible(false); setTimeout(() => { setCurrentSet(i); setVisible(true); }, 350); }}
+                  className={`rounded-full transition-all ${i === currentSet ? "w-5 h-2 bg-primary" : "w-2 h-2 bg-slate-600"}`}
+                  data-testid={`debunk-dot-${i}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* ── Latest News ── */}
       <div className="px-4 md:px-6 pb-6">
@@ -442,117 +602,6 @@ export default function Landing() {
       </section>
       )}
 
-      {/* ── Debunk Block — full width light green ── */}
-      <section className="py-10 md:py-14 mt-6 bg-green-50 dark:bg-green-950/20 border-y border-green-100 dark:border-green-900/30" dir="rtl">
-        <div className="container mx-auto max-w-7xl px-4 md:px-6">
-          <div className="grid lg:grid-cols-2 gap-8 items-center">
-
-            {/* CTA column */}
-            <div className="space-y-5">
-              <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold border border-green-300 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">
-                <Bot className="h-3.5 w-3.5" />
-                مدعوم بالذكاء الاصطناعي · AI-Powered
-              </div>
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-slate-100 leading-tight mb-2">
-                  تفنيد الشائعات الصحية
-                  <span className="block text-primary">بالذكاء الاصطناعي</span>
-                </h2>
-                <p className="text-slate-500 dark:text-slate-400 text-base leading-relaxed">
-                  أرسل لنا ما سمعته ونحللها علمياً — ليردّ فريقنا الطبي بتفنيد موثق.
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Link href="/ask-capsule">
-                  <Button
-                    size="lg"
-                    className="gap-2 h-11 px-6 font-semibold"
-                    data-testid="button-cta-submit-rumor"
-                  >
-                    <Send className="h-4 w-4" />
-                    أرسل شائعة للتحقق منها
-                  </Button>
-                </Link>
-                <Link href="/news?category=debunk">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="gap-2 h-11 px-6 border-green-300 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30"
-                    data-testid="button-view-all-debunks"
-                  >
-                    عرض جميع الشائعات المُفنَّدة
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* Cards column — titles only */}
-            <div
-              onMouseEnter={() => { isPaused.current = true; }}
-              onMouseLeave={() => { isPaused.current = false; }}
-              style={{ transition: "opacity 0.35s ease", opacity: visible ? 1 : 0 }}
-              className="space-y-2"
-            >
-              {debunksLoading ? (
-                <>
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="rounded-lg p-3 bg-white dark:bg-slate-800/50 border border-green-100 dark:border-green-900/40">
-                      <Skeleton className="h-4 w-20 mb-2" />
-                      <Skeleton className="h-4 w-full" />
-                    </div>
-                  ))}
-                </>
-              ) : latestDebunks.length > 0 ? (
-                <>
-                  {latestDebunks.map((item) => {
-                    const verdict = getVerdictFromTitle(item.title);
-                    const VerdictIcon = verdict?.icon;
-                    const cleanTitle = getCleanDebunkTitle(item.title);
-                    return (
-                      <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
-                        <div
-                          className="rounded-lg p-3 bg-white dark:bg-slate-800/50 border border-green-100 dark:border-green-900/40 hover:border-green-300 hover:shadow-sm transition-all cursor-pointer"
-                          data-testid={`debunk-card-${item.id}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            {verdict && VerdictIcon && (
-                              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${verdict.chipClass}`}>
-                                <VerdictIcon className={`h-3 w-3 ${verdict.iconColor}`} />
-                                {verdict.label}
-                              </span>
-                            )}
-                            <p className="text-slate-700 dark:text-slate-200 font-medium text-sm leading-snug line-clamp-1 flex-1">{cleanTitle}</p>
-                            <ChevronLeft className="h-4 w-4 text-slate-400 shrink-0" />
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                  {totalSets > 1 && (
-                    <div className="flex justify-center gap-2 pt-1" data-testid="debunk-dots">
-                      {Array.from({ length: totalSets }).map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => { setVisible(false); setTimeout(() => { setCurrentSet(i); setVisible(true); }, 350); }}
-                          className={`rounded-full transition-all ${i === currentSet ? "w-5 h-2 bg-primary" : "w-2 h-2 bg-slate-300 dark:bg-slate-600"}`}
-                          data-testid={`debunk-dot-${i}`}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-8 text-slate-400" data-testid="debunks-empty">
-                  <ShieldAlert className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                  <p className="font-medium text-sm">لا توجد شائعات مُفنَّدة بعد</p>
-                  <p className="text-slate-400 text-xs mt-1">كن أول من يرسل شائعة للتحليل</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
 
       <div className="px-4 md:px-6 pb-6">
       <div className="container mx-auto max-w-7xl">
