@@ -54,12 +54,15 @@ export function AdBanner({ position, className = "" }: AdBannerProps) {
 
   if (!currentAd) return null;
 
+  const isLeaderboard = position === "above_featured" || position === "below_featured";
+
   return (
     <div
-      className={`relative overflow-hidden rounded-lg ${className}`}
+      className={`relative overflow-hidden rounded-lg ${isLeaderboard ? "w-[320px] h-[100px] md:w-[728px] md:h-[90px] mx-auto" : ""} ${className}`}
       data-testid={`ad-banner-${position}`}
     >
       <div
+        className="w-full h-full"
         style={{ opacity: visible ? 1 : 0, transition: "opacity 0.4s ease-in-out" }}
       >
         {currentAd.imageUrl ? (
@@ -70,12 +73,12 @@ export function AdBanner({ position, className = "" }: AdBannerProps) {
             onClick={handleClick}
             data-testid={`ad-link-${currentAd.id}`}
             aria-label={currentAd.title}
-            className="block w-full rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            className="block w-full h-full rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
           >
             <img
               src={currentAd.imageUrl}
               alt={currentAd.title}
-              className="w-full h-auto block"
+              className={isLeaderboard ? "w-full h-full object-cover block" : "w-full h-auto block"}
               loading="lazy"
               decoding="async"
               data-testid={`ad-image-${currentAd.id}`}
