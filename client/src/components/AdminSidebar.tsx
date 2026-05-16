@@ -5,7 +5,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import logoImage from "@assets/LOGO-L_1769253692563.png";
 
 interface AdminSidebarProps {
@@ -63,7 +62,7 @@ export default function AdminSidebar({ activeRoute }: AdminSidebarProps) {
         </div>
       </div>
       
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <nav className="p-3 space-y-1">
           <SidebarItem 
             icon={LayoutDashboard} 
@@ -137,7 +136,7 @@ export default function AdminSidebar({ activeRoute }: AdminSidebarProps) {
           <SidebarItem icon={BarChart3} label="الإحصائيات" />
           <SidebarItem icon={Settings} label="الإعدادات" />
         </nav>
-      </ScrollArea>
+      </div>
       
       <div className="p-3 border-t mt-auto">
         <Button 
