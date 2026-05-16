@@ -937,22 +937,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.status(403).json({ message: "هذه العملية للمدير العام فقط" });
   };
 
+  // Re-reads permissions from DB and refreshes the session if they changed.
+  // Called lazily when a session appears stale (missing a required permission).
+  const refreshSessionPermissions = async (req: any): Promise<string[]> => {
+    try {
+      const { pool } = await import("./db");
+      const username = req.session?.adminUsername;
+      if (!username) return (req.session as any).adminPermissions || [];
+      const { rows } = await pool.query(
+        "SELECT permissions FROM admin_accounts WHERE username = $1 AND is_active = true",
+        [username]
+      );
+      if (!rows[0]) return (req.session as any).adminPermissions || [];
+      const freshPerms: string[] = rows[0].permissions || [];
+      (req.session as any).adminPermissions = freshPerms;
+      await new Promise<void>((resolve) => req.session.save(() => resolve()));
+      return freshPerms;
+    } catch {
+      return (req.session as any).adminPermissions || [];
+    }
+  };
+
   // Middleware factory: requires a specific admin permission key.
-  // Super-admin role always passes regardless of the permissions array.
-  const requireAdminPermission = (permission: string) => (req: any, res: any, next: any) => {
+  // Super-admin role always passes. If the session appears stale,
+  // permissions are re-read from the DB and the session is updated.
+  const requireAdminPermission = (permission: string) => async (req: any, res: any, next: any) => {
     if (!req.session?.adminAuthenticated) return res.status(401).json({ message: "غير مصرح" });
     const role = (req.session as any).adminRole;
-    const perms: string[] = (req.session as any).adminPermissions || [];
+    let perms: string[] = (req.session as any).adminPermissions || [];
+    if (role === "super_admin" || perms.includes("*") || perms.includes(permission)) return next();
+    // Session may be stale — refresh from DB once before rejecting
+    perms = await refreshSessionPermissions(req);
     if (role === "super_admin" || perms.includes("*") || perms.includes(permission)) return next();
     return res.status(403).json({ message: "ليس لديك صلاحية للقيام بهذه العملية" });
   };
 
   // Middleware factory: requires any one of the given admin permission keys.
-  // Super-admin role always passes regardless of the permissions array.
-  const requireAnyAdminPermission = (...permissions: string[]) => (req: any, res: any, next: any) => {
+  // Super-admin role always passes. If the session appears stale,
+  // permissions are re-read from the DB and the session is updated.
+  const requireAnyAdminPermission = (...permissions: string[]) => async (req: any, res: any, next: any) => {
     if (!req.session?.adminAuthenticated) return res.status(401).json({ message: "غير مصرح" });
     const role = (req.session as any).adminRole;
-    const perms: string[] = (req.session as any).adminPermissions || [];
+    let perms: string[] = (req.session as any).adminPermissions || [];
+    if (role === "super_admin" || perms.includes("*") || permissions.some(p => perms.includes(p))) return next();
+    // Session may be stale — refresh from DB once before rejecting
+    perms = await refreshSessionPermissions(req);
     if (role === "super_admin" || perms.includes("*") || permissions.some(p => perms.includes(p))) return next();
     return res.status(403).json({ message: "ليس لديك صلاحية للقيام بهذه العملية" });
   };
