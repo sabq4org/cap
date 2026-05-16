@@ -5175,6 +5175,9 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     try {
       const ads = await storage.getActiveAdsByPosition(req.params.position);
       ads.forEach(ad => storage.incrementAdDailyStat(ad.id, 'impressions').catch(() => {}));
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.json(ads);
     } catch (error) {
       console.error("Error fetching active ads:", error);

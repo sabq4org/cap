@@ -5075,7 +5075,7 @@ const defaultAdForm: AdFormState = {
   title: "",
   imageUrl: "",
   linkUrl: "",
-  position: "sidebar",
+  position: "below_featured",
   isActive: true,
   rotationInterval: 15,
   notes: "",
