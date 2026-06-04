@@ -495,7 +495,7 @@ async function callGeminiImageGeneration(apiKey: string, prompt: string, baseUrl
   }
   const ai = new GoogleGenAI(aiConfig);
 
-  const selectedModel = model || "gemini-3.1-flash-image-preview";
+  const selectedModel = model || "gemini-2.0-flash-preview-image-generation";
   const response = await ai.models.generateContent({
     model: selectedModel,
     contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -627,7 +627,7 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
   const styleRules = `\n\nSTRICT RULES: No text, letters, numbers, watermarks, or writing of any kind. No human figures, faces, hands, or bodies. Clean simple composition. No 3D renders, no sci-fi effects, no complex backgrounds. Photorealistic photography style.`;
   const fullPrompt = `${options.prompt}${styleRules}`;
 
-  // PRIMARY: Nano Banana 2 (gemini-3.1-flash-image-preview) via direct Google API key
+  // PRIMARY: Gemini image generation via direct Google API key
   const googleApiKey = process.env.GOOGLE_API_KEY;
   if (googleApiKey) {
     try {
@@ -671,7 +671,7 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
   if (replitGeminiKey && replitGeminiUrl) {
     try {
       console.log("Generating image via Replit Gemini (fallback 2)...");
-      return await callGeminiImageGeneration(replitGeminiKey, fullPrompt, replitGeminiUrl, "gemini-2.5-flash-image");
+      return await callGeminiImageGeneration(replitGeminiKey, fullPrompt, replitGeminiUrl, "gemini-2.0-flash-preview-image-generation");
     } catch (error: any) {
       console.error("All image generation methods failed:", error.message);
       return { success: false, error: error.message || "فشل في توليد الصورة", generationTimeMs: Date.now() - startTime };
@@ -1291,12 +1291,12 @@ export async function generateInfographicImage(data: InfographicData): Promise<I
   }
 
   try {
-    console.log("[Infographic AI] Generating with Nano Banana 2...");
+    console.log("[Infographic AI] Generating image...");
     const { GoogleGenAI, Modality } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey: googleApiKey });
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-image-preview",
+      model: "gemini-2.0-flash-preview-image-generation",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: { responseModalities: [Modality.IMAGE, Modality.TEXT] } as any,
     });
