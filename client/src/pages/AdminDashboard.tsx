@@ -1338,10 +1338,32 @@ export default function AdminDashboard() {
 
     setIsGenerating(true);
     try {
+      // Strip HTML tags and base64-embedded images before sending.
+      // Rich-text content can contain large base64 images that bloat the
+      // request payload and cause aborted connections on mobile networks.
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = formData.content;
+      tempDiv.querySelectorAll('img').forEach(img => img.remove());
+      const plainText = (tempDiv.textContent || tempDiv.innerText || '').trim();
+
+      if (plainText.length < 50) {
+        setIsGenerating(false);
+        toast({
+          title: "محتوى غير كافٍ",
+          description: "يجب أن يكون المحتوى 50 حرفاً على الأقل للتوليد الذكي",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const res = await apiRequest("POST", "/api/admin/generate-news-meta", { 
-        content: formData.content 
+        content: plainText 
       });
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "فشل التوليد");
+      }
       
       if (data) {
         setFormData(prev => ({
