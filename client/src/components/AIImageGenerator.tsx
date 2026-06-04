@@ -68,11 +68,22 @@ export default function AIImageGenerator({ title, content, newsId, onImageGenera
     queryKey: ["/api/admin/generation/settings"],
   });
 
+  // Strip HTML tags and base64-embedded images before sending content to the server.
+  // Rich-text content can contain large base64 images that bloat the request payload
+  // and cause aborted connections on mobile/unstable networks.
+  const stripHtml = (html: string): string => {
+    if (!html) return '';
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    div.querySelectorAll('img').forEach(img => img.remove());
+    return (div.textContent || div.innerText || '').trim();
+  };
+
   const generatePromptMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/admin/generation/generate-prompt", {
         title,
-        content,
+        content: stripHtml(content || ''),
         generationType,
       });
       return res.json();
@@ -176,7 +187,7 @@ export default function AIImageGenerator({ title, content, newsId, onImageGenera
 
       const promptRes = await apiRequest("POST", "/api/admin/generation/generate-prompt", {
         title,
-        content,
+        content: stripHtml(content || ''),
         generationType: useSettings.defaultGenerationType,
       });
       const promptData = await promptRes.json();

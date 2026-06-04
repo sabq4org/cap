@@ -1,0 +1,147 @@
+5:48:34 AM [express] GET /api/admin/stats 200 in 511ms
+
+
+2026-06-04 08:48:52.87
+b7529058
+User
+[generateNewsMeta] Starting with content length: 1492
+
+2026-06-04 08:48:57.12
+b7529058
+User
+[generateNewsMeta] Tool call arguments: {"title":"انتحال شخصية جراح قلب يفتح ملفات التزوير بمصر","subtitle":"شاب مفصول يزوّر وثائقه ليعمل جراحًا مشهورًا","summary":"ألقت السلطات المصرية القبض على شخص انتحل صفة جراح قلب وأستاذ جامعي باستخدام مستندات مزورة، وذلك بعد هروبه من حكم قضائي بالسجن المشدد لمدة 10 سنوات. المتهم زور بياناته بطرق متع
+
+2026-06-04 08:48:57.12
+b7529058
+User
+[generateNewsMeta] Response received
+
+2026-06-04 08:48:57.15
+b7529058
+User
+5:48:57 AM [express] POST /api/admin/generate-news-meta 200 in 4505ms
+
+2026-06-04 08:49:04.52
+b7529058
+User
+at IncomingMessage.onAborted (/home/runner/workspace/node_modules/raw-body/index.js:245:10)
+
+2026-06-04 08:49:04.52
+b7529058
+User
+at socketOnClose (node:_http_server:790:3)
+
+2026-06-04 08:49:04.52
+b7529058
+User
+at _destroy (node:internal/streams/destroy:121:10)
+
+2026-06-04 08:49:04.52
+b7529058
+User
+at abortIncoming (node:_http_server:796:9)
+
+2026-06-04 08:49:04.52
+b7529058
+User
+at Socket.emit (node:events:536:35)
+
+2026-06-04 08:49:04.52
+b7529058
+User
+[Error] 400 — request aborted BadRequestError: request aborted
+
+2026-06-04 08:49:04.52
+b7529058
+User
+at IncomingMessage._destroy (node:_http_incoming:221:10)
+
+2026-06-04 08:49:04.52
+b7529058
+User
+at IncomingMessage.destroy (node:internal/streams/destroy:83:5)
+
+2026-06-04 08:49:04.52
+b7529058
+User
+at TCP.<anonymous> (node:net:343:12)
+
+2026-06-04 08:49:04.52
+b7529058
+User
+at IncomingMessage.emit (node:events:524:28)
+
+2026-06-04 08:49:09.59
+b7529058
+User
+at IncomingMessage.onAborted (/home/runner/workspace/node_modules/raw-body/index.js:245:10)
+
+2026-06-04 08:49:09.59
+b7529058
+User
+at IncomingMessage._destroy (node:_http_incoming:221:10)
+
+2026-06-04 08:49:09.59
+b7529058
+User
+[Error] 400 — request aborted BadRequestError: request aborted
+
+2026-06-04 08:49:09.59
+b7529058
+User
+at abortIncoming (node:_http_server:796:9)
+
+2026-06-04 08:49:09.59
+b7529058
+User
+at IncomingMessage.destroy (node:internal/streams/destroy:83:5)
+
+2026-06-04 08:49:09.59
+b7529058
+User
+at TCP.<anonymous> (node:net:343:12)
+
+2026-06-04 08:49:09.59
+b7529058
+User
+at Socket.emit (node:events:536:35)
+
+2026-06-04 08:49:09.59
+b7529058
+User
+at socketOnClose (node:_http_server:790:3)
+
+2026-06-04 08:49:09.59
+b7529058
+User
+at _destroy (node:internal/streams/destroy:121:10)
+
+2026-06-04 08:49:09.59
+b7529058
+User
+at IncomingMessage.emit (node:events:524:28)
+
+2026-06-04 08:49:15.05
+b7529058
+User
+at TCP.<anonymous> (node:net:343:12)
+
+2026-06-04 08:49:15.05
+b7529058
+User
+[Error] 400 — request aborted BadRequestError: request aborted
+
+2026-06-04 08:49:15.05
+b7529058
+User
+at IncomingMessage._destroy (node:_http_incoming:221:10)
+
+2026-06-04 08:49:15.05
+b7529058
+User
+at socketOnClose (node:_http_server:790:3)
+
+2026-06-04 08:49:15.05
+b7529058
+User
+at Socket.emit (node:events:536:35)
