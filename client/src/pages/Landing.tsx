@@ -515,8 +515,8 @@ export default function Landing() {
       </div>
       </div>
 
-      {/* ── Hajj Block — ضيوف الرحمن ── */}
-      {(hajjLoading || hajjNews.length > 0) && (
+      {/* ── Hajj Block — ضيوف الرحمن (مخفي حالياً) ── */}
+      {false && (hajjLoading || hajjNews.length > 0) && (
       <section
         className="py-10 md:py-14 relative overflow-hidden"
         dir="rtl"
