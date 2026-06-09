@@ -14,6 +14,7 @@ export default function Footer() {
     support: [
       { label: "من نحن", href: "/about" },
       { label: "سياسة الخصوصية", href: "/privacy" },
+      { label: "شروط الاستخدام", href: "/terms" },
     ],
   };
 

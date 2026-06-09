@@ -19,6 +19,7 @@ import NewsDetail from "@/pages/NewsDetail";
 import KeywordPage from "@/pages/KeywordPage";
 import About from "@/pages/About";
 import Privacy from "@/pages/Privacy";
+import Terms from "@/pages/Terms";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsers from "@/pages/AdminUsers";
@@ -82,6 +83,7 @@ function Router() {
       <Route path="/podcast" component={Podcast} />
       <Route path="/about" component={About} />
       <Route path="/privacy" component={Privacy} />
+      <Route path="/terms" component={Terms} />
       <Route path="/login">{isAuthenticated ? <Landing /> : <Login />}</Route>
       <Route path="/register">{isAuthenticated ? <Landing /> : <Register />}</Route>
       <Route component={NotFound} />
