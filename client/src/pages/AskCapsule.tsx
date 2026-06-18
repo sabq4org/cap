@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -147,6 +148,13 @@ function RumorCard({ rumor }: { rumor: RumorSubmission }) {
 export default function AskCapsule() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
+
+  // Record a debunk-feature engagement once per page visit. Every "تفنيد الشائعات"
+  // CTA (header, landing, etc.) leads here, so counting mounts captures all clicks.
+  useEffect(() => {
+    apiRequest("POST", "/api/analytics/debunk-cta").catch(() => {});
+  }, []);
+
   const form = useForm<SubmitForm>({
     resolver: zodResolver(submitSchema),
     defaultValues: {
