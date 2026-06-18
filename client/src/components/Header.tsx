@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
+import { recordDebunkCtaClick } from "@/lib/analytics";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import logoImage from "@assets/LOGO-L_1769253692563.png";
 
@@ -99,6 +100,7 @@ export default function Header() {
               variant={location === "/ask-capsule" ? "secondary" : "ghost"}
               className="gap-2 text-violet-700 dark:text-violet-400"
               data-testid="link-debunk"
+              onClick={() => recordDebunkCtaClick()}
             >
               <FlaskConical className="h-4 w-4" />
               تفنيد الشائعات
@@ -150,7 +152,7 @@ export default function Header() {
                 </DropdownMenuItem>
               </Link>
               <Link href="/ask-capsule">
-                <DropdownMenuItem className="flex items-center justify-center gap-2 py-2 cursor-pointer text-violet-700 dark:text-violet-400 font-medium hover:bg-violet-50 dark:hover:bg-violet-950/30" data-testid="link-ask-capsule-dropdown">
+                <DropdownMenuItem onClick={() => recordDebunkCtaClick()} className="flex items-center justify-center gap-2 py-2 cursor-pointer text-violet-700 dark:text-violet-400 font-medium hover:bg-violet-50 dark:hover:bg-violet-950/30" data-testid="link-ask-capsule-dropdown">
                   <FlaskConical className="h-4 w-4" />
                   اسأل كبسولة - مفنّد الشائعات
                 </DropdownMenuItem>
@@ -264,7 +266,7 @@ export default function Header() {
                   <Button
                     variant={location === "/ask-capsule" ? "secondary" : "ghost"}
                     className="w-full justify-start gap-3 text-violet-700 dark:text-violet-400"
-                    onClick={() => setMobileOpen(false)}
+                    onClick={() => { recordDebunkCtaClick(); setMobileOpen(false); }}
                     data-testid="link-mobile-debunk"
                   >
                     <FlaskConical className="h-5 w-5" />
@@ -300,7 +302,7 @@ export default function Header() {
                 <div className="mt-2 border-t pt-3">
                   <Link href="/ask-capsule">
                     <button
-                      onClick={() => setMobileOpen(false)}
+                      onClick={() => { recordDebunkCtaClick(); setMobileOpen(false); }}
                       className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium text-violet-700 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors"
                       data-testid="link-mobile-ask-capsule"
                     >
