@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { trackDebunkCta } from "@/lib/debunkCta";
 import { useAuth } from "@/hooks/useAuth";
-import { recordDebunkCtaClick } from "@/lib/analytics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -312,7 +312,7 @@ export default function Landing() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Link href="/ask-capsule">
-                <Button size="sm" className="gap-1.5 h-9" data-testid="button-debunk-submit" onClick={() => recordDebunkCtaClick()}>
+                <Button size="sm" className="gap-1.5 h-9" data-testid="button-debunk-submit" onClick={() => trackDebunkCta()}>
                   <Send className="h-3.5 w-3.5" />
                   أرسل شائعة
                 </Button>

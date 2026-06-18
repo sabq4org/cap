@@ -1493,19 +1493,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Public: record a debunk CTA click (fire-and-forget analytics)
-  app.post('/api/analytics/debunk-cta', async (req, res) => {
+  // Public: record a debunk CTA click. Uses a clean path (NOT "/analytics/*")
+  // so ad-blockers / privacy browsers (Brave, Safari, uBlock) don't silently
+  // drop the request, plus a lightweight per-IP throttle to prevent spam.
+  const ctaThrottle = new Map<string, number>();
+  const handleDebunkCtaClick = async (req: any, res: any) => {
     try {
+      const ip = (req.ip || req.socket.remoteAddress || 'unknown').toString();
+      const now = Date.now();
+      const last = ctaThrottle.get(ip) || 0;
+      if (now - last < 1000) {
+        return res.json({ ok: true, throttled: true });
+      }
+      ctaThrottle.set(ip, now);
+      if (ctaThrottle.size > 5000) {
+        ctaThrottle.forEach((t, k) => {
+          if (now - t > 60000) ctaThrottle.delete(k);
+        });
+      }
       await storage.recordDebunkCtaClick();
       res.json({ ok: true });
     } catch (error) {
       console.error("Error recording debunk CTA click:", error);
       res.status(500).json({ message: "Failed to record click" });
     }
-  });
+  };
+  app.post('/api/rumors/cta', handleDebunkCtaClick);
+  // Back-compat alias: stale cached clients still POST to the old "/analytics"
+  // path (those without ad-blockers). Keep for a deploy cycle or two so their
+  // clicks still count while old bundles age out, then remove.
+  app.post('/api/analytics/debunk-cta', handleDebunkCtaClick);
 
   // Public: get total debunk CTA clicks (for social proof)
-  app.get('/api/analytics/debunk-cta/total', async (req, res) => {
+  app.get('/api/rumors/cta/total', async (req, res) => {
     try {
       const total = await storage.getTotalDebunkCtaClicks();
       res.json({ total });

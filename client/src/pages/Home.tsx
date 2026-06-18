@@ -103,11 +103,11 @@ export default function Home() {
   );
 
   const { data: ctaTotalData } = useQuery<{ total: number }>({
-    queryKey: ["/api/analytics/debunk-cta/total"],
+    queryKey: ["/api/rumors/cta/total"],
   });
 
   const ctaClickMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/analytics/debunk-cta"),
+    mutationFn: () => apiRequest("POST", "/api/rumors/cta"),
   });
 
   return (
