@@ -159,8 +159,6 @@ export default function AskCapsule() {
 
   const { data: publishedRumors, isLoading } = useQuery<RumorSubmission[]>({
     queryKey: ["/api/rumors/published"],
-    staleTime: 0,
-    refetchOnMount: "always",
   });
 
   const submitMutation = useMutation({
@@ -175,10 +173,8 @@ export default function AskCapsule() {
     },
     onSuccess: (data: { id: string }) => {
       form.reset();
-      // NOTE: do NOT invalidate ["/api/rumors/published"] here. A newly
-      // submitted rumor is pending review (not published), so refetching shows
-      // nothing new — and since that GET is now the debunk-engagement counter,
-      // invalidating it would inflate the count without an actual page open.
+      // No need to invalidate ["/api/rumors/published"]: a newly submitted rumor
+      // is pending review (not published), so refetching shows nothing new.
       const stored = JSON.parse(localStorage.getItem("capsulah_rumor_ids") || "[]");
       stored.unshift(data.id);
       localStorage.setItem("capsulah_rumor_ids", JSON.stringify(stored.slice(0, 20)));

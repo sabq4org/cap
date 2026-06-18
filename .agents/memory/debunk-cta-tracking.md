@@ -32,21 +32,25 @@ normal-looking resource path. Prefer `fetch(keepalive)` over `sendBeacon`.
 
 **FINAL OUTCOME (decisive):** even after renaming + `fetch(keepalive)`, the counter
 still didn't move for the real user — prod logs showed ZERO debunk-related requests
-from them (they never clicked the button nor opened the page; client-side clicks are
-fundamentally unobservable when the user's own behavior/blocker/cache is in play).
-The robust fix was to make the metric SERVER-SIDE: count the page's unavoidable data
-fetch (`GET /api/rumors/published`, fired only by the debunk page on mount) as the
-source of truth, throttled per-IP (3s) against double-count/bots. The old click POSTs
-were made NO-OP so old cached bundles (which POST AND fetch the page data) don't
-double-count. To make repeat opens count despite global `staleTime:Infinity`, set that
-ONE query to `staleTime:0, refetchOnMount:'always'`. Also removed an
-`invalidateQueries(['/api/rumors/published'])` on submit-success — once that GET is the
-counter, invalidating it inflates the count without a real page open.
+from them. The fix was to make the metric SERVER-SIDE, but the CRITICAL lesson was
+identifying WHAT the user actually considers "engagement." After two wrong guesses
+(button clicks; then `/ask-capsule` listing-page opens), the user revealed they engage
+with debunk content by opening individual **debunk topics** shared as `/n/<code>`
+short links — these are `news` rows with `category='debunk'`, and opening one fires
+`POST /api/news/:id/view`. So the counter now increments inside that view handler when
+`category==='debunk'`, throttled per **IP+articleId** (3s) so different topics each
+count but a quick refresh of the same topic doesn't. Old click POSTs are NO-OP; the
+`GET /api/rumors/published` (listing page) does NOT count.
 
-**Why server-side won:** a click is only observable if the client actually fires an
-observable request AND it isn't blocked AND the bundle is fresh. Too many failure
-points. An existing data fetch the page CANNOT render without is the reliable anchor.
-Accept the semantics shift (page-opens ≈ engagement, not literal button clicks).
+**Why server-side won:** a client click is only observable if the client fires an
+observable request AND it isn't blocked AND the bundle is fresh — too many failure
+points. Anchor the count to a data request the page can't render without.
+
+**Why pinning down the exact user event mattered most:** the user kept saying "زائر"
+(visitor) / "دخولي" (my entry) and testing by browsing the SITE, never the page I was
+counting. Always confirm the literal URL/event the user performs (ask, or read prod
+logs to see which endpoints their session actually hits) BEFORE choosing what to count.
+`/n/<code>` → news view; debunk vs not is the `category` field.
 
 **Also relevant:** SPA cache. Returning visitors run an old cached `index.html`
 shell → old JS bundle → tracking changes don't take effect until one fresh shell

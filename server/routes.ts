@@ -1497,18 +1497,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //
   // History: client-side click tracking proved unreliable in the wild — clicks
   // were silently dropped by ad-blockers/privacy browsers, stale caches, and
-  // sendBeacon being blocked. So the source of truth is now SERVER-SIDE: every
-  // time the debunk page (/ask-capsule) loads its data via GET
-  // /api/rumors/published, we count it. That request is a normal data fetch no
-  // ad-blocker touches, fires regardless of which button/link opened the page,
-  // and works on any cached bundle. A per-IP throttle prevents spam/bot inflation.
+  // sendBeacon being blocked. So the source of truth is now SERVER-SIDE: we
+  // count every time someone OPENS a debunk topic — i.e. a `news` item whose
+  // category is "debunk" (the /n/<code> links users share). That counting lives
+  // in the POST /api/news/:id/view handler. This is a normal data request no
+  // ad-blocker touches and works on any cached bundle.
+  //
+  // Throttle key is per-IP + per-article (3s window) so opening DIFFERENT debunk
+  // topics each counts, but a quick refresh of the SAME topic doesn't double-count.
   const ctaThrottle = new Map<string, number>();
-  const recordDebunkOpenThrottled = async (req: any) => {
+  const recordDebunkOpenThrottled = async (req: any, dedupeKey: string) => {
     const ip = (req.ip || req.socket?.remoteAddress || 'unknown').toString();
+    const key = `${ip}|${dedupeKey}`;
     const now = Date.now();
-    const last = ctaThrottle.get(ip) || 0;
-    if (now - last < 3000) return; // same IP within 3s → don't double-count
-    ctaThrottle.set(ip, now);
+    const last = ctaThrottle.get(key) || 0;
+    if (now - last < 3000) return; // same IP+topic within 3s → don't double-count
+    ctaThrottle.set(key, now);
     if (ctaThrottle.size > 5000) {
       ctaThrottle.forEach((t, k) => {
         if (now - t > 60000) ctaThrottle.delete(k);
@@ -1518,9 +1522,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Back-compat no-op endpoints. Old cached bundles still POST here on click;
-  // we acknowledge but DON'T increment (those same bundles also load
-  // /api/rumors/published, which is what actually counts) so nothing is
-  // double-counted. New bundles no longer call these.
+  // we acknowledge but DON'T increment (counting now happens server-side when a
+  // debunk topic is opened) so nothing is double-counted. New bundles don't call these.
   const handleLegacyCtaPost = (_req: any, res: any) => res.json({ ok: true });
   app.post('/api/rumors/cta', handleLegacyCtaPost);
   app.post('/api/analytics/debunk-cta', handleLegacyCtaPost);
@@ -2017,6 +2020,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/news/:id/view', async (req, res) => {
     try {
       await storage.incrementViewCount(req.params.id);
+      // Debunk-engagement counter: if this opened article is a debunk topic,
+      // count it (throttled per IP+article). This is the metric shown on the
+      // admin dashboard as "نقرات زر الشائعات".
+      try {
+        const item = await storage.getNewsById(req.params.id);
+        if (item && item.category === 'debunk') {
+          recordDebunkOpenThrottled(req, req.params.id).catch((e) =>
+            console.error("Error recording debunk open:", e),
+          );
+        }
+      } catch {}
       try {
         const forwarded = req.headers['x-forwarded-for'];
         const ip = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.ip || '';
@@ -4588,11 +4602,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const rumors = await storage.getPublishedRumors(limit);
-      // Count this as a debunk-page engagement (server-side source of truth).
-      // Fire-and-forget so it never delays or breaks the response.
-      recordDebunkOpenThrottled(req).catch((e) =>
-        console.error("Error recording debunk open:", e),
-      );
       res.json(rumors);
     } catch (error: any) {
       console.error("[GET /api/rumors/published] Error:", error);
