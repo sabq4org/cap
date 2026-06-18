@@ -1493,36 +1493,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Public: record a debunk CTA click. Uses a clean path (NOT "/analytics/*")
-  // so ad-blockers / privacy browsers (Brave, Safari, uBlock) don't silently
-  // drop the request, plus a lightweight per-IP throttle to prevent spam.
+  // Debunk-engagement counter.
+  //
+  // History: client-side click tracking proved unreliable in the wild — clicks
+  // were silently dropped by ad-blockers/privacy browsers, stale caches, and
+  // sendBeacon being blocked. So the source of truth is now SERVER-SIDE: every
+  // time the debunk page (/ask-capsule) loads its data via GET
+  // /api/rumors/published, we count it. That request is a normal data fetch no
+  // ad-blocker touches, fires regardless of which button/link opened the page,
+  // and works on any cached bundle. A per-IP throttle prevents spam/bot inflation.
   const ctaThrottle = new Map<string, number>();
-  const handleDebunkCtaClick = async (req: any, res: any) => {
-    try {
-      const ip = (req.ip || req.socket.remoteAddress || 'unknown').toString();
-      const now = Date.now();
-      const last = ctaThrottle.get(ip) || 0;
-      if (now - last < 1000) {
-        return res.json({ ok: true, throttled: true });
-      }
-      ctaThrottle.set(ip, now);
-      if (ctaThrottle.size > 5000) {
-        ctaThrottle.forEach((t, k) => {
-          if (now - t > 60000) ctaThrottle.delete(k);
-        });
-      }
-      await storage.recordDebunkCtaClick();
-      res.json({ ok: true });
-    } catch (error) {
-      console.error("Error recording debunk CTA click:", error);
-      res.status(500).json({ message: "Failed to record click" });
+  const recordDebunkOpenThrottled = async (req: any) => {
+    const ip = (req.ip || req.socket?.remoteAddress || 'unknown').toString();
+    const now = Date.now();
+    const last = ctaThrottle.get(ip) || 0;
+    if (now - last < 3000) return; // same IP within 3s → don't double-count
+    ctaThrottle.set(ip, now);
+    if (ctaThrottle.size > 5000) {
+      ctaThrottle.forEach((t, k) => {
+        if (now - t > 60000) ctaThrottle.delete(k);
+      });
     }
+    await storage.recordDebunkCtaClick();
   };
-  app.post('/api/rumors/cta', handleDebunkCtaClick);
-  // Back-compat alias: stale cached clients still POST to the old "/analytics"
-  // path (those without ad-blockers). Keep for a deploy cycle or two so their
-  // clicks still count while old bundles age out, then remove.
-  app.post('/api/analytics/debunk-cta', handleDebunkCtaClick);
+
+  // Back-compat no-op endpoints. Old cached bundles still POST here on click;
+  // we acknowledge but DON'T increment (those same bundles also load
+  // /api/rumors/published, which is what actually counts) so nothing is
+  // double-counted. New bundles no longer call these.
+  const handleLegacyCtaPost = (_req: any, res: any) => res.json({ ok: true });
+  app.post('/api/rumors/cta', handleLegacyCtaPost);
+  app.post('/api/analytics/debunk-cta', handleLegacyCtaPost);
 
   // Public: get total debunk CTA clicks (for social proof)
   app.get('/api/rumors/cta/total', async (req, res) => {
@@ -4587,6 +4588,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const rumors = await storage.getPublishedRumors(limit);
+      // Count this as a debunk-page engagement (server-side source of truth).
+      // Fire-and-forget so it never delays or breaks the response.
+      recordDebunkOpenThrottled(req).catch((e) =>
+        console.error("Error recording debunk open:", e),
+      );
       res.json(rumors);
     } catch (error: any) {
       console.error("[GET /api/rumors/published] Error:", error);

@@ -28,9 +28,25 @@ signal, not who owns it.
 
 **How to apply:** for ANY client-fired counter/metric/telemetry route, never put
 `analytics|track|collect|beacon|pixel|telemetry|stat` in the public path; prefer a
-normal-looking resource path. Prefer `fetch(keepalive)` over `sendBeacon`. Count
-clicks at the click, not via a page-load data fetch — React Query `staleTime:Infinity`
-means repeat in-session page opens won't refetch, so page-load counting undercounts.
+normal-looking resource path. Prefer `fetch(keepalive)` over `sendBeacon`.
+
+**FINAL OUTCOME (decisive):** even after renaming + `fetch(keepalive)`, the counter
+still didn't move for the real user — prod logs showed ZERO debunk-related requests
+from them (they never clicked the button nor opened the page; client-side clicks are
+fundamentally unobservable when the user's own behavior/blocker/cache is in play).
+The robust fix was to make the metric SERVER-SIDE: count the page's unavoidable data
+fetch (`GET /api/rumors/published`, fired only by the debunk page on mount) as the
+source of truth, throttled per-IP (3s) against double-count/bots. The old click POSTs
+were made NO-OP so old cached bundles (which POST AND fetch the page data) don't
+double-count. To make repeat opens count despite global `staleTime:Infinity`, set that
+ONE query to `staleTime:0, refetchOnMount:'always'`. Also removed an
+`invalidateQueries(['/api/rumors/published'])` on submit-success — once that GET is the
+counter, invalidating it inflates the count without a real page open.
+
+**Why server-side won:** a click is only observable if the client actually fires an
+observable request AND it isn't blocked AND the bundle is fresh. Too many failure
+points. An existing data fetch the page CANNOT render without is the reliable anchor.
+Accept the semantics shift (page-opens ≈ engagement, not literal button clicks).
 
 **Also relevant:** SPA cache. Returning visitors run an old cached `index.html`
 shell → old JS bundle → tracking changes don't take effect until one fresh shell
