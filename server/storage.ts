@@ -314,17 +314,30 @@ export interface IStorage {
   }>;
 }
 
-// Simple TTL in-memory cache
+// Simple TTL in-memory cache with a bounded size (LRU-style eviction).
+// The size cap prevents memory exhaustion from public endpoints with
+// user-controlled cache keys (e.g. /api/news/keyword/:keyword).
 class TtlCache {
   private store = new Map<string, { value: any; expiresAt: number }>();
+  private maxEntries = 500;
   get<T>(key: string): T | undefined {
     const entry = this.store.get(key);
     if (!entry) return undefined;
     if (Date.now() > entry.expiresAt) { this.store.delete(key); return undefined; }
+    // Refresh recency: move key to the end (most-recently-used)
+    this.store.delete(key);
+    this.store.set(key, entry);
     return entry.value as T;
   }
   set(key: string, value: any, ttlMs: number) {
+    this.store.delete(key);
     this.store.set(key, { value, expiresAt: Date.now() + ttlMs });
+    // Evict least-recently-used entries when over capacity
+    while (this.store.size > this.maxEntries) {
+      const oldest = this.store.keys().next().value;
+      if (oldest === undefined) break;
+      this.store.delete(oldest);
+    }
   }
   del(key: string) { this.store.delete(key); }
   delPrefix(prefix: string) {
@@ -864,22 +877,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNewsByKeyword(keyword: string): Promise<News[]> {
-    const allNews = await db
+    const cacheKey = `news:keyword:${keyword.toLowerCase()}`;
+    const cached = newsCache.get<News[]>(cacheKey);
+    if (cached) return cached;
+
+    const pattern = '%' + keyword + '%';
+    const results = await db
       .select()
       .from(news)
-      .where(eq(news.status, 'published'))
-      .orderBy(desc(news.publishedAt));
-    
-    const lowerKeyword = keyword.toLowerCase();
-    return allNews.filter(item => {
-      const inKeywords = item.keywords && Array.isArray(item.keywords)
-        ? (item.keywords as string[]).some(k => k.toLowerCase().includes(lowerKeyword))
-        : false;
-      const inTitle = item.title?.toLowerCase().includes(lowerKeyword) ?? false;
-      const inSummary = item.summary?.toLowerCase().includes(lowerKeyword) ?? false;
-      const inContent = item.content?.toLowerCase().includes(lowerKeyword) ?? false;
-      return inKeywords || inTitle || inSummary || inContent;
-    });
+      .where(
+        and(
+          eq(news.status, 'published'),
+          sql`(${news.title} ILIKE ${pattern} OR ${news.summary} ILIKE ${pattern} OR ${news.content} ILIKE ${pattern} OR ${news.keywords}::text ILIKE ${pattern})`
+        )
+      )
+      .orderBy(desc(news.publishedAt))
+      .limit(100);
+
+    newsCache.set(cacheKey, results as unknown as News[], 300_000); // 5 min TTL
+    return results as unknown as News[];
   }
 
   async createNews(newsData: InsertNews): Promise<News> {

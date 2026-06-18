@@ -106,6 +106,7 @@ export default function Landing() {
 
   const { data: hajjNewsRaw, isLoading: hajjLoading } = useQuery<News[]>({
     queryKey: ["/api/news/keyword/موسم الحج"],
+    enabled: false, // Hajj block is hidden — skip the network request entirely
   });
   const hajjNews = (hajjNewsRaw || []).slice(0, 8);
 
