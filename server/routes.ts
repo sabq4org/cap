@@ -347,36 +347,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .replace(/'/g, '&#39;');
   };
 
-  function buildCrawlerHtml(opts: { ogTitle: string; description: string; ogImageUrl: string; pageUrl: string; publishedAt?: Date | string | null; redirect?: boolean }) {
-    const { ogTitle, description, ogImageUrl, pageUrl, publishedAt, redirect = true } = opts;
+  // Sanitize admin/feed-authored HTML before embedding it in crawler pages.
+  // Crawler detection is User-Agent based (spoofable), so this output can reach
+  // real browsers — strip script/style/iframe-style elements, inline event
+  // handlers, and javascript: URLs to prevent stored XSS.
+  const sanitizeContentHtml = (html: string): string =>
+    html
+      .replace(/<\s*(script|style|iframe|object|embed|link|meta|form|input|button|textarea|noscript|svg)\b[\s\S]*?<\/\s*\1\s*>/gi, '')
+      .replace(/<\s*(script|style|iframe|object|embed|link|meta|form|input|button|textarea|noscript|svg)\b[^>]*\/?>/gi, '')
+      .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+      .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+      .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
+      .replace(/(href|src)\s*=\s*"\s*javascript:[^"]*"/gi, '$1="#"')
+      .replace(/(href|src)\s*=\s*'\s*javascript:[^']*'/gi, "$1='#'")
+      .replace(/(href|src)\s*=\s*javascript:[^\s>]+/gi, '$1="#"');
+
+  // Strip HTML tags to plain text (for meta description fallback + JSON-LD articleBody)
+  const stripHtml = (html: string): string =>
+    html
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  function buildCrawlerHtml(opts: {
+    title: string;
+    description: string;
+    ogImageUrl: string;
+    pageUrl: string;
+    publishedAt?: Date | string | null;
+    updatedAt?: Date | string | null;
+    contentHtml?: string | null;
+    keywords?: string[] | null;
+    author?: string | null;
+    articleImageUrl?: string | null;
+    redirect?: boolean;
+  }) {
+    const { title, description, ogImageUrl, pageUrl, publishedAt, updatedAt, contentHtml, keywords, author, articleImageUrl, redirect = true } = opts;
+    const escTitle = escapeHtml(title);
+    const escDesc = escapeHtml(description);
+    const pub = publishedAt ? new Date(publishedAt).toISOString() : undefined;
+    const mod = updatedAt ? new Date(updatedAt).toISOString() : pub;
+    const plainBody = contentHtml ? stripHtml(contentHtml) : '';
+
+    const jsonLd: Record<string, any> = {
+      '@context': 'https://schema.org',
+      '@type': 'NewsArticle',
+      mainEntityOfPage: { '@type': 'WebPage', '@id': pageUrl },
+      headline: title.slice(0, 110),
+      description,
+      image: [articleImageUrl || ogImageUrl],
+      inLanguage: 'ar',
+      author: { '@type': author ? 'Person' : 'Organization', name: author || 'كبسولة' },
+      publisher: {
+        '@type': 'Organization',
+        name: 'كبسولة',
+        logo: { '@type': 'ImageObject', url: 'https://capsulah.com/favicon.png' },
+      },
+    };
+    if (pub) jsonLd.datePublished = pub;
+    if (mod) jsonLd.dateModified = mod;
+    if (plainBody) jsonLd.articleBody = plainBody;
+    if (keywords && keywords.length) jsonLd.keywords = keywords.join(', ');
+    // Escape "<" so the article body can never break out of the <script> tag.
+    const jsonLdStr = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
+
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>${ogTitle} | كبسولة</title>
-  <meta name="description" content="${description}">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escTitle} | كبسولة</title>
+  <meta name="description" content="${escDesc}">
+  ${keywords && keywords.length ? `<meta name="keywords" content="${escapeHtml(keywords.join(', '))}">` : ''}
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="كبسولة">
-  <meta property="og:title" content="${ogTitle}">
-  <meta property="og:description" content="${description}">
+  <meta property="og:title" content="${escTitle}">
+  <meta property="og:description" content="${escDesc}">
   <meta property="og:image" content="${ogImageUrl}">
   <meta property="og:url" content="${pageUrl}">
   <meta property="og:locale" content="ar_SA">
-  ${publishedAt ? `<meta property="article:published_time" content="${new Date(publishedAt).toISOString()}">` : ''}
+  ${pub ? `<meta property="article:published_time" content="${pub}">` : ''}
+  ${mod ? `<meta property="article:modified_time" content="${mod}">` : ''}
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@capsulah_sa">
-  <meta name="twitter:title" content="${ogTitle}">
-  <meta name="twitter:description" content="${description}">
+  <meta name="twitter:title" content="${escTitle}">
+  <meta name="twitter:description" content="${escDesc}">
   <meta name="twitter:image" content="${ogImageUrl}">
-  <meta name="twitter:image:alt" content="${ogTitle}">
-  ${redirect ? `<meta http-equiv="refresh" content="0;url=${pageUrl}">` : ''}
+  <meta name="twitter:image:alt" content="${escTitle}">
   <link rel="canonical" href="${pageUrl}">
+  <script type="application/ld+json">${jsonLdStr}</script>
+  ${redirect ? `<meta http-equiv="refresh" content="2;url=${pageUrl}">` : ''}
 </head>
 <body>
-  <h1>${ogTitle}</h1>
-  <p>${description}</p>
-  <img src="${ogImageUrl}" alt="${ogTitle}">
-  ${redirect ? `<p>جاري التحويل... <a href="${pageUrl}">اضغط هنا</a></p><script>window.location.href="${pageUrl}";</script>` : ''}
+  <article>
+    <h1>${escTitle}</h1>
+    <img src="${ogImageUrl}" alt="${escTitle}">
+    ${contentHtml ? sanitizeContentHtml(contentHtml) : `<p>${escDesc}</p>`}
+  </article>
+  ${redirect ? `<p><a href="${pageUrl}">اقرأ الخبر كاملاً على كبسولة</a></p>` : ''}
 </body>
 </html>`;
   }
@@ -633,13 +705,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? `${baseUrl}/n/${newsItem.shortCode}`
         : `${baseUrl}/news/${newsItem.id}`;
       
-      const ogTitle = escapeHtml(newsItem.title);
-      const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
-      const description = escapeHtml(rawDescription);
       const imageId = newsItem.shortCode || newsItem.id;
       const ogImageUrl = `${baseUrl}/og/${imageId}`;
+      const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
+      const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
       
-      const html = buildCrawlerHtml({ ogTitle, description, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt });
+      const html = buildCrawlerHtml({ title: newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl });
       
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
@@ -669,11 +740,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
           const baseUrl = `${proto}://${reqHost}`;
           const canonicalUrl = `${baseUrl}/n/${newsItem.shortCode}`;
-          const ogTitle = escapeHtml(newsItem.title);
-          const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
-          const description = escapeHtml(rawDescription);
           const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode}`;
-          const html = buildCrawlerHtml({ ogTitle, description, ogImageUrl, pageUrl: canonicalUrl, publishedAt: newsItem.publishedAt, redirect: false });
+          const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
+          const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
+          const html = buildCrawlerHtml({ title: newsItem.title, description: rawDescription, ogImageUrl, pageUrl: canonicalUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
           return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
         }
         return res.redirect(301, `/n/${newsItem.shortCode}`);
@@ -684,11 +754,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
         const baseUrl = `${proto}://${reqHost}`;
         const pageUrl = `${baseUrl}/news/${newsItem.id}`;
-        const ogTitle = escapeHtml(newsItem.title);
-        const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
-        const description = escapeHtml(rawDescription);
         const ogImageUrl = `${baseUrl}/og/${newsItem.id}`;
-        const html = buildCrawlerHtml({ ogTitle, description, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, redirect: false });
+        const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
+        const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
+        const html = buildCrawlerHtml({ title: newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
         return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
       }
       
@@ -721,12 +790,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
       const baseUrl = `${proto}://${reqHost}`;
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
-      const ogTitle = escapeHtml(newsItem.title);
-      const rawDescription = newsItem.summary || newsItem.seoDescription || `${newsItem.title} - اقرأ المزيد على كبسولة`;
-      const description = escapeHtml(rawDescription);
       const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode || newsItem.id}`;
+      const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
+      const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
       
-      const html = buildCrawlerHtml({ ogTitle, description, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt });
+      const html = buildCrawlerHtml({ title: newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
       
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {

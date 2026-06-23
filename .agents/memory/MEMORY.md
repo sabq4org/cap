@@ -1,2 +1,3 @@
 - [News query performance](news-query-performance.md) — public news lookups must filter in SQL+LIMIT+cache, never fetch-all-then-filter in JS (caused 15-min responses / event-loop saturation).
+- [SEO crawler HTML](seo-crawler-html.md) — crawler pages (buildCrawlerHtml) must serve FULL article body + NewsArticle JSON-LD, redirect:false, and sanitize content (stored-XSS via spoofable UA).
 - [Debunk CTA tracking](debunk-cta-tracking.md) — client metric routes must NOT contain "analytics/track/beacon" (ad-blockers drop them) & use fetch(keepalive) not sendBeacon; count at click, not page-load.
