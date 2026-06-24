@@ -1003,7 +1003,8 @@ export class DatabaseStorage implements IStorage {
     }).from(viewReferrerStats)
       .where(sql`${viewReferrerStats.date} >= ${cutoffDate}`)
       .groupBy(viewReferrerStats.source, viewReferrerStats.sourceLabel)
-      .orderBy(sql`SUM(${viewReferrerStats.viewCount}) DESC`);
+      .orderBy(sql`SUM(${viewReferrerStats.viewCount}) DESC`)
+      .limit(20);
 
     return rows.map(r => ({
       source: r.source,

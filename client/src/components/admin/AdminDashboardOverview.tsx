@@ -783,6 +783,9 @@ export function AdminDashboardOverview({ adminUser, onNavigate }: Props) {
               telegram: { icon: "✈️", color: "#0088cc" },
               whatsapp: { icon: "💬", color: "#25d366" },
               reddit: { icon: "🤖", color: "#ff4500" },
+              newsletter: { icon: "📧", color: "#0ea5e9" },
+              internal: { icon: "🏠", color: "#94a3b8" },
+              campaign: { icon: "🎯", color: "#f59e0b" },
               other: { icon: "🌐", color: "#9ca3af" },
             };
             return (

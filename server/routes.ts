@@ -2124,37 +2124,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch {}
 
       try {
-        const refHeader = (req.body?.referrer || req.headers['referer'] || '') as string;
-        let source = 'direct';
-        let sourceLabel = 'مباشر';
-        if (refHeader) {
-          const refLower = refHeader.toLowerCase();
-          if (/google\./i.test(refLower)) { source = 'google'; sourceLabel = 'قوقل'; }
-          else if (/bing\./i.test(refLower)) { source = 'bing'; sourceLabel = 'بينق'; }
-          else if (/yahoo\./i.test(refLower)) { source = 'yahoo'; sourceLabel = 'ياهو'; }
-          else if (/yandex\./i.test(refLower)) { source = 'yandex'; sourceLabel = 'ياندكس'; }
-          else if (/duckduckgo\./i.test(refLower)) { source = 'duckduckgo'; sourceLabel = 'DuckDuckGo'; }
-          else if (/t\.co|twitter\.com|x\.com/i.test(refLower)) { source = 'twitter'; sourceLabel = 'تويتر / X'; }
-          else if (/facebook\.com|fb\.com|fbcdn/i.test(refLower)) { source = 'facebook'; sourceLabel = 'فيسبوك'; }
-          else if (/instagram\.com/i.test(refLower)) { source = 'instagram'; sourceLabel = 'انستقرام'; }
-          else if (/tiktok\.com/i.test(refLower)) { source = 'tiktok'; sourceLabel = 'تيك توك'; }
-          else if (/snapchat\.com|snap\.com/i.test(refLower)) { source = 'snapchat'; sourceLabel = 'سناب شات'; }
-          else if (/linkedin\.com/i.test(refLower)) { source = 'linkedin'; sourceLabel = 'لينكدإن'; }
-          else if (/youtube\.com|youtu\.be/i.test(refLower)) { source = 'youtube'; sourceLabel = 'يوتيوب'; }
-          else if (/t\.me|telegram\./i.test(refLower)) { source = 'telegram'; sourceLabel = 'تليقرام'; }
-          else if (/wa\.me|whatsapp\./i.test(refLower)) { source = 'whatsapp'; sourceLabel = 'واتساب'; }
-          else if (/reddit\.com/i.test(refLower)) { source = 'reddit'; sourceLabel = 'ريديت'; }
-          else if (/news\.google/i.test(refLower)) { source = 'google_news'; sourceLabel = 'أخبار قوقل'; }
-          else {
-            try {
-              const hostname = new URL(refLower).hostname;
-              if (!hostname.includes('capsulah.com') && !hostname.includes('replit')) {
-                source = 'other'; sourceLabel = 'مواقع أخرى';
+        const ua = (req.headers['user-agent'] || '').toString();
+        const isBot = /bot|crawler|spider|crawling|facebookexternalhit|slurp|duckduckbot|baiduspider|yandex|googlebot|bingbot|headless|python-requests|axios|node-fetch|curl|wget|phantomjs|puppeteer|playwright/i.test(ua);
+        if (!isBot) {
+          const refHeader = (req.body?.referrer || req.headers['referer'] || '').toString();
+          const utmSource = (req.body?.utmSource || '').toString().trim().toLowerCase();
+          const utmMedium = (req.body?.utmMedium || '').toString().trim().toLowerCase();
+
+          // Map a known token (utm_source value OR referrer text/hostname) to a labeled source.
+          const mapKnown = (s: string): { source: string; label: string } | null => {
+            if (/news\.google|google.?news/.test(s)) return { source: 'google_news', label: 'أخبار قوقل' };
+            if (/google/.test(s)) return { source: 'google', label: 'قوقل' };
+            if (/bing/.test(s)) return { source: 'bing', label: 'بينق' };
+            if (/yahoo/.test(s)) return { source: 'yahoo', label: 'ياهو' };
+            if (/yandex/.test(s)) return { source: 'yandex', label: 'ياندكس' };
+            if (/duckduckgo|duck/.test(s)) return { source: 'duckduckgo', label: 'DuckDuckGo' };
+            if (/twitter|t\.co|x\.com|(^|[^a-z])x([^a-z]|$)/.test(s)) return { source: 'twitter', label: 'تويتر / X' };
+            if (/facebook|fbcdn|(^|[^a-z])fb([^a-z]|$)/.test(s)) return { source: 'facebook', label: 'فيسبوك' };
+            if (/instagram|(^|[^a-z])ig([^a-z]|$)/.test(s)) return { source: 'instagram', label: 'انستقرام' };
+            if (/tiktok/.test(s)) return { source: 'tiktok', label: 'تيك توك' };
+            if (/snapchat|snap/.test(s)) return { source: 'snapchat', label: 'سناب شات' };
+            if (/linkedin/.test(s)) return { source: 'linkedin', label: 'لينكدإن' };
+            if (/youtube|youtu\.be/.test(s)) return { source: 'youtube', label: 'يوتيوب' };
+            if (/telegram|t\.me/.test(s)) return { source: 'telegram', label: 'تليقرام' };
+            if (/whatsapp|wa\.me|(^|[^a-z])wa([^a-z]|$)/.test(s)) return { source: 'whatsapp', label: 'واتساب' };
+            if (/reddit/.test(s)) return { source: 'reddit', label: 'ريديت' };
+            if (/newsletter|email|mailing|(^|[^a-z])mail([^a-z]|$)/.test(s)) return { source: 'newsletter', label: 'النشرة البريدية' };
+            return null;
+          };
+
+          let source = 'direct';
+          let sourceLabel = 'مباشر';
+
+          if (utmSource) {
+            // UTM is the most reliable signal (campaigns, newsletter, app links).
+            const m = mapKnown(utmSource);
+            if (m) { source = m.source; sourceLabel = m.label; }
+            else {
+              const clean = utmSource.replace(/[^a-z0-9_\-.]/g, '').slice(0, 40) || 'campaign';
+              source = clean;
+              sourceLabel = utmMedium ? `${utmSource} (${utmMedium})` : utmSource;
+            }
+          } else if (refHeader) {
+            // Match against the hostname only — paths/queries can contain stray
+            // tokens (e.g. "/x") that would falsely match short source aliases.
+            let hostname = '';
+            try { hostname = new URL(refHeader).hostname.replace(/^www\./, '').toLowerCase(); }
+            catch { /* malformed referrer → keep direct */ }
+            if (hostname) {
+              if (hostname.includes('capsulah.com') || hostname.includes('replit')) {
+                source = 'internal'; sourceLabel = 'تصفّح داخلي';
+              } else {
+                const m = mapKnown(hostname);
+                if (m) { source = m.source; sourceLabel = m.label; }
+                else { source = hostname.slice(0, 60); sourceLabel = hostname; }
               }
-            } catch { source = 'other'; sourceLabel = 'مواقع أخرى'; }
+            }
           }
+
+          storage.recordReferrerView(source, sourceLabel).catch(() => {});
         }
-        storage.recordReferrerView(source, sourceLabel).catch(() => {});
       } catch {}
 
       res.json({ ok: true });

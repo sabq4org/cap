@@ -182,10 +182,16 @@ export default function NewsDetail() {
   // Fire-and-forget view count increment
   useEffect(() => {
     if (news?.id) {
+      const params = new URLSearchParams(window.location.search);
       fetch(`/api/news/${news.id}/view`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ referrer: document.referrer || "" }),
+        body: JSON.stringify({
+          referrer: document.referrer || "",
+          utmSource: params.get("utm_source") || "",
+          utmMedium: params.get("utm_medium") || "",
+          utmCampaign: params.get("utm_campaign") || "",
+        }),
       }).catch(() => {});
     }
   }, [news?.id]);

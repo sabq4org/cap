@@ -808,11 +808,13 @@ export type ViewCountryStat = typeof viewCountryStats.$inferSelect;
 
 export const viewReferrerStats = pgTable("view_referrer_stats", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  source: varchar("source", { length: 50 }).notNull(),
+  source: varchar("source", { length: 80 }).notNull(),
   sourceLabel: varchar("source_label").notNull(),
   viewCount: integer("view_count").default(0).notNull(),
   date: varchar("date", { length: 10 }).notNull(),
-});
+}, (table) => [
+  uniqueIndex("uq_referrer_stats_source_date").on(table.source, table.date),
+]);
 
 export type ViewReferrerStat = typeof viewReferrerStats.$inferSelect;
 
