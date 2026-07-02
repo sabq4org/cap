@@ -1573,7 +1573,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //
   // Throttle key is per-IP + per-article (3s window) so opening DIFFERENT debunk
   // topics each counts, but a quick refresh of the SAME topic doesn't double-count.
-  const viewThrottle = new Map<string, number>();
   const ctaThrottle = new Map<string, number>();
   const recordDebunkOpenThrottled = async (req: any, dedupeKey: string) => {
     const ip = (req.ip || req.socket?.remoteAddress || 'unknown').toString();
@@ -2088,22 +2087,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/news/:id/view', async (req, res) => {
     try {
-      // Throttle: same IP + article within 30 s → skip to avoid double-counting
-      const viewIp = (
-        (typeof req.headers['x-forwarded-for'] === 'string'
-          ? req.headers['x-forwarded-for'].split(',')[0].trim()
-          : req.ip) || 'unknown'
-      ).toString();
-      const viewKey = `${viewIp}|${req.params.id}`;
-      const viewNow = Date.now();
-      const viewLast = viewThrottle.get(viewKey) || 0;
-      if (viewNow - viewLast < 30000) {
-        return res.json({ ok: true });
-      }
-      viewThrottle.set(viewKey, viewNow);
-      if (viewThrottle.size > 10000) {
-        viewThrottle.forEach((t, k) => { if (viewNow - t > 60000) viewThrottle.delete(k); });
-      }
+      // Count every view request — including repeated clicks/refreshes from the same person.
       await storage.incrementViewCount(req.params.id);
       // Debunk-engagement counter: if this opened article is a debunk topic,
       // count it (throttled per IP+article). This is the metric shown on the

@@ -179,16 +179,14 @@ export default function NewsDetail() {
     enabled: !!news?.id,
   });
 
-  // Fire-and-forget view count increment — deduplicated per session
+  // Fire-and-forget view count increment — counts every open/refresh
   const viewedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!news?.id) return;
-    const sessionKey = `viewed_news_${news.id}`;
-    // Skip if already fired for this article in this component mount or this browser session
+    // Count every open/refresh (repeated views from the same person count too).
+    // viewedRef only prevents a double-fire within a single mount (e.g. dev StrictMode).
     if (viewedRef.current === news.id) return;
-    if (sessionStorage.getItem(sessionKey)) return;
     viewedRef.current = news.id;
-    sessionStorage.setItem(sessionKey, "1");
     const params = new URLSearchParams(window.location.search);
     fetch(`/api/news/${news.id}/view`, {
       method: "POST",

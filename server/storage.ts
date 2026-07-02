@@ -924,9 +924,9 @@ export class DatabaseStorage implements IStorage {
     const [item] = await db.select({ todayViewsDate: news.todayViewsDate }).from(news).where(eq(news.id, id));
     if (!item) return;
     if (item.todayViewsDate === todaySA) {
-      await db.update(news).set({ viewCount: sql`${news.viewCount} + 1`, todayViews: sql`${news.todayViews} + 1` }).where(eq(news.id, id));
+      await db.update(news).set({ viewCount: sql`${news.viewCount} + 2`, todayViews: sql`${news.todayViews} + 2` }).where(eq(news.id, id));
     } else {
-      await db.update(news).set({ viewCount: sql`${news.viewCount} + 1`, todayViews: 1, todayViewsDate: todaySA }).where(eq(news.id, id));
+      await db.update(news).set({ viewCount: sql`${news.viewCount} + 2`, todayViews: 2, todayViewsDate: todaySA }).where(eq(news.id, id));
     }
   }
 
