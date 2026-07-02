@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useSearch } from "wouter";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Newspaper, Search, Clock, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertTriangle, XCircle, CheckCircle, MessageCircle } from "lucide-react";
+import {
+  Newspaper, Search, Clock, ExternalLink,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  AlertTriangle, XCircle, CheckCircle, MessageCircle,
+} from "lucide-react";
 import { AIImageBadge } from "@/components/AIImageBadge";
 import type { News as NewsType } from "@shared/schema";
 import { getNewsImage } from "@/lib/newsImages";
@@ -21,7 +24,7 @@ const categories = [
   { value: "quality-life", label: "جودة حياة" },
   { value: "nutrition", label: "تغذية" },
   { value: "debunk", label: "تفنيد الشائعات" },
-  { value: "misc", label: "منوعات" }
+  { value: "misc", label: "منوعات" },
 ];
 
 const categoryColors: Record<string, string> = {
@@ -34,7 +37,7 @@ const categoryColors: Record<string, string> = {
   "quality-life": "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200",
   "nutrition": "bg-lime-100 dark:bg-lime-900/30 text-lime-800 dark:text-lime-200",
   "debunk": "bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-200",
-  "misc": "bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-200"
+  "misc": "bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-200",
 };
 
 const getVerdictFromTitle = (title: string) => {
@@ -44,9 +47,8 @@ const getVerdictFromTitle = (title: string) => {
   return null;
 };
 
-const getCleanDebunkTitle = (title: string) => {
-  return title.replace(/^تفنيد\s*\|\s*[❌✅⚠️]\s*/, "").trim();
-};
+const getCleanDebunkTitle = (title: string) =>
+  title.replace(/^تفنيد\s*\|\s*[❌✅⚠️]\s*/, "").trim();
 
 const PER_PAGE = 28;
 
@@ -100,8 +102,7 @@ export default function News() {
     queryKey: [buildQueryKey()],
   });
 
-  const filteredNews = data?.news;
-
+  const filteredNews = data?.news || [];
   const totalPages = data?.totalPages || 1;
   const total = data?.total || 0;
 
@@ -110,7 +111,7 @@ export default function News() {
     if (selectedCategory) params.set("category", selectedCategory);
     params.set("page", String(page));
     setLocation(`/news?${params.toString()}`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleCategoryChange = (category: string) => {
@@ -122,80 +123,96 @@ export default function News() {
 
   const formatDate = (date: Date | string) => {
     const d = new Date(date);
-    return d.toLocaleDateString('ar-EG-u-nu-latn', { timeZone: 'Asia/Riyadh', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric',
-      calendar: 'gregory'
+    return d.toLocaleDateString("ar-EG-u-nu-latn", {
+      timeZone: "Asia/Riyadh",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      calendar: "gregory",
     });
   };
 
-
-  const getCategoryLabel = (category: string) => {
-    return categories.find(c => c.value === category)?.label || category;
-  };
+  const getCategoryLabel = (category: string) =>
+    categories.find((c) => c.value === category)?.label || category;
 
   const getPageNumbers = () => {
-    const pages: (number | 'dots')[] = [];
+    const pages: (number | "dots")[] = [];
     if (totalPages <= 7) {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
       pages.push(1);
-      if (currentPage > 3) pages.push('dots');
+      if (currentPage > 3) pages.push("dots");
       const start = Math.max(2, currentPage - 1);
       const end = Math.min(totalPages - 1, currentPage + 1);
       for (let i = start; i <= end; i++) pages.push(i);
-      if (currentPage < totalPages - 2) pages.push('dots');
+      if (currentPage < totalPages - 2) pages.push("dots");
       pages.push(totalPages);
     }
     return pages;
   };
 
+  const heroItem = filteredNews[0];
+  const sideItems = filteredNews.slice(1, 4);
+  const gridItems = filteredNews.slice(4);
+
+  const sectionTitle = selectedCategory
+    ? getCategoryLabel(selectedCategory)
+    : "أبرز الأخبار";
+
   return (
-    <div className="min-h-screen p-6">
-      <div className="container mx-auto max-w-7xl">
-        <div className="mb-8" dir="rtl">
-          <div className="flex items-center gap-3 mb-3">
-            <Newspaper className="w-8 h-8 text-primary" />
-            <h1 className="text-4xl font-bold">كل الأخبار</h1>
+    <div className="min-h-screen">
+      <div className="container mx-auto max-w-7xl px-4 py-6">
+
+        {/* ── Page header ── */}
+        <div className="mb-6" dir="rtl">
+          <div className="flex items-center gap-3 mb-1.5">
+            <Newspaper className="w-7 h-7 text-primary shrink-0" />
+            <h1 className="text-3xl font-bold tracking-tight">كل الأخبار</h1>
           </div>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-muted-foreground">
             آخر الأخبار والتطورات في المجال الطبي والصحي
-            {total > 0 && <span className="text-sm me-2">({total} خبر)</span>}
+            {total > 0 && (
+              <span className="text-sm mr-1.5 text-muted-foreground/70">
+                ({total} خبر)
+              </span>
+            )}
           </p>
         </div>
 
-        <div className="mb-8 space-y-4" dir="rtl">
-          <div className="relative">
-            <Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="ابحث في الأخبار..."
-              value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
-              className="pr-10"
-              data-testid="input-search-news"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <Badge
-                key={category.value}
-                variant={selectedCategory === category.value ? "default" : "outline"}
-                className="cursor-pointer hover-elevate active-elevate-2"
-                onClick={() => handleCategoryChange(category.value)}
-                data-testid={`category-${category.value || 'all'}`}
-              >
-                {category.label}
-              </Badge>
-            ))}
-          </div>
+        {/* ── Search ── */}
+        <div className="relative mb-4" dir="rtl">
+          <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="ابحث في الأخبار..."
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
+            className="pr-10 h-11 rounded-xl border-border/70"
+            data-testid="input-search-news"
+          />
         </div>
 
-        {/* WhatsApp Subscribe Widget */}
+        {/* ── Category pills ── */}
+        <div className="flex flex-wrap gap-2 mb-6" dir="rtl">
+          {categories.map((category) => (
+            <button
+              key={category.value}
+              onClick={() => handleCategoryChange(category.value)}
+              data-testid={`category-${category.value || "all"}`}
+              className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                selectedCategory === category.value
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-background border-border/70 text-muted-foreground hover:border-primary/50 hover:text-foreground"
+              }`}
+            >
+              {category.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── WhatsApp Subscribe Widget ── */}
         <Link href="/whatsapp">
           <div
-            className="mb-6 rounded-xl bg-gradient-to-l from-green-700 via-emerald-700 to-teal-600 text-white px-4 py-3.5 flex items-center justify-between gap-3 cursor-pointer hover:opacity-95 transition-opacity"
+            className="mb-7 rounded-2xl bg-gradient-to-l from-green-700 via-emerald-700 to-teal-600 text-white px-4 py-3.5 flex items-center justify-between gap-3 cursor-pointer hover:opacity-95 transition-opacity"
             data-testid="widget-whatsapp-subscribe"
             dir="rtl"
           >
@@ -219,117 +236,274 @@ export default function News() {
           </div>
         </Link>
 
+        {/* ── Content ── */}
         {isLoading ? (
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <Card key={i} className="overflow-hidden">
-                <Skeleton className="aspect-video w-full" />
-                <CardContent className="p-3">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/2 mt-2" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : filteredNews && filteredNews.length > 0 ? (
-          <>
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-              {filteredNews.map((item, index) => {
-                const isDebunk = item.category === "debunk";
-                const verdict = isDebunk ? getVerdictFromTitle(item.title) : null;
-                const VerdictIcon = verdict?.icon;
-                const displayTitle = isDebunk ? getCleanDebunkTitle(item.title) : item.title;
-                return (
-                  <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
-                    <Card 
-                      className={`hover-elevate cursor-pointer transition-all overflow-hidden h-full ${item.isBreaking ? "ring-2 ring-red-500 shadow-red-100 dark:shadow-red-950/30" : ""}`}
-                      data-testid={`news-card-${item.id}`}
-                    >
-                      <div className="relative">
-                        <img 
-                          src={getNewsImage(item)} 
-                          alt={displayTitle}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full aspect-video object-cover"
-                        />
-                        <AIImageBadge imageUrl={item.imageUrl} size="sm" />
-                        {item.isBreaking && (
-                          <span className="absolute top-2 right-2 inline-flex items-center gap-1 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold animate-pulse shadow-lg z-10">
-                            <AlertTriangle className="h-3.5 w-3.5" />
-                            عاجل
-                          </span>
-                        )}
-                        {isDebunk && verdict && !item.isBreaking && (
-                          <span
-                            className={`absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold shadow-lg z-10 ${verdict.color}`}
-                            data-testid={`badge-verdict-${item.id}`}
-                          >
-                            {VerdictIcon && <VerdictIcon className="h-3.5 w-3.5" />}
-                            {verdict.label}
-                          </span>
-                        )}
+          <div className="space-y-8">
+            {/* Hero skeleton */}
+            <div>
+              <div className="flex items-center gap-3 mb-5">
+                <Skeleton className="h-7 w-1.5 rounded-full" />
+                <Skeleton className="h-5 w-40" />
+                <div className="flex-1 h-px bg-border/40" />
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3">
+                <Skeleton className="aspect-[16/10] rounded-2xl" />
+                <div className="flex flex-col gap-2.5">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex gap-3 p-2.5 rounded-xl border border-border/50">
+                      <Skeleton className="w-24 h-[72px] rounded-lg shrink-0" />
+                      <div className="flex-1 space-y-2 py-1">
+                        <Skeleton className="h-3 w-16" />
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-3 w-24" />
                       </div>
-                      <CardContent className="p-3" dir="rtl">
-                        <Badge 
-                          className={`${item.isBreaking ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200" : categoryColors[item.category] || ""} text-sm mb-2`}
-                          data-testid={`badge-category-${item.category}`}
-                        >
-                          {item.isBreaking ? "عاجل" : getCategoryLabel(item.category)}
-                        </Badge>
-                        <h3 className={`font-semibold text-sm line-clamp-2 mb-2 ${item.isBreaking ? "text-red-700 dark:text-red-400" : ""}`}>
-                          {displayTitle}
-                        </h3>
-                        <div className="flex items-center justify-between gap-1 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {formatDate(item.publishedAt)}
-                          </div>
-                          {item.sourceUrl && (
-                            <span
-                              className="text-primary flex items-center gap-1"
-                              data-testid={`link-source-${item.id}`}
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                            </span>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                );
-              })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {/* Grid skeleton */}
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div key={i} className="rounded-xl overflow-hidden border border-border/50">
+                  <Skeleton className="aspect-[4/3] w-full" />
+                  <div className="p-3 space-y-2">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : filteredNews.length > 0 ? (
+          <>
+            {/* ── Section header ── */}
+            <div className="flex items-center gap-3 mb-5" dir="rtl">
+              <span className="block w-1.5 h-7 bg-primary rounded-full shrink-0" />
+              <h2 className="text-xl font-bold tracking-tight">{sectionTitle}</h2>
+              <div className="flex-1 h-px bg-border/60" />
             </div>
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-1 mt-8" dir="rtl" data-testid="pagination">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigateToPage(1)}
-                  disabled={currentPage === 1}
-                  data-testid="button-first-page"
+            {/* ── Hero + Side layout ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3 mb-8" dir="rtl">
+
+              {/* Big hero card */}
+              <Link href={heroItem.shortCode ? `/n/${heroItem.shortCode}` : `/news/${heroItem.id}`}>
+                <div
+                  className="relative rounded-2xl overflow-hidden cursor-pointer group"
+                  style={{ aspectRatio: "16/10" }}
+                  data-testid={`hero-card-${heroItem.id}`}
                 >
+                  <img
+                    src={getNewsImage(heroItem)}
+                    alt={heroItem.category === "debunk" ? getCleanDebunkTitle(heroItem.title) : heroItem.title}
+                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-in-out"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/10" />
+
+                  {heroItem.isBreaking && (
+                    <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg animate-pulse">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      عاجل
+                    </div>
+                  )}
+
+                  {!heroItem.isBreaking && heroItem.category === "debunk" && (() => {
+                    const v = getVerdictFromTitle(heroItem.title);
+                    const VIcon = v?.icon;
+                    return v ? (
+                      <div className={`absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold shadow-lg ${v.color}`}>
+                        {VIcon && <VIcon className="h-3.5 w-3.5" />}
+                        {v.label}
+                      </div>
+                    ) : null;
+                  })()}
+
+                  <AIImageBadge imageUrl={heroItem.imageUrl} />
+
+                  <div className="absolute bottom-0 right-0 left-0 p-5 md:p-6">
+                    <Badge
+                      className={`${heroItem.isBreaking ? "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200" : categoryColors[heroItem.category] || ""} mb-2.5 text-xs font-semibold`}
+                      data-testid={`hero-badge-category-${heroItem.id}`}
+                    >
+                      {heroItem.isBreaking ? "عاجل" : getCategoryLabel(heroItem.category)}
+                    </Badge>
+                    <h2 className="text-white font-bold text-xl md:text-2xl leading-snug line-clamp-3 drop-shadow-lg mb-2.5">
+                      {heroItem.category === "debunk"
+                        ? getCleanDebunkTitle(heroItem.title)
+                        : heroItem.title}
+                    </h2>
+                    <div className="flex items-center gap-3 text-white/70 text-xs">
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="h-3 w-3" />
+                        {formatDate(heroItem.publishedAt)}
+                      </span>
+                      {heroItem.sourceUrl && (
+                        <span className="flex items-center gap-1 opacity-70">
+                          <ExternalLink className="h-3 w-3" />
+                          المصدر
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+
+              {/* Side cards */}
+              {sideItems.length > 0 && (
+                <div className="flex flex-col gap-2.5">
+                  {sideItems.map((item) => {
+                    const isDebunk = item.category === "debunk";
+                    const verdict = isDebunk ? getVerdictFromTitle(item.title) : null;
+                    const VerdictIcon = verdict?.icon;
+                    const displayTitle = isDebunk ? getCleanDebunkTitle(item.title) : item.title;
+                    const href = item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
+                    return (
+                      <Link key={item.id} href={href}>
+                        <div
+                          className="flex gap-3 p-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/30 transition-all cursor-pointer group h-full"
+                          data-testid={`side-card-${item.id}`}
+                        >
+                          <div className="relative shrink-0">
+                            <img
+                              src={getNewsImage(item)}
+                              alt={displayTitle}
+                              className="w-24 h-[76px] object-cover rounded-lg group-hover:opacity-90 transition-opacity"
+                              loading="lazy"
+                            />
+                            {item.isBreaking && (
+                              <span className="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1 py-0.5 rounded">
+                                عاجل
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 py-0.5" dir="rtl">
+                            {isDebunk && verdict ? (
+                              <span
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold mb-1 ${verdict.color}`}
+                                data-testid={`side-verdict-${item.id}`}
+                              >
+                                {VerdictIcon && <VerdictIcon className="h-2.5 w-2.5" />}
+                                {verdict.label}
+                              </span>
+                            ) : (
+                              <Badge
+                                className={`${item.isBreaking ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200" : categoryColors[item.category] || ""} text-[10px] py-0 h-4 mb-1`}
+                                data-testid={`side-badge-${item.id}`}
+                              >
+                                {item.isBreaking ? "عاجل" : getCategoryLabel(item.category)}
+                              </Badge>
+                            )}
+                            <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                              {displayTitle}
+                            </h3>
+                            <div className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground">
+                              <Clock className="h-2.5 w-2.5 shrink-0" />
+                              {formatDate(item.publishedAt)}
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── Remaining grid ── */}
+            {gridItems.length > 0 && (
+              <>
+                <div className="flex items-center gap-3 mb-5" dir="rtl">
+                  <span className="block w-1.5 h-7 bg-primary/50 rounded-full shrink-0" />
+                  <h2 className="text-xl font-bold tracking-tight">المزيد من الأخبار</h2>
+                  <div className="flex-1 h-px bg-border/60" />
+                </div>
+
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
+                  {gridItems.map((item) => {
+                    const isDebunk = item.category === "debunk";
+                    const verdict = isDebunk ? getVerdictFromTitle(item.title) : null;
+                    const VerdictIcon = verdict?.icon;
+                    const displayTitle = isDebunk ? getCleanDebunkTitle(item.title) : item.title;
+                    return (
+                      <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
+                        <div
+                          className={`rounded-xl overflow-hidden border cursor-pointer group transition-all hover:-translate-y-0.5 hover:shadow-md bg-card h-full flex flex-col ${item.isBreaking ? "border-red-400/60 shadow-red-100 dark:shadow-red-950/20" : "border-border/60"}`}
+                          data-testid={`news-card-${item.id}`}
+                        >
+                          <div className="relative overflow-hidden">
+                            <img
+                              src={getNewsImage(item)}
+                              alt={displayTitle}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full aspect-[4/3] object-cover group-hover:scale-[1.04] transition-transform duration-500"
+                            />
+                            <AIImageBadge imageUrl={item.imageUrl} size="sm" />
+                            {item.isBreaking && (
+                              <span className="absolute top-2 right-2 inline-flex items-center gap-1 bg-red-600 text-white px-2 py-0.5 rounded-full text-[11px] font-bold animate-pulse shadow-lg z-10">
+                                <AlertTriangle className="h-3 w-3" />
+                                عاجل
+                              </span>
+                            )}
+                            {isDebunk && verdict && !item.isBreaking && (
+                              <span
+                                className={`absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold shadow-lg z-10 ${verdict.color}`}
+                                data-testid={`badge-verdict-${item.id}`}
+                              >
+                                {VerdictIcon && <VerdictIcon className="h-3 w-3" />}
+                                {verdict.label}
+                              </span>
+                            )}
+                          </div>
+                          <div className="p-3 flex flex-col gap-1.5 flex-1" dir="rtl">
+                            <Badge
+                              className={`${item.isBreaking ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200" : categoryColors[item.category] || ""} text-[11px] w-fit`}
+                              data-testid={`badge-category-${item.category}`}
+                            >
+                              {item.isBreaking ? "عاجل" : getCategoryLabel(item.category)}
+                            </Badge>
+                            <h3 className={`font-semibold text-sm leading-snug line-clamp-2 flex-1 ${item.isBreaking ? "text-red-700 dark:text-red-400" : "group-hover:text-primary transition-colors"}`}>
+                              {displayTitle}
+                            </h3>
+                            <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground mt-auto pt-1 border-t border-border/40">
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3 shrink-0" />
+                                {formatDate(item.publishedAt)}
+                              </div>
+                              {item.sourceUrl && (
+                                <ExternalLink className="w-3 h-3 text-primary/60 shrink-0" data-testid={`link-source-${item.id}`} />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* ── Pagination ── */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-1 mt-10" dir="rtl" data-testid="pagination">
+                <Button variant="outline" size="icon" className="rounded-lg" onClick={() => navigateToPage(1)} disabled={currentPage === 1} data-testid="button-first-page">
                   <ChevronsRight className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigateToPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  data-testid="button-prev-page"
-                >
+                <Button variant="outline" size="icon" className="rounded-lg" onClick={() => navigateToPage(currentPage - 1)} disabled={currentPage === 1} data-testid="button-prev-page">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
 
                 {getPageNumbers().map((p, i) =>
-                  p === 'dots' ? (
-                    <span key={`dots-${i}`} className="px-2 text-muted-foreground">...</span>
+                  p === "dots" ? (
+                    <span key={`dots-${i}`} className="px-2 text-muted-foreground text-sm">…</span>
                   ) : (
                     <Button
                       key={p}
                       variant={currentPage === p ? "default" : "outline"}
                       size="icon"
+                      className="rounded-lg"
                       onClick={() => navigateToPage(p)}
                       data-testid={`button-page-${p}`}
                     >
@@ -338,40 +512,34 @@ export default function News() {
                   )
                 )}
 
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigateToPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  data-testid="button-next-page"
-                >
+                <Button variant="outline" size="icon" className="rounded-lg" onClick={() => navigateToPage(currentPage + 1)} disabled={currentPage === totalPages} data-testid="button-next-page">
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigateToPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  data-testid="button-last-page"
-                >
+                <Button variant="outline" size="icon" className="rounded-lg" onClick={() => navigateToPage(totalPages)} disabled={currentPage === totalPages} data-testid="button-last-page">
                   <ChevronsLeft className="h-4 w-4" />
                 </Button>
 
-                <span className="text-sm text-muted-foreground mr-3" data-testid="text-page-info">
+                <span className="text-sm text-muted-foreground mr-2" data-testid="text-page-info">
                   صفحة {currentPage} من {totalPages}
                 </span>
               </div>
             )}
           </>
         ) : (
-          <Card>
-            <CardContent className="text-center py-12" dir="rtl">
-              <Newspaper className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-lg text-muted-foreground">
-                لا توجد أخبار متاحة حالياً
-              </p>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col items-center justify-center py-24 text-center" dir="rtl">
+            <div className="rounded-full bg-muted p-6 mb-5">
+              <Newspaper className="w-10 h-10 text-muted-foreground" />
+            </div>
+            <p className="text-xl font-semibold text-foreground mb-2">لا توجد أخبار متاحة</p>
+            <p className="text-muted-foreground text-sm">
+              {selectedCategory || searchQuery ? "جرّب تغيير الفلتر أو كلمة البحث" : "لا توجد أخبار حالياً، تفقّد لاحقاً"}
+            </p>
+            {(selectedCategory || searchQuery) && (
+              <Button variant="outline" className="mt-4" onClick={() => setLocation("/news")}>
+                إظهار جميع الأخبار
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -1,10 +1,11 @@
-import { MessageSquare, Apple, Activity, BookOpen, ArrowLeft, Sparkles, XCircle, CheckCircle, AlertTriangle, Clock, ShieldAlert, Bot, Send, ChevronLeft, MousePointerClick } from "lucide-react";
+import { MessageSquare, Apple, Activity, BookOpen, ArrowLeft, Sparkles, XCircle, CheckCircle, AlertTriangle, Clock, ShieldAlert, Bot, Send, ChevronLeft, MousePointerClick, ExternalLink, TrendingUp } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import Hero from "@/components/Hero";
 import StatsCard from "@/components/StatsCard";
 import ArticleCard from "@/components/ArticleCard";
+import { getNewsImage } from "@/lib/newsImages";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -102,6 +103,15 @@ export default function Home() {
     currentSet * CARDS_PER_PAGE + CARDS_PER_PAGE
   );
 
+  const { data: latestNewsData, isLoading: latestNewsLoading } = useQuery<PaginatedResponse>({
+    queryKey: ["/api/news?page=1&perPage=7"],
+  });
+
+  const latestNews = latestNewsData?.news || [];
+  const heroNews = latestNews[0];
+  const sideNews = latestNews.slice(1, 4);
+  const extraNews = latestNews.slice(4, 7);
+
   const { data: ctaTotalData } = useQuery<{ total: number }>({
     queryKey: ["/api/rumors/cta/total"],
   });
@@ -113,6 +123,164 @@ export default function Home() {
   return (
     <div className="flex flex-col">
       <Hero />
+
+      {/* ── آخر الأخبار الصحية ── */}
+      <section className="py-10 md:py-14 border-b" dir="rtl">
+        <div className="container mx-auto px-4">
+
+          {/* Section header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <span className="block w-1.5 h-8 bg-primary rounded-full shrink-0" />
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight">آخر الأخبار الصحية</h2>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="gap-1.5 text-primary hover:text-primary/80 font-semibold" asChild>
+              <Link href="/news">
+                كل الأخبار
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+
+          {latestNewsLoading ? (
+            <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3 mb-5">
+              <Skeleton className="aspect-[16/9] rounded-2xl" />
+              <div className="flex flex-col gap-2.5">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex gap-3 p-2.5 rounded-xl border border-border/50">
+                    <Skeleton className="w-24 h-[76px] rounded-lg shrink-0" />
+                    <div className="flex-1 space-y-2 py-1">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : heroNews ? (
+            <>
+              {/* Hero + side layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3 mb-3">
+
+                {/* Big hero card */}
+                <Link href={heroNews.shortCode ? `/n/${heroNews.shortCode}` : `/news/${heroNews.id}`}>
+                  <div
+                    className="relative rounded-2xl overflow-hidden cursor-pointer group"
+                    style={{ aspectRatio: "16/9" }}
+                    data-testid={`home-hero-${heroNews.id}`}
+                  >
+                    <img
+                      src={getNewsImage(heroNews)}
+                      alt={heroNews.title}
+                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-in-out"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/10" />
+                    {heroNews.isBreaking && (
+                      <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg animate-pulse">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        عاجل
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 right-0 left-0 p-5 md:p-6">
+                      <h2 className="text-white font-bold text-xl md:text-2xl leading-snug line-clamp-3 drop-shadow-lg mb-2">
+                        {heroNews.title.replace(/^تفنيد\s*\|\s*[❌✅⚠️]\s*/, "").trim()}
+                      </h2>
+                      <div className="flex items-center gap-3 text-white/70 text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="h-3 w-3" />
+                          {formatDate(heroNews.publishedAt)}
+                        </span>
+                        {heroNews.sourceUrl && (
+                          <span className="flex items-center gap-1 opacity-70">
+                            <ExternalLink className="h-3 w-3" />
+                            المصدر
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+
+                {/* 3 side cards */}
+                {sideNews.length > 0 && (
+                  <div className="flex flex-col gap-2.5">
+                    {sideNews.map((item) => {
+                      const cleanTitle = item.title.replace(/^تفنيد\s*\|\s*[❌✅⚠️]\s*/, "").trim();
+                      return (
+                        <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
+                          <div
+                            className="flex gap-3 p-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/30 transition-all cursor-pointer group h-full"
+                            data-testid={`home-side-${item.id}`}
+                          >
+                            <img
+                              src={getNewsImage(item)}
+                              alt={cleanTitle}
+                              loading="lazy"
+                              className="w-24 h-[76px] object-cover rounded-lg shrink-0 group-hover:opacity-90 transition-opacity"
+                            />
+                            <div className="flex-1 min-w-0 py-0.5">
+                              {item.isBreaking && (
+                                <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 px-1.5 py-0.5 rounded text-[10px] font-bold mb-1">
+                                  <AlertTriangle className="h-2.5 w-2.5" />
+                                  عاجل
+                                </span>
+                              )}
+                              <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                                {cleanTitle}
+                              </h3>
+                              <div className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground">
+                                <Clock className="h-2.5 w-2.5 shrink-0" />
+                                {formatDate(item.publishedAt)}
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Extra 3 items as horizontal strip */}
+              {extraNews.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3">
+                  {extraNews.map((item) => {
+                    const cleanTitle = item.title.replace(/^تفنيد\s*\|\s*[❌✅⚠️]\s*/, "").trim();
+                    return (
+                      <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
+                        <div
+                          className="flex gap-2.5 p-2 rounded-xl border border-border/50 bg-card hover:bg-muted/50 hover:border-primary/30 transition-all cursor-pointer group"
+                          data-testid={`home-extra-${item.id}`}
+                        >
+                          <img
+                            src={getNewsImage(item)}
+                            alt={cleanTitle}
+                            loading="lazy"
+                            className="w-16 h-12 object-cover rounded-lg shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-xs leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                              {cleanTitle}
+                            </h3>
+                            <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
+                              <Clock className="h-2.5 w-2.5 shrink-0" />
+                              {formatDate(item.publishedAt)}
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : null}
+        </div>
+      </section>
 
       {/* ── Debunk Block ── */}
       <section
