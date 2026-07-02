@@ -194,7 +194,7 @@ export default function Landing() {
             <Link href={heroItem.shortCode ? `/n/${heroItem.shortCode}` : `/news/${heroItem.id}`}>
               <div
                 className="relative rounded-2xl overflow-hidden cursor-pointer group"
-                style={{ aspectRatio: "16/10" }}
+                style={{ aspectRatio: "16/9" }}
                 data-testid={`hero-card-${heroItem.id}`}
               >
                 <img
@@ -318,6 +318,7 @@ export default function Landing() {
         <AdBanner position="below_featured" className="mt-4" />
       </div>
       </div>
+      <div className="h-6 md:h-8" />
 
       {/* ── Debunk Block — below featured ── */}
       <section className="py-8 md:py-10 bg-green-950" dir="rtl">
