@@ -104,13 +104,13 @@ export default function Home() {
   );
 
   const { data: latestNewsData, isLoading: latestNewsLoading } = useQuery<PaginatedResponse>({
-    queryKey: ["/api/news?page=1&perPage=7"],
+    queryKey: ["/api/news?page=1&perPage=9"],
   });
 
   const latestNews = latestNewsData?.news || [];
   const heroNews = latestNews[0];
-  const sideNews = latestNews.slice(1, 4);
-  const extraNews = latestNews.slice(4, 7);
+  const sideNews = latestNews.slice(1, 5);
+  const extraNews = latestNews.slice(5, 9);
 
   const { data: ctaTotalData } = useQuery<{ total: number }>({
     queryKey: ["/api/rumors/cta/total"],
@@ -149,7 +149,7 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3 mb-5">
               <Skeleton className="aspect-[16/9] rounded-2xl" />
               <div className="flex flex-col gap-2.5">
-                {[1, 2, 3].map((i) => (
+                {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="flex gap-3 p-2.5 rounded-xl border border-border/50">
                     <Skeleton className="w-24 h-[76px] rounded-lg shrink-0" />
                     <div className="flex-1 space-y-2 py-1">
