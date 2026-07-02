@@ -2,3 +2,4 @@
 - [UPSERT unique index](upsert-unique-index.md) — ON CONFLICT stats tables silently record nothing if the matching uniqueIndex is missing (fire-and-forget .catch hides it); referrer match on hostname only, keep app names out of bot-UA filter.
 - [SEO crawler HTML](seo-crawler-html.md) — crawler pages (buildCrawlerHtml) must serve FULL article body + NewsArticle JSON-LD, redirect:false, and sanitize content (stored-XSS via spoofable UA).
 - [Debunk CTA tracking](debunk-cta-tracking.md) — client metric routes must NOT contain "analytics/track/beacon" (ad-blockers drop them) & use fetch(keepalive) not sendBeacon; count at click, not page-load.
+- [Home page route](home-vs-landing-route.md) — public "/" renders Landing.tsx (Home.tsx is only /portal); edit Landing for homepage or changes never show live.

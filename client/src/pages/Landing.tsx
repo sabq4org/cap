@@ -31,9 +31,10 @@ import {
   ShieldAlert,
   Link2,
   Copy,
-  Check
+  Check,
+  ExternalLink
 } from "lucide-react";
-import { isAiGeneratedImage } from "@/components/AIImageBadge";
+import { AIImageBadge, isAiGeneratedImage } from "@/components/AIImageBadge";
 import { getNewsImage, getNewsFallbackImage, newsImages } from "@/lib/newsImages";
 import AdBanner from "@/components/AdBanner";
 import type { News, Article } from "@shared/schema";
@@ -153,9 +154,7 @@ export default function Landing() {
   const featuredNewsList = news?.filter(n => n.isFeatured).slice(0, 5) || [];
   // All news shown in the latest section (including featured ones)
   const allNewsList = news || [];
-  
-  // Carousel state for featured news
-  const [currentSlide, setCurrentSlide] = useState(0);
+
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopy = (id: string, url: string) => {
@@ -163,19 +162,20 @@ export default function Landing() {
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
-  
-  // Auto-advance carousel every 5 seconds
-  useEffect(() => {
-    if (featuredNewsList.length <= 1) return;
-    const timer = setInterval(() => {
-      setCurrentSlide(prev => (prev + 1) % featuredNewsList.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [featuredNewsList.length]);
-  
-  const nextSlide = () => setCurrentSlide(prev => (prev + 1) % featuredNewsList.length);
-  const prevSlide = () => setCurrentSlide(prev => (prev - 1 + featuredNewsList.length) % featuredNewsList.length);
-  
+
+  // Hero + side layout: featured first, then fill from latest (deduped)
+  const heroCombined = (() => {
+    const seen = new Set<string>();
+    const out: News[] = [];
+    for (const n of [...featuredNewsList, ...allNewsList]) {
+      if (!seen.has(n.id)) { seen.add(n.id); out.push(n); }
+      if (out.length >= 5) break;
+    }
+    return out;
+  })();
+  const heroItem = heroCombined[0];
+  const heroSideItems = heroCombined.slice(1, 5);
+
   // Show all news in latest section (featured + non-featured)
   const latestNews = allNewsList.slice(0, 28);
   const latestArticles = articles?.slice(0, 3) || [];
@@ -187,107 +187,131 @@ export default function Landing() {
         <AdBanner position="above_featured" className="mb-4" />
         {newsLoading ? (
           <Skeleton className="h-[200px] md:h-[300px] w-full rounded-lg" />
-        ) : featuredNewsList.length > 0 ? (
-          <div className="relative" data-testid="featured-carousel">
-            <div className="relative overflow-hidden rounded-xl">
-              <div 
-                className="flex transition-transform duration-500 ease-out"
-                style={{ transform: `translateX(${currentSlide * 100}%)` }}
+        ) : heroItem ? (
+          <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3" dir="rtl" data-testid="home-hero-layout">
+
+            {/* Big hero card */}
+            <Link href={heroItem.shortCode ? `/n/${heroItem.shortCode}` : `/news/${heroItem.id}`}>
+              <div
+                className="relative rounded-2xl overflow-hidden cursor-pointer group"
+                style={{ aspectRatio: "16/10" }}
+                data-testid={`hero-card-${heroItem.id}`}
               >
-                {featuredNewsList.map((item, index) => (
-                  <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`} className="w-full flex-shrink-0">
-                    <Card className={`overflow-hidden hover-elevate group cursor-pointer ${item.isBreaking ? "ring-2 ring-red-500 bg-red-50/60 dark:bg-red-950/20" : ""}`} data-testid={`card-featured-news-${index}`}>
-                      <div className="grid md:grid-cols-2">
-                        <div className="relative order-1 aspect-video md:aspect-auto md:h-full">
-                          <img 
-                            src={getNewsImage(item)} 
-                            alt={item.title}
-                            loading={index === 0 ? "eager" : "lazy"}
-                            decoding={index === 0 ? "sync" : "async"}
-                            fetchPriority={index === 0 ? "high" : "auto"}
-                            className="absolute inset-0 w-full h-full object-cover"
+                <img
+                  src={getNewsImage(heroItem)}
+                  alt={heroItem.category === "debunk" ? getCleanDebunkTitle(heroItem.title) : heroItem.title}
+                  loading="eager"
+                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-in-out"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/10" />
+
+                {heroItem.isBreaking && (
+                  <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg animate-pulse">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    عاجل
+                  </div>
+                )}
+
+                {!heroItem.isBreaking && heroItem.category === "debunk" && (() => {
+                  const v = getVerdictFromTitle(heroItem.title);
+                  const VIcon = v?.icon;
+                  return v ? (
+                    <div className={`absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold shadow-lg ${v.chipClass}`}>
+                      {VIcon && <VIcon className="h-3.5 w-3.5" />}
+                      {v.label}
+                    </div>
+                  ) : null;
+                })()}
+
+                <AIImageBadge imageUrl={heroItem.imageUrl} />
+
+                <div className="absolute bottom-0 right-0 left-0 p-5 md:p-6">
+                  <Badge
+                    className={`${heroItem.isBreaking ? "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200" : categoryColors[heroItem.category] || ""} mb-2.5 text-xs font-semibold`}
+                    data-testid={`hero-badge-category-${heroItem.id}`}
+                  >
+                    {heroItem.isBreaking ? "عاجل" : (categoryLabels[heroItem.category] || heroItem.category)}
+                  </Badge>
+                  <h2 className="text-white font-bold text-xl md:text-2xl leading-snug line-clamp-3 drop-shadow-lg mb-2.5">
+                    {heroItem.category === "debunk"
+                      ? getCleanDebunkTitle(heroItem.title)
+                      : heroItem.title}
+                  </h2>
+                  <div className="flex items-center gap-3 text-white/70 text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="h-3 w-3" />
+                      {formatDate(heroItem.publishedAt)}
+                    </span>
+                    {heroItem.sourceUrl && (
+                      <span className="flex items-center gap-1 opacity-70">
+                        <ExternalLink className="h-3 w-3" />
+                        المصدر
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Link>
+
+            {/* Side cards */}
+            {heroSideItems.length > 0 && (
+              <div className="flex flex-col gap-2.5">
+                {heroSideItems.map((item) => {
+                  const isDebunk = item.category === "debunk";
+                  const verdict = isDebunk ? getVerdictFromTitle(item.title) : null;
+                  const VerdictIcon = verdict?.icon;
+                  const displayTitle = isDebunk ? getCleanDebunkTitle(item.title) : item.title;
+                  const href = item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
+                  return (
+                    <Link key={item.id} href={href}>
+                      <div
+                        className="flex gap-3 p-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/30 transition-all cursor-pointer group h-full"
+                        data-testid={`side-card-${item.id}`}
+                      >
+                        <div className="relative shrink-0">
+                          <img
+                            src={getNewsImage(item)}
+                            alt={displayTitle}
+                            className="w-24 h-[76px] object-cover rounded-lg group-hover:opacity-90 transition-opacity"
+                            loading="lazy"
                           />
                           {item.isBreaking && (
-                            <span className="absolute top-3 right-3 inline-flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold animate-pulse shadow-lg z-10">
-                              <AlertTriangle className="h-4 w-4" />
-                              خبر عاجل
+                            <span className="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1 py-0.5 rounded">
+                              عاجل
                             </span>
                           )}
                         </div>
-                        <div className="p-4 md:p-6 flex flex-col justify-center order-2 min-h-[300px] md:min-h-[400px]">
-                          <div className="flex items-center gap-2 mb-3 flex-wrap">
-                            {item.isBreaking && (
-                              <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 w-fit text-sm">
-                                عاجل
-                              </Badge>
-                            )}
-                            <Badge className={`${categoryColors[item.category] || ""} w-fit text-sm`}>
-                              {categoryLabels[item.category] || item.category}
+                        <div className="flex-1 min-w-0 py-0.5" dir="rtl">
+                          {isDebunk && verdict ? (
+                            <span
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold mb-1 ${verdict.chipClass}`}
+                              data-testid={`side-verdict-${item.id}`}
+                            >
+                              {VerdictIcon && <VerdictIcon className="h-2.5 w-2.5" />}
+                              {verdict.label}
+                            </span>
+                          ) : (
+                            <Badge
+                              className={`${item.isBreaking ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200" : categoryColors[item.category] || ""} text-[10px] py-0 h-4 mb-1`}
+                              data-testid={`side-badge-${item.id}`}
+                            >
+                              {item.isBreaking ? "عاجل" : (categoryLabels[item.category] || item.category)}
                             </Badge>
-                            {isAiGeneratedImage(item.imageUrl) && (
-                              <Brain className="h-4 w-4 text-sky-500" />
-                            )}
+                          )}
+                          <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                            {displayTitle}
+                          </h3>
+                          <div className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground">
+                            <Clock className="h-2.5 w-2.5 shrink-0" />
+                            {formatDate(item.publishedAt)}
                           </div>
-                          <h2 className={`text-xl md:text-2xl lg:text-3xl font-bold mb-3 transition-colors ${item.isBreaking ? "text-red-700 dark:text-red-400" : "group-hover:text-primary"}`}>
-                            {item.title}
-                          </h2>
-                          <p className="text-sm md:text-base text-muted-foreground line-clamp-3 mb-4">
-                            {item.summary}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground mb-3">
-                            <Calendar className="h-3 w-3 md:h-4 md:w-4" />
-                            <span>{formatDate(item.publishedAt)}</span>
-                            {item.source && (
-                              <>
-                                <span className="mx-2">|</span>
-                                <span>{item.source}</span>
-                              </>
-                            )}
-                          </div>
-                          <Button variant="ghost" className="p-0 h-auto text-primary w-fit" data-testid="button-read-more-featured">
-                            اقرأ المزيد <ArrowLeft className="h-4 w-4 mr-1" />
-                          </Button>
                         </div>
                       </div>
-                    </Card>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
-              
-              {featuredNewsList.length > 1 && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="absolute top-1/2 right-2 -translate-y-1/2 bg-background/80 backdrop-blur-sm z-10"
-                    onClick={(e) => { e.preventDefault(); nextSlide(); }}
-                    data-testid="button-carousel-next"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="absolute top-1/2 left-2 -translate-y-1/2 bg-background/80 backdrop-blur-sm z-10"
-                    onClick={(e) => { e.preventDefault(); prevSlide(); }}
-                    data-testid="button-carousel-prev"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                    {featuredNewsList.map((_, index) => (
-                      <button
-                        key={index}
-                        className={`w-2 h-2 rounded-full transition-colors ${index === currentSlide ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                        onClick={(e) => { e.preventDefault(); setCurrentSlide(index); }}
-                        data-testid={`button-carousel-dot-${index}`}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            )}
           </div>
         ) : null}
 
