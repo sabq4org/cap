@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AdBanner from "@/components/AdBanner";
 import { useRoute, Link } from "wouter";
@@ -179,21 +179,27 @@ export default function NewsDetail() {
     enabled: !!news?.id,
   });
 
-  // Fire-and-forget view count increment
+  // Fire-and-forget view count increment — deduplicated per session
+  const viewedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (news?.id) {
-      const params = new URLSearchParams(window.location.search);
-      fetch(`/api/news/${news.id}/view`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          referrer: document.referrer || "",
-          utmSource: params.get("utm_source") || "",
-          utmMedium: params.get("utm_medium") || "",
-          utmCampaign: params.get("utm_campaign") || "",
-        }),
-      }).catch(() => {});
-    }
+    if (!news?.id) return;
+    const sessionKey = `viewed_news_${news.id}`;
+    // Skip if already fired for this article in this component mount or this browser session
+    if (viewedRef.current === news.id) return;
+    if (sessionStorage.getItem(sessionKey)) return;
+    viewedRef.current = news.id;
+    sessionStorage.setItem(sessionKey, "1");
+    const params = new URLSearchParams(window.location.search);
+    fetch(`/api/news/${news.id}/view`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        referrer: document.referrer || "",
+        utmSource: params.get("utm_source") || "",
+        utmMedium: params.get("utm_medium") || "",
+        utmCampaign: params.get("utm_campaign") || "",
+      }),
+    }).catch(() => {});
   }, [news?.id]);
 
   const formatDate = (date: Date | string) => {
