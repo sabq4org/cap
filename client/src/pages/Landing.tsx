@@ -496,13 +496,13 @@ export default function Landing() {
               {latestNews.map((item, index) => (
                 <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
                   <Card className={`hover-elevate overflow-hidden cursor-pointer h-full ${item.isBreaking ? "ring-2 ring-red-500 bg-red-50/60 dark:bg-red-950/20 shadow-red-100 dark:shadow-red-950/30" : ""}`} data-testid={`card-latest-news-${item.id}`}>
-                    <div className="relative">
+                    <div className="relative aspect-[16/9] overflow-hidden">
                       <img 
                         src={getNewsImage(item)} 
                         alt={item.title}
                         loading="lazy"
                         decoding="async"
-                        className="w-full h-24 md:h-28 object-cover"
+                        className="w-full h-full object-cover"
                       />
                       {item.isBreaking && (
                         <span className="absolute top-1.5 right-1.5 inline-flex items-center gap-0.5 bg-red-600 text-white px-1.5 py-0.5 rounded text-[10px] font-bold animate-pulse shadow-lg z-10">
