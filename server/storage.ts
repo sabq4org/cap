@@ -138,6 +138,7 @@ export interface IStorage {
 
   // News operations
   getNews(category?: string, limit?: number): Promise<News[]>;
+  getNewsForSitemap(limit?: number): Promise<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt'>[]>;
   getRelatedNews(newsId: string, category: string, limit?: number): Promise<News[]>;
   getNewsPaginated(category?: string, page?: number, perPage?: number, search?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }>;
   getNewsById(id: string): Promise<News | undefined>;
@@ -618,6 +619,30 @@ export class DatabaseStorage implements IStorage {
 
     await this.autoPromoteScheduledItems(results);
     newsCache.set(cacheKey, results, 60_000); // 60 seconds TTL
+    return results;
+  }
+
+  async getNewsForSitemap(limit: number = 50000): Promise<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt'>[]> {
+    const cacheKey = `sitemap-news:${limit}`;
+    const cached = newsCache.get<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt'>[]>(cacheKey);
+    if (cached) return cached;
+
+    const now = new Date();
+    const results = await db
+      .select({
+        id: news.id,
+        shortCode: news.shortCode,
+        title: news.title,
+        imageUrl: news.imageUrl,
+        keywords: news.keywords,
+        publishedAt: news.publishedAt,
+      })
+      .from(news)
+      .where(sql`${news.status} != 'deleted' AND ${news.status} != 'draft' AND (${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${now})`)
+      .orderBy(desc(news.publishedAt), desc(news.createdAt))
+      .limit(limit);
+
+    newsCache.set(cacheKey, results, 1_800_000); // 30 min TTL
     return results;
   }
 

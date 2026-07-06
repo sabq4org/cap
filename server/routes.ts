@@ -574,14 +574,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/sitemap.xml', async (_req, res) => {
     try {
       const baseUrl = 'https://capsulah.com';
+      // Only reference the articles sitemap when articles exist — an empty
+      // sitemap shows up as an error in Google Search Console.
+      let hasArticles = false;
+      try {
+        const articlesList = await storage.getArticles(undefined, 1);
+        hasArticles = articlesList.length > 0;
+      } catch (e) {
+        console.error('Sitemap index: failed to check articles existence:', e);
+      }
       const xml = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
         `  <sitemap><loc>${baseUrl}/sitemap-static.xml</loc></sitemap>`,
         `  <sitemap><loc>${baseUrl}/sitemap-news.xml</loc></sitemap>`,
-        `  <sitemap><loc>${baseUrl}/sitemap-articles.xml</loc></sitemap>`,
+        hasArticles ? `  <sitemap><loc>${baseUrl}/sitemap-articles.xml</loc></sitemap>` : '',
         '</sitemapindex>',
-      ].join('\n');
+      ].filter(Boolean).join('\n');
       res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
     } catch (error) {
       console.error('Error generating sitemap index:', error);
@@ -624,7 +633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/sitemap-news.xml', async (_req, res) => {
     try {
       const baseUrl = 'https://capsulah.com';
-      const published = await storage.getNews(undefined, 5000);
+      const published = await storage.getNewsForSitemap();
 
       const urls = published.map(item => {
         const loc = item.shortCode ? `${baseUrl}/n/${item.shortCode}` : `${baseUrl}/news/${item.id}`;
