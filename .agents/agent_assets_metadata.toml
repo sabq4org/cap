@@ -6,3 +6,9 @@ id = "PlpxXbAfRDAD7V6FL5lc4"
 uri = "file://Capsulah_API_Documentation.md"
 type = "text"
 title = "Capsulah API Documentation - دليل واجهة برمجة التطبيقات"
+
+[[outputs]]
+id = "3nRVAeYPzjYhGgStRDVkl"
+uri = "file://docs/CAPSULE_iOS_API_GUIDE.md"
+type = "text"
+title = "دليل واجهات API لتطبيق كبسولة iOS"
