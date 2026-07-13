@@ -3,40 +3,36 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { trackDebunkCta } from "@/lib/debunkCta";
 import { useAuth } from "@/hooks/useAuth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Newspaper, 
-  BookOpen, 
-  TrendingUp, 
-  Heart, 
-  Apple, 
+import {
+  Newspaper,
+  BookOpen,
+  TrendingUp,
+  Heart,
+  Apple,
   Lightbulb,
   ArrowLeft,
-  Calendar,
   Clock,
   ChevronLeft,
-  ChevronRight,
-  Star,
   Brain,
   AlertTriangle,
   Eye,
   Flame,
-  Bot,
   Send,
   XCircle,
   CheckCircle,
   ShieldAlert,
-  Link2,
   Copy,
   Check,
-  ExternalLink
+  ExternalLink,
 } from "lucide-react";
 import { AIImageBadge, isAiGeneratedImage } from "@/components/AIImageBadge";
-import { getNewsImage, getNewsFallbackImage, newsImages } from "@/lib/newsImages";
+import { getNewsImage, getNewsFallbackImage } from "@/lib/newsImages";
 import AdBanner from "@/components/AdBanner";
+import { SEO } from "@/components/SEO";
 import type { News, Article } from "@shared/schema";
 
 interface PaginatedResponse {
@@ -80,6 +76,37 @@ const categoryColors: Record<string, string> = {
   "quality-life": "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200",
   "nutrition": "bg-lime-100 dark:bg-lime-900/30 text-lime-800 dark:text-lime-200",
   "misc": "bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-200"
+};
+
+const quickCategories = [
+  { slug: "saudi-health", label: "صحة السعودية" },
+  { slug: "health-news", label: "أخبار صحية" },
+  { slug: "nutrition", label: "تغذية" },
+  { slug: "quality-life", label: "جودة حياة" },
+  { slug: "debunk", label: "تفنيد" },
+  { slug: "health-reports", label: "تقارير" },
+];
+
+const newsHref = (item: { id: string; shortCode?: string | null }) =>
+  item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
+
+const formatRelativeTime = (date: Date | string) => {
+  const d = new Date(date);
+  const diffMs = Date.now() - d.getTime();
+  if (Number.isNaN(diffMs) || diffMs < 0) return "";
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "الآن";
+  if (mins < 60) return `منذ ${mins} د`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `منذ ${hours} س`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `منذ ${days} يوم`;
+  return d.toLocaleDateString("ar-EG-u-nu-latn", {
+    timeZone: "Asia/Riyadh",
+    month: "short",
+    day: "numeric",
+    calendar: "gregory",
+  });
 };
 
 const healthTips = [
@@ -180,9 +207,17 @@ export default function Landing() {
   const latestNews = allNewsList.slice(0, 28);
   const latestArticles = articles?.slice(0, 3) || [];
 
+  const siteOrigin = typeof window !== "undefined" ? window.location.origin : "https://capsulah.com";
+
   return (
     <div className="min-h-screen bg-background overflow-x-hidden" dir="rtl">
-      <div className="px-4 md:px-6 pt-6">
+      <SEO
+        title="كبسولة - بوابتك الصحية الذكية"
+        description="آخر الأخبار الصحية، تفنيد الشائعات، مقالات طبية موثوقة، ونشرة واتساب يومية من كبسولة."
+        url={siteOrigin + "/"}
+        type="website"
+      />
+      <div className="px-4 md:px-6 pt-5 md:pt-6">
       <div className="container mx-auto max-w-7xl">
         <AdBanner position="above_featured" className="mb-4" />
         {newsLoading ? (
@@ -191,9 +226,9 @@ export default function Landing() {
           <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3" dir="rtl" data-testid="home-hero-layout">
 
             {/* Big hero card */}
-            <Link href={heroItem.shortCode ? `/n/${heroItem.shortCode}` : `/news/${heroItem.id}`}>
+            <Link href={newsHref(heroItem)} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl">
               <div
-                className="relative rounded-2xl overflow-hidden cursor-pointer group"
+                className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-md ring-1 ring-black/5 dark:ring-white/10"
                 style={{ aspectRatio: "16/9" }}
                 data-testid={`hero-card-${heroItem.id}`}
               >
@@ -232,15 +267,20 @@ export default function Landing() {
                   >
                     {heroItem.isBreaking ? "عاجل" : (categoryLabels[heroItem.category] || heroItem.category)}
                   </Badge>
-                  <h2 className="text-white font-bold text-xl md:text-2xl leading-snug line-clamp-3 drop-shadow-lg mb-2.5">
+                  <h2 className="text-white font-bold text-xl md:text-3xl leading-snug line-clamp-3 drop-shadow-lg mb-2">
                     {heroItem.category === "debunk"
                       ? getCleanDebunkTitle(heroItem.title)
                       : heroItem.title}
                   </h2>
+                  {(heroItem.summary || heroItem.seoDescription) && (
+                    <p className="hidden md:block text-white/80 text-sm leading-relaxed line-clamp-2 mb-3 max-w-2xl">
+                      {heroItem.summary || heroItem.seoDescription}
+                    </p>
+                  )}
                   <div className="flex items-center gap-3 text-white/70 text-xs">
                     <span className="flex items-center gap-1.5">
                       <Clock className="h-3 w-3" />
-                      {formatDate(heroItem.publishedAt)}
+                      {formatRelativeTime(heroItem.publishedAt) || formatDate(heroItem.publishedAt)}
                     </span>
                     {heroItem.sourceUrl && (
                       <span className="flex items-center gap-1 opacity-70">
@@ -248,31 +288,34 @@ export default function Landing() {
                         المصدر
                       </span>
                     )}
+                    <span className="ms-auto hidden sm:inline-flex items-center gap-1 text-white/90 text-xs font-medium group-hover:gap-2 transition-all">
+                      اقرأ الخبر
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                    </span>
                   </div>
                 </div>
               </div>
             </Link>
 
-            {/* Side cards */}
+            {/* Side cards — scroll on mobile, stack on desktop */}
             {heroSideItems.length > 0 && (
-              <div className="flex flex-col gap-2.5">
+              <div className="flex lg:flex-col gap-2.5 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0 -mx-1 px-1 snap-x snap-mandatory lg:snap-none scrollbar-thin">
                 {heroSideItems.map((item) => {
                   const isDebunk = item.category === "debunk";
                   const verdict = isDebunk ? getVerdictFromTitle(item.title) : null;
                   const VerdictIcon = verdict?.icon;
                   const displayTitle = isDebunk ? getCleanDebunkTitle(item.title) : item.title;
-                  const href = item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
                   return (
-                    <Link key={item.id} href={href}>
+                    <Link key={item.id} href={newsHref(item)} className="min-w-[85%] sm:min-w-[70%] lg:min-w-0 snap-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
                       <div
-                        className="flex gap-3 p-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/30 transition-all cursor-pointer group h-full"
+                        className="flex gap-3 p-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 hover:border-primary/25 hover:shadow-sm transition-all cursor-pointer group h-full"
                         data-testid={`side-card-${item.id}`}
                       >
                         <div className="relative shrink-0">
                           <img
                             src={getNewsImage(item)}
                             alt={displayTitle}
-                            className="w-24 h-[76px] object-cover rounded-lg group-hover:opacity-90 transition-opacity"
+                            className="w-28 h-[84px] lg:w-24 lg:h-[76px] object-cover rounded-lg group-hover:opacity-90 transition-opacity"
                             loading="lazy"
                           />
                           {item.isBreaking && (
@@ -281,10 +324,10 @@ export default function Landing() {
                             </span>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0 py-0.5" dir="rtl">
+                        <div className="flex-1 min-w-0 py-0.5 flex flex-col" dir="rtl">
                           {isDebunk && verdict ? (
                             <span
-                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold mb-1 ${verdict.chipClass}`}
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold mb-1 w-fit ${verdict.chipClass}`}
                               data-testid={`side-verdict-${item.id}`}
                             >
                               {VerdictIcon && <VerdictIcon className="h-2.5 w-2.5" />}
@@ -292,18 +335,18 @@ export default function Landing() {
                             </span>
                           ) : (
                             <Badge
-                              className={`${item.isBreaking ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200" : categoryColors[item.category] || ""} text-[10px] py-0 h-4 mb-1`}
+                              className={`${item.isBreaking ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200" : categoryColors[item.category] || ""} text-[10px] py-0 h-4 mb-1 w-fit`}
                               data-testid={`side-badge-${item.id}`}
                             >
                               {item.isBreaking ? "عاجل" : (categoryLabels[item.category] || item.category)}
                             </Badge>
                           )}
-                          <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                          <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors flex-1">
                             {displayTitle}
                           </h3>
                           <div className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground">
                             <Clock className="h-2.5 w-2.5 shrink-0" />
-                            {formatDate(item.publishedAt)}
+                            {formatRelativeTime(item.publishedAt) || formatDate(item.publishedAt)}
                           </div>
                         </div>
                       </div>
@@ -316,12 +359,37 @@ export default function Landing() {
         ) : null}
 
         <AdBanner position="below_featured" className="mt-4" />
+
+        {/* Quick categories */}
+        <nav className="mt-5 md:mt-6 -mx-1" aria-label="تصنيفات سريعة" data-testid="home-quick-categories">
+          <div className="flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-thin">
+            <Link href="/news">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-primary text-primary-foreground px-3.5 py-1.5 text-xs font-semibold shadow-sm hover:opacity-95 transition-opacity">
+                <Newspaper className="h-3.5 w-3.5" />
+                كل الأخبار
+              </span>
+            </Link>
+            {quickCategories.map((cat) => (
+              <Link key={cat.slug} href={`/news?category=${cat.slug}`}>
+                <span className="inline-flex items-center whitespace-nowrap rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-colors">
+                  {cat.label}
+                </span>
+              </Link>
+            ))}
+            <Link href="/ask-capsule">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300 px-3.5 py-1.5 text-xs font-semibold hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors">
+                <Send className="h-3.5 w-3.5" />
+                أرسل شائعة
+              </span>
+            </Link>
+          </div>
+        </nav>
       </div>
       </div>
-      <div className="h-6 md:h-8" />
+      <div className="h-5 md:h-7" />
 
       {/* ── Debunk Block — below featured ── */}
-      <section className="py-8 md:py-10 bg-green-950" dir="rtl">
+      <section className="py-9 md:py-12 bg-green-950 relative" dir="rtl">
         <div className="container mx-auto max-w-7xl px-4 md:px-6">
           {/* Header row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -378,7 +446,7 @@ export default function Landing() {
                 const verdict = getVerdictFromTitle(item.title);
                 const VerdictIcon = verdict?.icon;
                 const cleanTitle = getCleanDebunkTitle(item.title);
-                const itemUrl = `https://capsulah.com${item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}`;
+                const itemUrl = `${siteOrigin}${newsHref(item)}`;
                 const shareText = `${verdict?.label ? verdict.label + ': ' : ''}${cleanTitle}`;
                 const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + itemUrl)}`;
                 const twUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(itemUrl)}`;
@@ -473,69 +541,85 @@ export default function Landing() {
       {/* ── Latest News ── */}
       <div className="px-4 md:px-6 pb-6">
       <div className="container mx-auto max-w-7xl">
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
-              <TrendingUp className="h-6 w-6 text-primary" />
-              آخر الأخبار
-            </h2>
+        <div className="mt-6 md:mt-8">
+          <div className="flex items-end justify-between gap-3 mb-5 md:mb-6">
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2 tracking-tight">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Newspaper className="h-5 w-5" />
+                </span>
+                آخر الأخبار
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1 me-11">تحديث مستمر لأهم المستجدات الصحية</p>
+            </div>
             <Link href="/news">
-              <Button variant="ghost" size="sm" data-testid="button-all-news">
-                المزيد <ArrowLeft className="h-4 w-4 mr-1" />
+              <Button variant="outline" size="sm" className="shrink-0 gap-1 rounded-full" data-testid="button-all-news">
+                المزيد <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
           </div>
           {newsLoading ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {[...Array(20)].map((_, i) => (
-                <Skeleton key={i} className="h-28 w-full rounded-lg" />
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="aspect-[16/10] w-full rounded-xl" />
+                  <Skeleton className="h-3 w-16 rounded" />
+                  <Skeleton className="h-4 w-full rounded" />
+                  <Skeleton className="h-4 w-3/4 rounded" />
+                </div>
               ))}
             </div>
           ) : latestNews.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {latestNews.map((item, index) => (
-                <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
-                  <Card className={`hover-elevate overflow-hidden cursor-pointer h-full ${item.isBreaking ? "ring-2 ring-red-500 bg-red-50/60 dark:bg-red-950/20 shadow-red-100 dark:shadow-red-950/30" : ""}`} data-testid={`card-latest-news-${item.id}`}>
-                    <div className="relative aspect-[16/9] overflow-hidden">
-                      <img 
-                        src={getNewsImage(item)} 
-                        alt={item.title}
+              {latestNews.map((item) => {
+                const displayTitle = item.category === "debunk" ? getCleanDebunkTitle(item.title) : item.title;
+                return (
+                <Link key={item.id} href={newsHref(item)} className="group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
+                  <article
+                    className={`overflow-hidden h-full rounded-xl border bg-card transition-all duration-300 hover:shadow-md hover:border-primary/25 ${item.isBreaking ? "border-red-400/60 ring-1 ring-red-500/30" : "border-border/70"}`}
+                    data-testid={`card-latest-news-${item.id}`}
+                  >
+                    <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                      <img
+                        src={getNewsImage(item)}
+                        alt={displayTitle}
                         loading="lazy"
                         decoding="async"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                        onError={(e) => { (e.target as HTMLImageElement).src = getNewsFallbackImage(item.category); }}
                       />
+                      <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/35 to-transparent pointer-events-none" />
                       {item.isBreaking && (
-                        <span className="absolute top-1.5 right-1.5 inline-flex items-center gap-0.5 bg-red-600 text-white px-1.5 py-0.5 rounded text-[10px] font-bold animate-pulse shadow-lg z-10">
+                        <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 bg-red-600 text-white px-1.5 py-0.5 rounded-md text-[10px] font-bold shadow-lg z-10">
                           <AlertTriangle className="h-3 w-3" />
                           عاجل
                         </span>
                       )}
+                      {isAiGeneratedImage(item.imageUrl) && (
+                        <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-md bg-black/55 text-white px-1.5 py-0.5 text-[10px]">
+                          <Brain className="h-3 w-3 text-sky-300" />
+                          ذكاء اصطناعي
+                        </span>
+                      )}
                     </div>
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                        {item.isBreaking && (
-                          <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 text-sm">
-                            عاجل
-                          </Badge>
-                        )}
-                        <Badge className={`${categoryColors[item.category] || ""} text-sm`}>
-                          {categoryLabels[item.category] || item.category}
+                    <div className="p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Badge className={`${item.isBreaking ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200" : categoryColors[item.category] || ""} text-[10px] py-0 h-5`}>
+                          {item.isBreaking ? "عاجل" : (categoryLabels[item.category] || item.category)}
                         </Badge>
-                        {isAiGeneratedImage(item.imageUrl) && (
-                          <Brain className="h-3.5 w-3.5 text-sky-500" />
-                        )}
                       </div>
-                      <h4 className={`font-semibold text-xs md:text-sm line-clamp-2 mb-1 ${item.isBreaking ? "text-red-700 dark:text-red-400" : ""}`}>
-                        {item.title}
-                      </h4>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {formatDate(item.publishedAt)}
+                      <h3 className={`font-semibold text-xs md:text-sm leading-snug line-clamp-2 mb-2 group-hover:text-primary transition-colors ${item.isBreaking ? "text-red-700 dark:text-red-400" : ""}`}>
+                        {displayTitle}
+                      </h3>
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <Clock className="h-3 w-3 shrink-0" />
+                        {formatRelativeTime(item.publishedAt) || formatDate(item.publishedAt)}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </article>
                 </Link>
-              ))}
+              );
+              })}
             </div>
           ) : null}
         </div>
@@ -633,9 +717,9 @@ export default function Landing() {
       <div className="px-4 md:px-6 pb-6">
       <div className="container mx-auto max-w-7xl">
         {/* ── WhatsApp Subscribe Banner ──────────────────────────── */}
-        <Link href="/whatsapp">
+        <Link href="/whatsapp" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl">
           <div
-            className="mt-8 rounded-xl overflow-hidden cursor-pointer bg-gradient-to-l from-green-700 via-emerald-700 to-teal-600 text-white p-5 md:p-7 flex flex-col sm:flex-row items-center justify-between gap-4 hover:opacity-95 transition-opacity"
+            className="mt-8 rounded-2xl overflow-hidden cursor-pointer bg-gradient-to-l from-green-700 via-emerald-700 to-teal-600 text-white p-5 md:p-7 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg shadow-emerald-900/10 hover:shadow-xl hover:brightness-[1.03] transition-all"
             data-testid="banner-whatsapp-subscribe"
           >
             <div className="flex items-center gap-4 text-right">
@@ -668,18 +752,20 @@ export default function Landing() {
         {/* ── ترند الأسبوع ──────────────────────────────────────── */}
         {trendingNews && trendingNews.length > 0 && (
           <div className="my-8 md:my-12">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30">
-                <TrendingUp className="h-5 w-5 text-orange-500" />
-              </div>
-              <div>
-                <h2 className="text-xl md:text-2xl font-bold">ترند الأسبوع</h2>
-                <p className="text-xs text-muted-foreground">أكثر الأخبار مشاهدة هذا الأسبوع</p>
+            <div className="flex items-end justify-between gap-3 mb-5 md:mb-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 dark:bg-orange-900/30">
+                  <Flame className="h-5 w-5 text-orange-500" />
+                </div>
+                <div>
+                  <h2 className="text-xl md:text-2xl font-bold tracking-tight">ترند الأسبوع</h2>
+                  <p className="text-xs text-muted-foreground">الأكثر قراءة خلال الأيام الماضية</p>
+                </div>
               </div>
             </div>
             <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
               {trendingNews.slice(0, 5).map((item) => (
-                <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
+                <Link key={item.id} href={newsHref(item)} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
                   <Card className="hover-elevate overflow-hidden cursor-pointer min-w-[220px] w-[220px] md:min-w-[240px] md:w-[240px] shrink-0 group" data-testid={`card-trending-${item.id}`}>
                     <div className="relative">
                       <img
@@ -715,14 +801,19 @@ export default function Landing() {
 
         <div className="my-8 md:my-12">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
-              <Lightbulb className="h-6 w-6 text-primary" />
-              نصائح صحية
-            </h2>
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2 tracking-tight">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Lightbulb className="h-5 w-5" />
+                </span>
+                نصائح صحية
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1 me-11">عادات بسيطة ليوم أصح</p>
+            </div>
           </div>
           <div className="grid md:grid-cols-3 gap-4">
             {healthTips.map((tip, index) => (
-              <Card key={index} className="bg-primary/5 dark:bg-primary/10 border-primary/20">
+              <Card key={index} className="bg-primary/5 dark:bg-primary/10 border-primary/20 hover:border-primary/40 hover:shadow-sm transition-all">
                 <CardContent className="p-4 md:p-6">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -740,69 +831,86 @@ export default function Landing() {
         </div>
 
         <div className="my-8 md:my-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
-              <BookOpen className="h-6 w-6 text-primary" />
-              تقارير ومقالات
-            </h2>
+          <div className="flex items-end justify-between gap-3 mb-5 md:mb-6">
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2 tracking-tight">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <BookOpen className="h-5 w-5" />
+                </span>
+                تقارير ومقالات
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1 me-11">محتوى طبي مراجع بعناية</p>
+            </div>
             <Link href="/articles">
-              <Button variant="ghost" size="sm" data-testid="button-more-articles">
-                المزيد <ArrowLeft className="h-4 w-4 mr-1" />
+              <Button variant="outline" size="sm" className="shrink-0 gap-1 rounded-full" data-testid="button-more-articles">
+                المزيد <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
           </div>
           {articlesLoading ? (
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="space-y-4">
               {[1, 2, 3].map(i => (
-                <Skeleton key={i} className="h-48 w-full rounded-lg" />
+                <Skeleton key={i} className="h-36 w-full rounded-xl" />
               ))}
             </div>
           ) : latestArticles.length > 0 ? (
-            <div className="space-y-4">
-              {latestArticles.map((article, index) => (
-                <Card key={article.id} className="hover-elevate group overflow-hidden" data-testid={`card-article-${article.id}`}>
-                  <div className="flex flex-col sm:flex-row">
-                    <div className="sm:w-48 md:w-56 h-40 sm:h-auto flex-shrink-0">
-                      <img 
-                        src={getNewsFallbackImage(article.id.toString())}
-                        alt={article.title}
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    </div>
-                    <div className="flex-1 p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {article.category}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{article.readTime} دقائق قراءة</span>
+            <div className="space-y-3 md:space-y-4">
+              {latestArticles.map((article) => (
+                <Link key={article.id} href={`/articles/${article.slug}`} className="block group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
+                  <article
+                    className="overflow-hidden rounded-xl border border-border/70 bg-card hover:border-primary/25 hover:shadow-md transition-all"
+                    data-testid={`card-article-${article.id}`}
+                  >
+                    <div className="flex flex-col sm:flex-row">
+                      <div className="sm:w-48 md:w-56 h-40 sm:h-auto sm:min-h-[140px] flex-shrink-0 overflow-hidden bg-muted">
+                        <img
+                          src={article.imageUrl || getNewsFallbackImage(article.category || article.id.toString())}
+                          alt={article.title}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                          onError={(e) => { (e.target as HTMLImageElement).src = getNewsFallbackImage(article.category || "health"); }}
+                        />
                       </div>
-                      <h3 className="font-bold text-base md:text-lg line-clamp-2 mb-2 group-hover:text-primary transition-colors">
-                        {article.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                        {article.excerpt}
-                      </p>
-                      <div className="text-xs text-muted-foreground">
-                        مراجعة: {article.reviewedBy}
+                      <div className="flex-1 p-4 md:p-5 flex flex-col">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <Badge variant="secondary" className="text-xs">
+                            {categoryLabels[article.category] || article.category}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {article.readTime} دقائق قراءة
+                          </span>
+                        </div>
+                        <h3 className="font-bold text-base md:text-lg line-clamp-2 mb-2 group-hover:text-primary transition-colors">
+                          {article.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3 flex-1">
+                          {article.excerpt}
+                        </p>
+                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span>مراجعة: {article.reviewedBy}</span>
+                          <span className="inline-flex items-center gap-1 text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                            اقرأ المقال <ArrowLeft className="h-3.5 w-3.5" />
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
+                  </article>
+                </Link>
               ))}
             </div>
           ) : (
-            <Card className="p-8 text-center">
-              <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">لا توجد مقالات حالياً</p>
-            </Card>
+            <div className="rounded-xl border border-dashed border-border p-10 text-center bg-muted/20">
+              <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3 opacity-60" />
+              <p className="text-muted-foreground text-sm">لا توجد مقالات حالياً</p>
+            </div>
           )}
         </div>
 
         {isAuthenticated ? (
-          <div className="bg-gradient-to-l from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-lg p-6 md:p-8">
-            <h2 className="text-xl md:text-2xl font-bold mb-6 text-center">خدماتك الصحية</h2>
+          <div className="bg-gradient-to-l from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-2xl border border-primary/15 p-6 md:p-8">
+            <h2 className="text-xl md:text-2xl font-bold mb-6 text-center tracking-tight">خدماتك الصحية</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Link href="/assistant">
                 <Button variant="outline" className="w-full h-16 flex flex-col gap-1 text-sm" data-testid="button-quick-assistant">
@@ -831,21 +939,21 @@ export default function Landing() {
             </div>
           </div>
         ) : (
-          <div className="bg-gradient-to-l from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-lg p-6 md:p-8 text-center">
-            <h2 className="text-xl md:text-2xl font-bold mb-3">
+          <div className="bg-gradient-to-l from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-2xl border border-primary/15 p-6 md:p-10 text-center">
+            <h2 className="text-xl md:text-2xl font-bold mb-3 tracking-tight">
               هل تريد متابعة صحتك بشكل أفضل؟
             </h2>
-            <p className="text-muted-foreground mb-4 max-w-xl mx-auto">
-              سجّل دخولك للوصول إلى المساعد الصحي الذكي، متتبع المؤشرات الحيوية، ومتتبع التغذية
+            <p className="text-muted-foreground mb-6 max-w-xl mx-auto text-sm md:text-base leading-relaxed">
+              سجّل مجاناً للوصول إلى المساعد الصحي الذكي، متتبع التغذية، وملفك الصحي الشخصي
             </p>
-            <div className="flex gap-3 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link href="/register">
-                <Button size="lg" data-testid="button-register-cta">
+                <Button size="lg" className="w-full sm:w-auto rounded-full px-8" data-testid="button-register-cta">
                   إنشاء حساب مجاناً
                 </Button>
               </Link>
               <Link href="/login">
-                <Button size="lg" variant="outline" data-testid="button-login">
+                <Button size="lg" variant="outline" className="w-full sm:w-auto rounded-full px-8" data-testid="button-login">
                   تسجيل الدخول
                 </Button>
               </Link>
