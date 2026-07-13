@@ -588,6 +588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
         `  <sitemap><loc>${baseUrl}/sitemap-static.xml</loc></sitemap>`,
         `  <sitemap><loc>${baseUrl}/sitemap-news.xml</loc></sitemap>`,
+        `  <sitemap><loc>${baseUrl}/sitemap-general.xml</loc></sitemap>`,
         hasArticles ? `  <sitemap><loc>${baseUrl}/sitemap-articles.xml</loc></sitemap>` : '',
         '</sitemapindex>',
       ].filter(Boolean).join('\n');
@@ -630,12 +631,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Google News sitemap: ONLY articles from the last 48 hours, max 1000 URLs
+  // (Google News rules — violating them makes Google ignore the whole sitemap)
   app.get('/sitemap-news.xml', async (_req, res) => {
     try {
       const baseUrl = 'https://capsulah.com';
       const published = await storage.getNewsForSitemap();
 
-      const urls = published.map(item => {
+      const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+      const withinWindow = (item: { publishedAt: Date | null }) =>
+        !!item.publishedAt && new Date(item.publishedAt).getTime() >= cutoff;
+      let recent = published.filter(withinWindow).slice(0, 1000);
+      // Fallback: if nothing was published in the last 48h, include the latest
+      // few items WITHOUT <news:news> tags (old items with news tags violate
+      // Google News rules) so the sitemap is never empty.
+      if (recent.length === 0) {
+        recent = published.slice(0, 10);
+      }
+
+      const urls = recent.map(item => {
+        const includeNewsTag = withinWindow(item);
         const loc = item.shortCode ? `${baseUrl}/n/${item.shortCode}` : `${baseUrl}/news/${item.id}`;
         const lastmod = item.publishedAt ? new Date(item.publishedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
         const pubDate = item.publishedAt ? new Date(item.publishedAt).toISOString() : new Date().toISOString();
@@ -646,7 +661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           imageTag = `\n    <image:image>\n      <image:loc>${escapeXml(fullImageUrl)}</image:loc>\n      <image:title>${escapeXml(item.title)}</image:title>\n    </image:image>`;
         }
 
-        const newsTag = [
+        const newsTag = includeNewsTag ? '\n' + [
           '    <news:news>',
           '      <news:publication>',
           '        <news:name>كبسولة</news:name>',
@@ -658,9 +673,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? `      <news:keywords>${escapeXml(item.keywords.join(', '))}</news:keywords>`
             : '',
           '    </news:news>',
-        ].filter(Boolean).join('\n');
+        ].filter(Boolean).join('\n') : '';
 
-        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>${imageTag}\n${newsTag}\n  </url>`;
+        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>${imageTag}${newsTag}\n  </url>`;
       }).join('\n');
 
       const xml = [
@@ -675,6 +690,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.type('application/xml').set('Cache-Control', 'public, max-age=1800').send(xml);
     } catch (error) {
       console.error('Error generating news sitemap:', error);
+      res.status(500).send('Error generating sitemap');
+    }
+  });
+
+  // General sitemap: ALL published news as a plain urlset (no Google News tags)
+  // so older items stay discoverable for regular indexing.
+  app.get('/sitemap-general.xml', async (_req, res) => {
+    try {
+      const baseUrl = 'https://capsulah.com';
+      const published = await storage.getNewsForSitemap();
+
+      const urls = published.map(item => {
+        const loc = item.shortCode ? `${baseUrl}/n/${item.shortCode}` : `${baseUrl}/news/${item.id}`;
+        const lastmod = item.publishedAt ? new Date(item.publishedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.6</priority>\n  </url>`;
+      }).join('\n');
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
+      res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+    } catch (error) {
+      console.error('Error generating general sitemap:', error);
       res.status(500).send('Error generating sitemap');
     }
   });

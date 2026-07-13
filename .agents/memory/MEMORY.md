@@ -3,4 +3,5 @@
 - [SEO crawler HTML](seo-crawler-html.md) — crawler pages (buildCrawlerHtml) must serve FULL article body + NewsArticle JSON-LD, redirect:false, and sanitize content (stored-XSS via spoofable UA).
 - [View-count policy](view-count-policy.md) — news views intentionally count +2 each with NO dedup (every refresh/click re-counts); don't "fix" it back to 1x/deduped.
 - [Debunk CTA tracking](debunk-cta-tracking.md) — client metric routes must NOT contain "analytics/track/beacon" (ad-blockers drop them) & use fetch(keepalive) not sendBeacon; count at click, not page-load.
+- [Google News sitemap rules](google-news-sitemap-rules.md) — news-tagged sitemap = last 48h only, max 1000 URLs; old items with news tags make Google ignore the file. Long tail goes in a plain general sitemap.
 - [Home page route](home-vs-landing-route.md) — public "/" renders Landing.tsx (Home.tsx is only /portal); edit Landing for homepage or changes never show live.
