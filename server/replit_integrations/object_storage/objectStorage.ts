@@ -70,11 +70,23 @@ export class ObjectStorageService {
 
   // Gets the private object directory.
   getPrivateObjectDir(): string {
-    const dir = process.env.PRIVATE_OBJECT_DIR || "";
+    let dir = (process.env.PRIVATE_OBJECT_DIR || "").trim();
+    if (!dir) {
+      const bucket =
+        process.env.S3_BUCKET?.trim() ||
+        process.env.BUCKET_NAME?.trim() ||
+        "";
+      if (bucket) {
+        dir = `/${bucket}/.private`;
+        console.warn(
+          `[ObjectStorage] PRIVATE_OBJECT_DIR not set; defaulting to ${dir}`
+        );
+      }
+    }
     if (!dir) {
       throw new Error(
         "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
+          "tool and set PRIVATE_OBJECT_DIR env var (or S3_BUCKET / BUCKET_NAME)."
       );
     }
     return dir;
@@ -258,7 +270,7 @@ export class ObjectStorageService {
   }
 }
 
-export function parseObjectPath(path: string): {
+function parseObjectPath(path: string): {
   bucketName: string;
   objectName: string;
 } {

@@ -118,9 +118,16 @@ export function registerObjectStorageRoutes(app: Express): void {
             return res.status(400).json({ error: "Unsupported contentType" });
           }
 
+          const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
           const chunks: Buffer[] = [];
+          let totalBytes = 0;
           for await (const chunk of req) {
-            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+            totalBytes += buf.length;
+            if (totalBytes > MAX_UPLOAD_BYTES) {
+              return res.status(413).json({ error: "File too large (max 25MB)" });
+            }
+            chunks.push(buf);
           }
           const body = Buffer.concat(chunks);
           if (body.length === 0) {

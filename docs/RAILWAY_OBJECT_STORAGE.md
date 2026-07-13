@@ -6,12 +6,14 @@
 ## 1) أنشئ باكت الوجهة
 
 ### خيار أ: Railway Bucket
-أنشئ Bucket من لوحة Railway وانسخ:
+أنشئ Bucket من لوحة Railway وانسخ من تبويب **Credentials**:
 - Endpoint
 - Access Key
 - Secret Key
-- Bucket name
+- Bucket name (مثل `arranged-foodbox-4edogh3q`)
 - Region
+
+اربط هذه القيم بخدمة **cap** (Variables) — إما Variable Reference من الباكت أو نسخ يدوي.
 
 ### خيار ب: Cloudflare R2
 أنشئ باكت + API Token بصلاحيات Object Read & Write، واستخدم:
@@ -22,39 +24,58 @@
 شغّل **داخل Replit** (مهم: sidecar المحلي فقط هناك):
 
 ```bash
-# متغيرات الوجهة
 export S3_ENDPOINT="https://...."
 export S3_ACCESS_KEY_ID="...."
 export S3_SECRET_ACCESS_KEY="...."
-export S3_BUCKET="capsulah-media"
+export S3_BUCKET="arranged-foodbox-4edogh3q"
 export S3_REGION="auto"
 
-# PRIVATE_OBJECT_DIR موجود أصلاً على Replit
-
-# تجربة أولاً
 MIGRATE_DRY_RUN=1 MIGRATE_LIMIT=20 npx tsx scripts/migrate-object-storage.ts
-
-# الترحيل الكامل
 npx tsx scripts/migrate-object-storage.ts
 ```
 
 السكربت يتخطى الملفات الموجودة بنفس الحجم، ويمكن إعادة تشغيله بأمان.
 
-## 3) متغيرات Railway
+## 3) قائمة متغيرات خدمة `cap` على Railway
 
+### تخزين (مرتبط بـ arranged-foodbox)
 ```
-S3_ENDPOINT=
-S3_ACCESS_KEY_ID=
-S3_SECRET_ACCESS_KEY=
+S3_ENDPOINT=                 # أو BUCKET_ENDPOINT_URL من Credentials
+S3_ACCESS_KEY_ID=            # أو BUCKET_ACCESS_KEY_ID
+S3_SECRET_ACCESS_KEY=        # أو BUCKET_SECRET_ACCESS_KEY
 S3_REGION=auto
-PRIVATE_OBJECT_DIR=/<BUCKET_NAME>/.private
-PUBLIC_OBJECT_SEARCH_PATHS=/<BUCKET_NAME>/public
-UPLOAD_URL_SECRET=  # اختياري؛ إن لم يُضبط يستخدم SESSION_SECRET
+S3_BUCKET=arranged-foodbox-4edogh3q   # اختياري إن ضُبط PRIVATE_OBJECT_DIR يدوياً
+PRIVATE_OBJECT_DIR=/arranged-foodbox-4edogh3q/.private
+PUBLIC_OBJECT_SEARCH_PATHS=/arranged-foodbox-4edogh3q/public
+UPLOAD_URL_SECRET=           # اختياري؛ إن لم يُضبط يستخدم SESSION_SECRET
 ```
 
-بعدها أعد نشر الخدمة. روابط `/objects/uploads/...` في قاعدة البيانات تبقى كما هي — لا حاجة لتحديث صفوف `news`.
+إن لم تضع `PRIVATE_OBJECT_DIR` وكان `S3_BUCKET` مضبوطاً، السيرفر يفترض تلقائياً `/<S3_BUCKET>/.private`.
+
+### تشغيل أساسي
+```
+DATABASE_URL=
+SESSION_SECRET=
+NODE_ENV=production
+BASE_URL=https://<your-railway-or-custom-domain>
+ADMIN_PASSWORD=
+OPENAI_API_KEY=              # أو AI_INTEGRATIONS_OPENAI_API_KEY
+AI_INTEGRATIONS_OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+لا تضع `REPL_ID` على Railway إلا إذا أردت Replit OIDC صراحةً؛ بدونه يعمل تسجيل الأدمن المحلي.
+
+### Healthcheck
+المسار: `GET /health` → `{ "ok": true }`  
+مضبوط في `railway.toml` على `/health`.
+
+## 4) تحقق بعد Redeploy
+- `GET /health` → 200
+- `GET /objects/uploads/<uuid>.webp` → صورة (بعد ترحيل ذلك الملف)
+- 404 غالباً: `PRIVATE_OBJECT_DIR` خاطئ أو الملف لم يُرحَّل بعد
+- 500 على `/objects`: مفاتيح S3 غير مربوطة بخدمة `cap`
 
 ## ملاحظات
-
 - بدون ترحيل الباكت ستظهر الصور مكسورة رغم نجاح نسخ Neon.
 - الرفع الجديد من لوحة الأدمن في وضع S3 يمر عبر `/api/objects/upload/:id` (بدون CORS على الباكت).
+- روابط `/objects/uploads/...` في Neon تبقى كما هي — لا حاجة لتحديث صفوف `news`.

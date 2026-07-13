@@ -50,6 +50,11 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: false }));
 
+// Railway / load balancer healthcheck — keep cheap and early
+app.get("/health", (_req, res) => {
+  res.status(200).json({ ok: true });
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
