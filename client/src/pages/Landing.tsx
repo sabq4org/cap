@@ -217,179 +217,9 @@ export default function Landing() {
         url={siteOrigin + "/"}
         type="website"
       />
-      <div className="px-4 md:px-6 pt-5 md:pt-6">
-      <div className="container mx-auto max-w-7xl">
-        <AdBanner position="above_featured" className="mb-4" />
-        {newsLoading ? (
-          <Skeleton className="h-[200px] md:h-[300px] w-full rounded-lg" />
-        ) : heroItem ? (
-          <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3" dir="rtl" data-testid="home-hero-layout">
-
-            {/* Big hero card */}
-            <Link href={newsHref(heroItem)} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl">
-              <div
-                className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-md ring-1 ring-black/5 dark:ring-white/10"
-                style={{ aspectRatio: "16/9" }}
-                data-testid={`hero-card-${heroItem.id}`}
-              >
-                <img
-                  src={getNewsImage(heroItem)}
-                  alt={heroItem.category === "debunk" ? getCleanDebunkTitle(heroItem.title) : heroItem.title}
-                  loading="eager"
-                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-in-out"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/10" />
-
-                {heroItem.isBreaking && (
-                  <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg animate-pulse">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    عاجل
-                  </div>
-                )}
-
-                {!heroItem.isBreaking && heroItem.category === "debunk" && (() => {
-                  const v = getVerdictFromTitle(heroItem.title);
-                  const VIcon = v?.icon;
-                  return v ? (
-                    <div className={`absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold shadow-lg ${v.chipClass}`}>
-                      {VIcon && <VIcon className="h-3.5 w-3.5" />}
-                      {v.label}
-                    </div>
-                  ) : null;
-                })()}
-
-                <AIImageBadge imageUrl={heroItem.imageUrl} />
-
-                <div className="absolute bottom-0 right-0 left-0 p-5 md:p-6">
-                  <Badge
-                    className={`${heroItem.isBreaking ? "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200" : categoryColors[heroItem.category] || ""} mb-2.5 text-xs font-semibold`}
-                    data-testid={`hero-badge-category-${heroItem.id}`}
-                  >
-                    {heroItem.isBreaking ? "عاجل" : (categoryLabels[heroItem.category] || heroItem.category)}
-                  </Badge>
-                  <h2 className="text-white font-bold text-xl md:text-3xl leading-snug line-clamp-3 drop-shadow-lg mb-2">
-                    {heroItem.category === "debunk"
-                      ? getCleanDebunkTitle(heroItem.title)
-                      : heroItem.title}
-                  </h2>
-                  {(heroItem.summary || heroItem.seoDescription) && (
-                    <p className="hidden md:block text-white/80 text-sm leading-relaxed line-clamp-2 mb-3 max-w-2xl">
-                      {heroItem.summary || heroItem.seoDescription}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-3 text-white/70 text-xs">
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="h-3 w-3" />
-                      {formatRelativeTime(heroItem.publishedAt) || formatDate(heroItem.publishedAt)}
-                    </span>
-                    {heroItem.sourceUrl && (
-                      <span className="flex items-center gap-1 opacity-70">
-                        <ExternalLink className="h-3 w-3" />
-                        المصدر
-                      </span>
-                    )}
-                    <span className="ms-auto hidden sm:inline-flex items-center gap-1 text-white/90 text-xs font-medium group-hover:gap-2 transition-all">
-                      اقرأ الخبر
-                      <ArrowLeft className="h-3.5 w-3.5" />
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Link>
-
-            {/* Side cards — scroll on mobile, stack on desktop */}
-            {heroSideItems.length > 0 && (
-              <div className="flex lg:flex-col gap-2.5 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0 -mx-1 px-1 snap-x snap-mandatory lg:snap-none scrollbar-thin">
-                {heroSideItems.map((item) => {
-                  const isDebunk = item.category === "debunk";
-                  const verdict = isDebunk ? getVerdictFromTitle(item.title) : null;
-                  const VerdictIcon = verdict?.icon;
-                  const displayTitle = isDebunk ? getCleanDebunkTitle(item.title) : item.title;
-                  return (
-                    <Link key={item.id} href={newsHref(item)} className="min-w-[85%] sm:min-w-[70%] lg:min-w-0 snap-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
-                      <div
-                        className="flex gap-3 p-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 hover:border-primary/25 hover:shadow-sm transition-all cursor-pointer group h-full"
-                        data-testid={`side-card-${item.id}`}
-                      >
-                        <div className="relative shrink-0">
-                          <img
-                            src={getNewsImage(item)}
-                            alt={displayTitle}
-                            className="w-28 h-[84px] lg:w-24 lg:h-[76px] object-cover rounded-lg group-hover:opacity-90 transition-opacity"
-                            loading="lazy"
-                          />
-                          {item.isBreaking && (
-                            <span className="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1 py-0.5 rounded">
-                              عاجل
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0 py-0.5 flex flex-col" dir="rtl">
-                          {isDebunk && verdict ? (
-                            <span
-                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold mb-1 w-fit ${verdict.chipClass}`}
-                              data-testid={`side-verdict-${item.id}`}
-                            >
-                              {VerdictIcon && <VerdictIcon className="h-2.5 w-2.5" />}
-                              {verdict.label}
-                            </span>
-                          ) : (
-                            <Badge
-                              className={`${item.isBreaking ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200" : categoryColors[item.category] || ""} text-[10px] py-0 h-4 mb-1 w-fit`}
-                              data-testid={`side-badge-${item.id}`}
-                            >
-                              {item.isBreaking ? "عاجل" : (categoryLabels[item.category] || item.category)}
-                            </Badge>
-                          )}
-                          <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors flex-1">
-                            {displayTitle}
-                          </h3>
-                          <div className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground">
-                            <Clock className="h-2.5 w-2.5 shrink-0" />
-                            {formatRelativeTime(item.publishedAt) || formatDate(item.publishedAt)}
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ) : null}
-
-        <AdBanner position="below_featured" className="mt-4" />
-
-        {/* Quick categories */}
-        <nav className="mt-5 md:mt-6 -mx-1" aria-label="تصنيفات سريعة" data-testid="home-quick-categories">
-          <div className="flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-thin">
-            <Link href="/news">
-              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-primary text-primary-foreground px-3.5 py-1.5 text-xs font-semibold shadow-sm hover:opacity-95 transition-opacity">
-                <Newspaper className="h-3.5 w-3.5" />
-                كل الأخبار
-              </span>
-            </Link>
-            {quickCategories.map((cat) => (
-              <Link key={cat.slug} href={`/news?category=${cat.slug}`}>
-                <span className="inline-flex items-center whitespace-nowrap rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-colors">
-                  {cat.label}
-                </span>
-              </Link>
-            ))}
-            <Link href="/ask-capsule">
-              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300 px-3.5 py-1.5 text-xs font-semibold hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors">
-                <Send className="h-3.5 w-3.5" />
-                أرسل شائعة
-              </span>
-            </Link>
-          </div>
-        </nav>
-      </div>
-      </div>
-      <div className="h-5 md:h-7" />
 
       {/* ── Debunk Block ── */}
-      <section className="relative border-y border-border/70 bg-muted/35 py-10 md:py-12" dir="rtl">
+      <section className="relative border-b border-border/70 bg-muted/35 py-8 md:py-10" dir="rtl">
         <div className="container mx-auto max-w-7xl px-4 md:px-6">
           <div className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="relative max-w-2xl pr-4">
@@ -572,6 +402,177 @@ export default function Landing() {
           )}
         </div>
       </section>
+
+      <div className="px-4 md:px-6 pt-5 md:pt-6">
+      <div className="container mx-auto max-w-7xl">
+        <AdBanner position="above_featured" className="mb-4" />
+        {newsLoading ? (
+          <Skeleton className="h-[200px] md:h-[300px] w-full rounded-lg" />
+        ) : heroItem ? (
+          <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3" dir="rtl" data-testid="home-hero-layout">
+
+            {/* Big hero card */}
+            <Link href={newsHref(heroItem)} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl">
+              <div
+                className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-md ring-1 ring-black/5 dark:ring-white/10"
+                style={{ aspectRatio: "16/9" }}
+                data-testid={`hero-card-${heroItem.id}`}
+              >
+                <img
+                  src={getNewsImage(heroItem)}
+                  alt={heroItem.category === "debunk" ? getCleanDebunkTitle(heroItem.title) : heroItem.title}
+                  loading="eager"
+                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-in-out"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/10" />
+
+                {heroItem.isBreaking && (
+                  <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg animate-pulse">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    عاجل
+                  </div>
+                )}
+
+                {!heroItem.isBreaking && heroItem.category === "debunk" && (() => {
+                  const v = getVerdictFromTitle(heroItem.title);
+                  const VIcon = v?.icon;
+                  return v ? (
+                    <div className={`absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold shadow-lg ${v.chipClass}`}>
+                      {VIcon && <VIcon className="h-3.5 w-3.5" />}
+                      {v.label}
+                    </div>
+                  ) : null;
+                })()}
+
+                <AIImageBadge imageUrl={heroItem.imageUrl} />
+
+                <div className="absolute bottom-0 right-0 left-0 p-5 md:p-6">
+                  <Badge
+                    className={`${heroItem.isBreaking ? "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200" : categoryColors[heroItem.category] || ""} mb-2.5 text-xs font-semibold`}
+                    data-testid={`hero-badge-category-${heroItem.id}`}
+                  >
+                    {heroItem.isBreaking ? "عاجل" : (categoryLabels[heroItem.category] || heroItem.category)}
+                  </Badge>
+                  <h2 className="text-white font-bold text-xl md:text-3xl leading-snug line-clamp-3 drop-shadow-lg mb-2">
+                    {heroItem.category === "debunk"
+                      ? getCleanDebunkTitle(heroItem.title)
+                      : heroItem.title}
+                  </h2>
+                  {(heroItem.summary || heroItem.seoDescription) && (
+                    <p className="hidden md:block text-white/80 text-sm leading-relaxed line-clamp-2 mb-3 max-w-2xl">
+                      {heroItem.summary || heroItem.seoDescription}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-3 text-white/70 text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="h-3 w-3" />
+                      {formatRelativeTime(heroItem.publishedAt) || formatDate(heroItem.publishedAt)}
+                    </span>
+                    {heroItem.sourceUrl && (
+                      <span className="flex items-center gap-1 opacity-70">
+                        <ExternalLink className="h-3 w-3" />
+                        المصدر
+                      </span>
+                    )}
+                    <span className="ms-auto hidden sm:inline-flex items-center gap-1 text-white/90 text-xs font-medium group-hover:gap-2 transition-all">
+                      اقرأ الخبر
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Link>
+
+            {/* Side cards — scroll on mobile, stack on desktop */}
+            {heroSideItems.length > 0 && (
+              <div className="flex lg:flex-col gap-2.5 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0 -mx-1 px-1 snap-x snap-mandatory lg:snap-none scrollbar-thin">
+                {heroSideItems.map((item) => {
+                  const isDebunk = item.category === "debunk";
+                  const verdict = isDebunk ? getVerdictFromTitle(item.title) : null;
+                  const VerdictIcon = verdict?.icon;
+                  const displayTitle = isDebunk ? getCleanDebunkTitle(item.title) : item.title;
+                  return (
+                    <Link key={item.id} href={newsHref(item)} className="min-w-[85%] sm:min-w-[70%] lg:min-w-0 snap-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
+                      <div
+                        className="flex gap-3 p-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 hover:border-primary/25 hover:shadow-sm transition-all cursor-pointer group h-full"
+                        data-testid={`side-card-${item.id}`}
+                      >
+                        <div className="relative shrink-0">
+                          <img
+                            src={getNewsImage(item)}
+                            alt={displayTitle}
+                            className="w-28 h-[84px] lg:w-24 lg:h-[76px] object-cover rounded-lg group-hover:opacity-90 transition-opacity"
+                            loading="lazy"
+                          />
+                          {item.isBreaking && (
+                            <span className="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1 py-0.5 rounded">
+                              عاجل
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 py-0.5 flex flex-col" dir="rtl">
+                          {isDebunk && verdict ? (
+                            <span
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold mb-1 w-fit ${verdict.chipClass}`}
+                              data-testid={`side-verdict-${item.id}`}
+                            >
+                              {VerdictIcon && <VerdictIcon className="h-2.5 w-2.5" />}
+                              {verdict.label}
+                            </span>
+                          ) : (
+                            <Badge
+                              className={`${item.isBreaking ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200" : categoryColors[item.category] || ""} text-[10px] py-0 h-4 mb-1 w-fit`}
+                              data-testid={`side-badge-${item.id}`}
+                            >
+                              {item.isBreaking ? "عاجل" : (categoryLabels[item.category] || item.category)}
+                            </Badge>
+                          )}
+                          <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors flex-1">
+                            {displayTitle}
+                          </h3>
+                          <div className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground">
+                            <Clock className="h-2.5 w-2.5 shrink-0" />
+                            {formatRelativeTime(item.publishedAt) || formatDate(item.publishedAt)}
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        <AdBanner position="below_featured" className="mt-4" />
+
+        {/* Quick categories */}
+        <nav className="mt-5 md:mt-6 -mx-1" aria-label="تصنيفات سريعة" data-testid="home-quick-categories">
+          <div className="flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-thin">
+            <Link href="/news">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-primary text-primary-foreground px-3.5 py-1.5 text-xs font-semibold shadow-sm hover:opacity-95 transition-opacity">
+                <Newspaper className="h-3.5 w-3.5" />
+                كل الأخبار
+              </span>
+            </Link>
+            {quickCategories.map((cat) => (
+              <Link key={cat.slug} href={`/news?category=${cat.slug}`}>
+                <span className="inline-flex items-center whitespace-nowrap rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-colors">
+                  {cat.label}
+                </span>
+              </Link>
+            ))}
+            <Link href="/ask-capsule">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300 px-3.5 py-1.5 text-xs font-semibold hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors">
+                <Send className="h-3.5 w-3.5" />
+                أرسل شائعة
+              </span>
+            </Link>
+          </div>
+        </nav>
+      </div>
+      </div>
+      <div className="h-5 md:h-7" />
 
       {/* ── Latest News ── */}
       <div className="px-4 md:px-6 pb-6">
