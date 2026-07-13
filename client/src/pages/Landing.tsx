@@ -388,55 +388,69 @@ export default function Landing() {
       </div>
       <div className="h-5 md:h-7" />
 
-      {/* ── Debunk Block — below featured ── */}
-      <section className="py-9 md:py-12 bg-green-950 relative" dir="rtl">
-        <div className="container mx-auto max-w-7xl px-4 md:px-6">
-          {/* Header row */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold bg-red-500/15 text-red-400 border border-red-500/25 mb-2">
+      {/* ── Debunk Block ── */}
+      <section className="relative overflow-hidden bg-[#0b1f14] py-10 md:py-14" dir="rtl">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(34,197,94,0.14),_transparent_55%)]"
+        />
+        <div className="container relative mx-auto max-w-7xl px-4 md:px-6">
+          <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_auto] lg:items-end">
+            <div className="max-w-2xl">
+              <p className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-emerald-300/90">
                 <ShieldAlert className="h-3.5 w-3.5" />
                 حقيقة أم خرافة؟
-              </div>
-              <h2 className="text-xl md:text-2xl font-bold text-white leading-tight">
+              </p>
+              <h2 className="text-2xl font-bold leading-tight text-white md:text-3xl">
                 تفنيد الشائعات الصحية
               </h2>
-              <p className="text-slate-400 text-sm mt-0.5">شارك مع أهلك — قد تنقذ حياة</p>
+              <p className="mt-2 text-base text-emerald-100/75 md:text-lg">
+                شارك مع أهلك — قد تنقذ حياة
+              </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2">
               <Link href="/ask-capsule">
-                <Button size="sm" className="gap-1.5 h-9" data-testid="button-debunk-submit" onClick={() => trackDebunkCta()}>
+                <Button
+                  size="sm"
+                  className="h-10 gap-1.5 bg-emerald-500 px-4 text-emerald-950 hover:bg-emerald-400"
+                  data-testid="button-debunk-submit"
+                  onClick={() => trackDebunkCta()}
+                >
                   <Send className="h-3.5 w-3.5" />
                   أرسل شائعة
                 </Button>
               </Link>
               <Link href="/news?category=debunk">
-                <Button size="sm" variant="outline" className="h-9 border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white" data-testid="button-debunk-view-all">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-10 border-emerald-800/80 bg-transparent px-4 text-emerald-100 hover:bg-emerald-900/50 hover:text-white"
+                  data-testid="button-debunk-view-all"
+                >
                   عرض الكل
-                  <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                  <ChevronLeft className="mr-1 h-3.5 w-3.5" />
                 </Button>
               </Link>
             </div>
           </div>
 
-          {/* Cards */}
           <div
             onMouseEnter={() => { isPaused.current = true; }}
             onMouseLeave={() => { isPaused.current = false; }}
             style={{ transition: "opacity 0.35s ease", opacity: visible ? 1 : 0 }}
-            className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3"
+            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
           >
             {debunksLoading ? (
               <>
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="rounded-xl bg-green-900/50 border border-green-800/50 p-4 space-y-3">
-                    <Skeleton className="h-5 w-24 bg-green-800" />
-                    <Skeleton className="h-4 w-full bg-green-800" />
-                    <Skeleton className="h-4 w-3/4 bg-green-800" />
-                    <div className="border-t border-green-800/50 pt-3 flex gap-3">
-                      <Skeleton className="h-4 w-16 bg-green-800" />
-                      <Skeleton className="h-4 w-16 bg-green-800" />
-                      <Skeleton className="h-4 w-20 bg-green-800" />
+                  <div key={i} className="space-y-3 rounded-2xl border border-emerald-900/60 bg-emerald-950/40 p-5">
+                    <Skeleton className="h-5 w-24 bg-emerald-900" />
+                    <Skeleton className="h-4 w-full bg-emerald-900" />
+                    <Skeleton className="h-4 w-3/4 bg-emerald-900" />
+                    <div className="flex gap-3 border-t border-emerald-900/60 pt-3">
+                      <Skeleton className="h-4 w-16 bg-emerald-900" />
+                      <Skeleton className="h-4 w-16 bg-emerald-900" />
+                      <Skeleton className="h-4 w-20 bg-emerald-900" />
                     </div>
                   </div>
                 ))}
@@ -447,35 +461,37 @@ export default function Landing() {
                 const VerdictIcon = verdict?.icon;
                 const cleanTitle = getCleanDebunkTitle(item.title);
                 const itemUrl = `${siteOrigin}${newsHref(item)}`;
-                const shareText = `${verdict?.label ? verdict.label + ': ' : ''}${cleanTitle}`;
-                const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + itemUrl)}`;
+                const shareText = `${verdict?.label ? verdict.label + ": " : ""}${cleanTitle}`;
+                const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText + "\n" + itemUrl)}`;
                 const twUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(itemUrl)}`;
                 return (
-                  <div
+                  <article
                     key={item.id}
-                    className="rounded-xl bg-green-900/50 border border-green-800/50 hover:border-green-600 transition-all flex flex-col"
+                    className="flex flex-col rounded-2xl border border-emerald-800/50 bg-emerald-950/50 transition-colors hover:border-emerald-600/70 hover:bg-emerald-950/70"
                     data-testid={`debunk-card-${item.id}`}
                   >
-                    <Link href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`} className="flex-1 p-4 flex flex-col gap-2.5">
+                    <Link
+                      href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}
+                      className="flex flex-1 flex-col gap-3 p-5"
+                    >
                       {verdict && VerdictIcon && (
-                        <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full w-fit ${verdict.chipClass}`}>
+                        <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${verdict.chipClass}`}>
                           <VerdictIcon className={`h-3.5 w-3.5 ${verdict.iconColor}`} />
                           {verdict.label}
                         </span>
                       )}
-                      <p className="text-green-50 font-semibold text-sm leading-snug line-clamp-3 hover:text-white transition-colors">
+                      <p className="line-clamp-3 text-[15px] font-semibold leading-snug text-emerald-50 transition-colors hover:text-white">
                         {cleanTitle}
                       </p>
                     </Link>
 
-                    {/* Share bar */}
-                    <div className="px-4 pb-3 pt-2 border-t border-green-800/50 flex items-center gap-3">
-                      <span className="text-green-600 text-xs ml-auto">شارك:</span>
+                    <div className="flex items-center gap-3 border-t border-emerald-900/70 px-5 py-3">
+                      <span className="ml-auto text-xs text-emerald-500/80">شارك مع أهلك</span>
                       <a
                         href={waUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs font-medium text-green-400 hover:text-green-300 transition-colors"
+                        className="flex items-center gap-1 text-xs font-medium text-emerald-300 transition-colors hover:text-emerald-100"
                         data-testid={`share-whatsapp-${item.id}`}
                         title="شارك عبر واتساب"
                       >
@@ -488,7 +504,7 @@ export default function Landing() {
                         href={twUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs font-medium text-sky-400 hover:text-sky-300 transition-colors"
+                        className="flex items-center gap-1 text-xs font-medium text-sky-300 transition-colors hover:text-sky-100"
                         data-testid={`share-twitter-${item.id}`}
                         title="شارك عبر تويتر"
                       >
@@ -499,37 +515,48 @@ export default function Landing() {
                       </a>
                       <button
                         onClick={() => handleCopy(item.id, itemUrl)}
-                        className="flex items-center gap-1 text-xs font-medium text-green-500 hover:text-green-200 transition-colors"
+                        className="flex items-center gap-1 text-xs font-medium text-emerald-400 transition-colors hover:text-emerald-100"
                         data-testid={`copy-link-${item.id}`}
                         title="نسخ الرابط"
                       >
                         {copiedId === item.id ? (
-                          <><Check className="h-3.5 w-3.5 text-green-400" /><span className="text-green-400">تم النسخ</span></>
+                          <>
+                            <Check className="h-3.5 w-3.5 text-emerald-300" />
+                            <span className="text-emerald-300">تم النسخ</span>
+                          </>
                         ) : (
-                          <><Copy className="h-3.5 w-3.5" />نسخ</>
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            نسخ
+                          </>
                         )}
                       </button>
                     </div>
-                  </div>
+                  </article>
                 );
               })
             ) : (
-              <div className="col-span-3 text-center py-10 text-green-700" data-testid="debunks-empty">
-                <ShieldAlert className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                <p className="font-medium text-sm text-green-300">لا توجد شائعات مُفنَّدة بعد</p>
-                <p className="text-xs mt-1 text-green-600">كن أول من يرسل شائعة للتحليل</p>
+              <div className="col-span-full py-12 text-center" data-testid="debunks-empty">
+                <ShieldAlert className="mx-auto mb-3 h-10 w-10 text-emerald-700 opacity-50" />
+                <p className="text-sm font-medium text-emerald-200">لا توجد شائعات مُفنَّدة بعد</p>
+                <p className="mt-1 text-xs text-emerald-600">كن أول من يرسل شائعة للتحليل</p>
               </div>
             )}
           </div>
 
-          {/* pagination dots */}
           {totalSets > 1 && (
-            <div className="flex justify-center gap-2 mt-4" data-testid="debunk-dots">
+            <div className="mt-5 flex justify-center gap-2" data-testid="debunk-dots">
               {Array.from({ length: totalSets }).map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => { setVisible(false); setTimeout(() => { setCurrentSet(i); setVisible(true); }, 350); }}
-                  className={`rounded-full transition-all ${i === currentSet ? "w-5 h-2 bg-primary" : "w-2 h-2 bg-green-800"}`}
+                  onClick={() => {
+                    setVisible(false);
+                    setTimeout(() => {
+                      setCurrentSet(i);
+                      setVisible(true);
+                    }, 350);
+                  }}
+                  className={`rounded-full transition-all ${i === currentSet ? "h-2 w-5 bg-emerald-400" : "h-2 w-2 bg-emerald-900"}`}
                   data-testid={`debunk-dot-${i}`}
                 />
               ))}
