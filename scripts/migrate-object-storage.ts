@@ -136,10 +136,23 @@ async function main() {
   });
 
   console.log(`[migrate] found ${files.length} objects on Replit`);
+  console.log("[migrate] starting (HeadObject skip-check per file — progress every 50)...");
 
   let copied = 0;
   let skipped = 0;
   let failed = 0;
+  let announcedFirstUpload = false;
+  const startedAt = Date.now();
+
+  const logProgress = (force = false) => {
+    const processed = copied + skipped + failed;
+    if (!force && processed > 0 && processed % 50 !== 0) return;
+    const elapsedSec = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+    const rate = Math.round(processed / elapsedSec);
+    console.log(
+      `[migrate] progress ${processed}/${files.length} | copied=${copied} skipped=${skipped} failed=${failed} | ${rate}/s`,
+    );
+  };
 
   for (const file of files) {
     if (copied + skipped + failed >= limit) break;
@@ -149,6 +162,7 @@ async function main() {
       : file.name;
     if (!relative || relative.endsWith("/")) {
       skipped++;
+      logProgress();
       continue;
     }
 
@@ -165,6 +179,7 @@ async function main() {
         const destSize = Number(head.ContentLength ?? -1);
         if (srcSize > 0 && srcSize === destSize) {
           skipped++;
+          logProgress();
           continue;
         }
       } catch {
@@ -174,7 +189,13 @@ async function main() {
       if (dryRun) {
         console.log(`[dry-run] ${file.name} → s3://${destBucket}/${destKey}`);
         copied++;
+        logProgress();
         continue;
+      }
+
+      if (!announcedFirstUpload) {
+        announcedFirstUpload = true;
+        console.log(`[migrate] uploading: ${file.name}`);
       }
 
       const [buf] = await file.download();
@@ -189,14 +210,15 @@ async function main() {
         }),
       );
       copied++;
-      if (copied % 25 === 0) {
-        console.log(`[migrate] copied ${copied}...`);
-      }
+      logProgress();
     } catch (err: any) {
       failed++;
       console.error(`[migrate] FAIL ${file.name}:`, err?.message || err);
+      logProgress();
     }
   }
+
+  logProgress(true);
 
   console.log("[migrate] done");
   console.log(`  copied:  ${copied}`);
