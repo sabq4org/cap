@@ -9,7 +9,7 @@
 
 | العنصر | القيمة |
 |---|---|
-| **Base URL (الإنتاج)** | `https://capsulah.com` |
+| **Base URL (الإنتاج)** | `https://capsulah.net` |
 | **صيغة البيانات** | JSON (`Content-Type: application/json`) |
 | **اللغة / الاتجاه** | عربي، RTL |
 | **الترميز** | UTF-8 |
@@ -329,7 +329,7 @@ ChatMessage: id, sessionId*, role* ("user"|"assistant"), content*,
 1. **ابدأ بواجهة قراءة عامة** (أخبار + تصنيفات + مقالات + أدوية + شائعات) — لا تحتاج مصادقة، وهي جوهر التطبيق.
 2. **الترقيم (Pagination):** استخدم `?page=&perPage=` مع `/api/news` واعتمد على `totalPages` لتحميل المزيد (infinite scroll).
 3. **الجلسات:** فعّل حفظ الكوكيز في `URLSession`. سجّل دخول المستخدم عبر `/api/auth/login` قبل استدعاء مسارات المستخدم.
-4. **الصور:** حقل `imageUrl` قد يكون رابطاً كاملاً أو مساراً يبدأ بـ `/` — في الحالة الثانية اسبقه بـ `https://capsulah.com`.
+4. **الصور:** حقل `imageUrl` قد يكون رابطاً كاملاً أو مساراً يبدأ بـ `/` — في الحالة الثانية اسبقه بـ `https://capsulah.net`.
 5. **المشاهدات:** استدعِ `POST /api/news/:id/view` عند فتح الخبر (كل فتح يُحتسب).
 6. **RTL:** صمّم الواجهة يمين‑لليسار بخط عربي واضح (مثل IBM Plex Sans Arabic).
 7. **المحتوى `content`** لأخبار/مقالات يأتي HTML — اعرضه عبر عارض HTML/WebView أو حوّله لنص منسّق.
@@ -354,7 +354,7 @@ struct NewsItem: Codable {
 }
 
 func fetchNews(page: Int = 1) async throws -> [NewsItem] {
-    var comps = URLComponents(string: "https://capsulah.com/api/news")!
+    var comps = URLComponents(string: "https://capsulah.net/api/news")!
     comps.queryItems = [
         .init(name: "page", value: "\(page)"),
         .init(name: "perPage", value: "20")
@@ -366,7 +366,7 @@ func fetchNews(page: Int = 1) async throws -> [NewsItem] {
 
 // تسجيل الدخول (يحفظ الكوكي تلقائياً في HTTPCookieStorage)
 func login(email: String, password: String) async throws {
-    var req = URLRequest(url: URL(string: "https://capsulah.com/api/auth/login")!)
+    var req = URLRequest(url: URL(string: "https://capsulah.net/api/auth/login")!)
     req.httpMethod = "POST"
     req.setValue("application/json", forHTTPHeaderField: "Content-Type")
     req.httpBody = try JSONEncoder().encode(["email": email, "password": password])

@@ -82,6 +82,6 @@ AI_INTEGRATIONS_OPENAI_BASE_URL=https://api.openai.com/v1
 
 
 ## SEO على Railway
-- اضبط `BASE_URL=https://capsulah.com` (بدون شرطة أخيرة) — يُستخدم في `robots.txt` وملفات sitemap.
-- بعد الربط: Google Search Console → إضافة الموقع → إرسال `https://capsulah.com/sitemap.xml`.
+- اضبط `BASE_URL=https://capsulah.net` (بدون شرطة أخيرة) — يُستخدم في `robots.txt` وملفات sitemap.
+- بعد الربط: Google Search Console → إضافة الموقع → إرسال `https://capsulah.net/sitemap.xml`.
 - صفحات الأخبار والمقالات تخدم HTML للزواحف؛ المسارات غير الموجودة ترجع HTTP 404 مع `noindex`.

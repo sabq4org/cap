@@ -377,11 +377,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const getSiteBaseUrl = (): string => {
     const fromEnv = (process.env.BASE_URL || '').trim().replace(/\/$/, '');
     if (fromEnv) return fromEnv;
-    return 'https://capsulah.com';
+    return 'https://capsulah.net';
   };
 
   const getRequestBaseUrl = (req: { get: (h: string) => string | undefined }): string => {
-    const reqHost = req.get('host') || 'capsulah.com';
+    const reqHost = req.get('host') || 'capsulah.net';
     const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
     return `${proto}://${reqHost}`;
   };
@@ -2293,7 +2293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             try { hostname = new URL(refHeader).hostname.replace(/^www\./, '').toLowerCase(); }
             catch { /* malformed referrer → keep direct */ }
             if (hostname) {
-              if (hostname.includes('capsulah.com') || hostname.includes('replit')) {
+              if (hostname.includes('capsulah.net') || hostname.includes('capsulah.com') || hostname.includes('replit')) {
                 source = 'internal'; sourceLabel = 'تصفّح داخلي';
               } else {
                 const m = mapKnown(hostname);
@@ -4655,7 +4655,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "يرجى إدخال كلمة بحث صالحة" });
       }
       const results = await storage.searchArchive(query.trim());
-      const baseUrl = process.env.BASE_URL || 'https://capsulah.com';
+      const baseUrl = process.env.BASE_URL || 'https://capsulah.net';
 
       const newsItems = results.news.map((n) => ({
         id: n.id,
@@ -4752,7 +4752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .sort((a, b) => b.relevanceScore - a.relevanceScore)
         .slice(0, 4);
 
-      const baseUrl = process.env.BASE_URL || 'https://capsulah.com';
+      const baseUrl = process.env.BASE_URL || 'https://capsulah.net';
 
       const archiveResults: ArchiveSearchResult[] = [
         ...mergedNews.map((n) => ({

@@ -246,7 +246,7 @@ export default function WhatsAppSubscribe() {
                   <p>2. نصيحة: تجنب السكر المضاف بعد المغرب لصحة أفضل</p>
                   <p>3. الوزارة تُطلق حملة للكشف المبكر عن السكري</p>
                 </div>
-                <p className="text-xs text-[#128C7E]">📖 اقرأ المزيد: capsulah.com</p>
+                <p className="text-xs text-[#128C7E]">📖 اقرأ المزيد: capsulah.net</p>
                 <div className="border-t pt-2 text-xs text-gray-400">للإلغاء أرسل: إيقاف</div>
               </div>
               <p className="text-[10px] text-gray-500 mt-1 text-left">7:00 ص ✓✓</p>
