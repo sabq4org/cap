@@ -194,10 +194,20 @@ export function registerObjectStorageRoutes(app: Express): void {
         });
 
         await objectStorageService.downloadObject(objectFile, res);
-      } catch (error) {
-        console.error("Error serving object:", error);
+      } catch (error: any) {
         if (error instanceof ObjectNotFoundError) {
           return res.status(404).json({ error: "Object not found" });
+        }
+        // One-line log — full AWS stacks were flooding Railway (500 logs/sec limit)
+        const code = error?.code || error?.name || "Unknown";
+        const status = error?.$metadata?.httpStatusCode;
+        console.error(
+          `Error serving object ${req.path}: ${code}${status ? ` (${status})` : ""}`,
+        );
+        if (code === "S3_ACCESS_DENIED" || status === 403) {
+          return res.status(503).json({
+            error: "Object storage access denied — check S3 credentials on Railway",
+          });
         }
         return res.status(500).json({ error: "Failed to serve object" });
       }

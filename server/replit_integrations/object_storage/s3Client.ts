@@ -82,12 +82,22 @@ export class S3File {
       await getS3().send(new HeadObjectCommand(this.location));
       return [true];
     } catch (error: any) {
+      const status = error?.$metadata?.httpStatusCode;
       if (
         error?.name === "NotFound" ||
         error?.name === "NoSuchKey" ||
-        error?.$metadata?.httpStatusCode === 404
+        status === 404
       ) {
         return [false];
+      }
+      // 403 = wrong credentials / bucket ACL — surface clearly (not "UnknownError")
+      if (status === 403) {
+        const err = new Error(
+          `S3 AccessDenied (403) for s3://${this.bucketName}/${this.name} — check Railway bucket credentials and PRIVATE_OBJECT_DIR`,
+        );
+        (err as any).code = "S3_ACCESS_DENIED";
+        (err as any).$metadata = error.$metadata;
+        throw err;
       }
       throw error;
     }
