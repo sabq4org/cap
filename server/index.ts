@@ -291,7 +291,8 @@ async function fixCategoriesArabic() {
     server.listen({
       port,
       host: "0.0.0.0",
-      reusePort: true,
+      // reusePort is Replit/Linux-only; macOS throws ENOTSUP
+      ...(process.platform === "linux" ? { reusePort: true } : {}),
     }, () => {
       log(`serving on port ${port}`);
     });
