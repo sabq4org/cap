@@ -389,22 +389,22 @@ export default function Landing() {
       <div className="h-5 md:h-7" />
 
       {/* ── Debunk Block ── */}
-      <section className="relative overflow-hidden bg-emerald-50 py-10 md:py-14 dark:bg-emerald-950/40" dir="rtl">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-emerald-200 dark:bg-emerald-800"
-        />
-        <div className="container relative mx-auto max-w-7xl px-4 md:px-6">
-          <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_auto] lg:items-end">
-            <div className="max-w-2xl">
-              <p className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-emerald-700 dark:text-emerald-300">
+      <section className="relative border-y border-border/70 bg-muted/35 py-10 md:py-12" dir="rtl">
+        <div className="container mx-auto max-w-7xl px-4 md:px-6">
+          <div className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="relative max-w-2xl pr-4">
+              <span
+                aria-hidden
+                className="absolute bottom-1 top-1 right-0 w-1 rounded-full bg-primary"
+              />
+              <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold text-primary">
                 <ShieldAlert className="h-3.5 w-3.5" />
                 حقيقة أم خرافة؟
               </p>
-              <h2 className="text-2xl font-bold leading-tight text-emerald-950 dark:text-white md:text-3xl">
+              <h2 className="text-2xl font-bold leading-tight tracking-tight text-foreground md:text-[1.75rem]">
                 تفنيد الشائعات الصحية
               </h2>
-              <p className="mt-2 text-base text-emerald-800/75 dark:text-emerald-100/80 md:text-lg">
+              <p className="mt-1.5 text-sm text-muted-foreground md:text-[15px]">
                 شارك مع أهلك — قد تنقذ حياة
               </p>
             </div>
@@ -412,7 +412,7 @@ export default function Landing() {
               <Link href="/ask-capsule">
                 <Button
                   size="sm"
-                  className="h-10 gap-1.5 bg-emerald-600 px-4 text-white hover:bg-emerald-500"
+                  className="h-9 gap-1.5 px-3.5"
                   data-testid="button-debunk-submit"
                   onClick={() => trackDebunkCta()}
                 >
@@ -424,7 +424,7 @@ export default function Landing() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-10 border-emerald-300 bg-white/70 px-4 text-emerald-900 hover:bg-white dark:border-emerald-700 dark:bg-transparent dark:text-emerald-100 dark:hover:bg-emerald-900/40"
+                  className="h-9 px-3.5"
                   data-testid="button-debunk-view-all"
                 >
                   عرض الكل
@@ -443,11 +443,11 @@ export default function Landing() {
             {debunksLoading ? (
               <>
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="space-y-3 rounded-2xl border border-emerald-100 bg-white p-5 dark:border-emerald-800 dark:bg-emerald-950/50">
+                  <div key={i} className="space-y-3 rounded-xl border bg-background p-5">
                     <Skeleton className="h-5 w-24" />
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-3/4" />
-                    <div className="flex gap-3 border-t border-emerald-100 pt-3 dark:border-emerald-800">
+                    <div className="flex gap-3 border-t pt-3">
                       <Skeleton className="h-4 w-16" />
                       <Skeleton className="h-4 w-16" />
                       <Skeleton className="h-4 w-20" />
@@ -464,34 +464,42 @@ export default function Landing() {
                 const shareText = `${verdict?.label ? verdict.label + ": " : ""}${cleanTitle}`;
                 const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText + "\n" + itemUrl)}`;
                 const twUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(itemUrl)}`;
+                const accent =
+                  verdict?.label === "خرافة"
+                    ? "border-r-red-500"
+                    : verdict?.label === "صحيح"
+                      ? "border-r-primary"
+                      : verdict?.label === "صحيح جزئياً"
+                        ? "border-r-amber-500"
+                        : "border-r-border";
                 return (
                   <article
                     key={item.id}
-                    className="flex flex-col rounded-2xl border border-emerald-100 bg-white shadow-sm transition-colors hover:border-emerald-300 hover:shadow-md dark:border-emerald-800 dark:bg-emerald-950/50 dark:hover:border-emerald-600"
+                    className={`flex flex-col overflow-hidden rounded-xl border border-border bg-background border-r-[3px] ${accent} transition-shadow hover:shadow-md`}
                     data-testid={`debunk-card-${item.id}`}
                   >
                     <Link
                       href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}
-                      className="flex flex-1 flex-col gap-3 p-5"
+                      className="flex flex-1 flex-col gap-3 p-4 md:p-5"
                     >
                       {verdict && VerdictIcon && (
-                        <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${verdict.chipClass}`}>
+                        <span className={`inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-bold ${verdict.chipClass}`}>
                           <VerdictIcon className={`h-3.5 w-3.5 ${verdict.iconColor}`} />
                           {verdict.label}
                         </span>
                       )}
-                      <p className="line-clamp-3 text-[15px] font-semibold leading-snug text-foreground transition-colors hover:text-emerald-800 dark:hover:text-emerald-200">
+                      <p className="line-clamp-3 text-[15px] font-semibold leading-snug text-foreground transition-colors hover:text-primary">
                         {cleanTitle}
                       </p>
                     </Link>
 
-                    <div className="flex items-center gap-3 border-t border-emerald-50 px-5 py-3 dark:border-emerald-900/70">
-                      <span className="ml-auto text-xs text-muted-foreground">شارك مع أهلك</span>
+                    <div className="flex items-center gap-3 border-t border-border/80 bg-muted/20 px-4 py-2.5 md:px-5">
+                      <span className="ml-auto text-xs text-muted-foreground">شارك</span>
                       <a
                         href={waUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs font-medium text-emerald-700 transition-colors hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-100"
+                        className="flex items-center gap-1 text-xs font-medium text-foreground/70 transition-colors hover:text-primary"
                         data-testid={`share-whatsapp-${item.id}`}
                         title="شارك عبر واتساب"
                       >
@@ -504,7 +512,7 @@ export default function Landing() {
                         href={twUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs font-medium text-sky-600 transition-colors hover:text-sky-800 dark:text-sky-300 dark:hover:text-sky-100"
+                        className="flex items-center gap-1 text-xs font-medium text-foreground/70 transition-colors hover:text-sky-600"
                         data-testid={`share-twitter-${item.id}`}
                         title="شارك عبر تويتر"
                       >
@@ -515,14 +523,14 @@ export default function Landing() {
                       </a>
                       <button
                         onClick={() => handleCopy(item.id, itemUrl)}
-                        className="flex items-center gap-1 text-xs font-medium text-emerald-700 transition-colors hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-100"
+                        className="flex items-center gap-1 text-xs font-medium text-foreground/70 transition-colors hover:text-primary"
                         data-testid={`copy-link-${item.id}`}
                         title="نسخ الرابط"
                       >
                         {copiedId === item.id ? (
                           <>
-                            <Check className="h-3.5 w-3.5 text-emerald-600" />
-                            <span className="text-emerald-600">تم النسخ</span>
+                            <Check className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-primary">تم النسخ</span>
                           </>
                         ) : (
                           <>
@@ -537,8 +545,8 @@ export default function Landing() {
               })
             ) : (
               <div className="col-span-full py-12 text-center" data-testid="debunks-empty">
-                <ShieldAlert className="mx-auto mb-3 h-10 w-10 text-emerald-400" />
-                <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100">لا توجد شائعات مُفنَّدة بعد</p>
+                <ShieldAlert className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
+                <p className="text-sm font-medium text-foreground">لا توجد شائعات مُفنَّدة بعد</p>
                 <p className="mt-1 text-xs text-muted-foreground">كن أول من يرسل شائعة للتحليل</p>
               </div>
             )}
@@ -556,7 +564,7 @@ export default function Landing() {
                       setVisible(true);
                     }, 350);
                   }}
-                  className={`rounded-full transition-all ${i === currentSet ? "h-2 w-5 bg-emerald-600" : "h-2 w-2 bg-emerald-200 dark:bg-emerald-800"}`}
+                  className={`rounded-full transition-all ${i === currentSet ? "h-2 w-5 bg-primary" : "h-2 w-2 bg-border"}`}
                   data-testid={`debunk-dot-${i}`}
                 />
               ))}
