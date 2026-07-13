@@ -9,26 +9,32 @@ import {
   setObjectAclPolicy,
 } from "./objectAcl";
 
+import { S3Storage, isS3Configured, createUploadTicketURL } from "./s3Client";
+
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
-// The object storage client is used to interact with the object storage service.
-export const objectStorageClient = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
+// The object storage client is used to interact with the object storage
+// service. S3-compatible driver (Railway Bucket) when the S3 env vars are
+// set; otherwise the original Replit sidecar (GCS) — dev on Replit only.
+export const objectStorageClient: Storage = isS3Configured
+  ? (new S3Storage() as unknown as Storage)
+  : new Storage({
+      credentials: {
+        audience: "replit",
+        subject_token_type: "access_token",
+        token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
+        type: "external_account",
+        credential_source: {
+          url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
+          format: {
+            type: "json",
+            subject_token_field_name: "access_token",
+          },
+        },
+        universe_domain: "googleapis.com",
       },
-    },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
-});
+      projectId: "",
+    });
 
 export class ObjectNotFoundError extends Error {
   constructor() {
@@ -141,6 +147,13 @@ export class ObjectStorageService {
     }
 
     const objectId = randomUUID();
+
+    // S3 mode: same-origin upload route (no bucket CORS needed); the server
+    // verifies the HMAC ticket and streams the body into the bucket.
+    if (isS3Configured) {
+      return createUploadTicketURL(objectId, 900);
+    }
+
     const fullPath = `${privateObjectDir}/uploads/${objectId}`;
 
     const { bucketName, objectName } = parseObjectPath(fullPath);
@@ -184,6 +197,12 @@ export class ObjectStorageService {
   normalizeObjectEntityPath(
     rawPath: string,
   ): string {
+    // Server-proxied upload URL (S3 mode) → canonical /objects/ path.
+    const ticketMatch = rawPath.match(/^\/api\/objects\/upload\/([^/?]+)/);
+    if (ticketMatch) {
+      return `/objects/uploads/${ticketMatch[1]}`;
+    }
+
     if (!rawPath.startsWith("https://storage.googleapis.com/")) {
       return rawPath;
     }
@@ -239,7 +258,7 @@ export class ObjectStorageService {
   }
 }
 
-function parseObjectPath(path: string): {
+export function parseObjectPath(path: string): {
   bucketName: string;
   objectName: string;
 } {

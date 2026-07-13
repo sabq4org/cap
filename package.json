@@ -8,9 +8,11 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && node scripts/post-build.js",
     "start": "NODE_ENV=production node dist/index.mjs",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "migrate:objects": "tsx scripts/migrate-object-storage.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1086.0",
     "@google-cloud/storage": "^7.19.0",
     "@google/genai": "^1.40.0",
     "@hookform/resolvers": "^3.10.0",
