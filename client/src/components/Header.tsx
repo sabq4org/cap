@@ -97,15 +97,9 @@ export default function Header() {
       ];
 
   const isDebunkActive = location === "/ask-capsule";
-  const hideDebunkStrip =
-    isDebunkActive ||
-    location.startsWith("/admin") ||
-    location.startsWith("/login") ||
-    location.startsWith("/register");
 
   return (
-    <div className="sticky top-0 z-50">
-    <header className="w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto grid h-16 grid-cols-[auto_1fr_auto] items-center gap-3 px-4 md:gap-6 md:px-6">
         {/* Brand */}
         <Link
@@ -144,13 +138,16 @@ export default function Header() {
 
           <Link href="/ask-capsule">
             <Button
-              variant={isDebunkActive ? "secondary" : "default"}
+              variant={isDebunkActive ? "secondary" : "ghost"}
               size="sm"
-              className="gap-1.5 px-3 text-sm font-semibold"
+              className={cn(
+                "gap-1.5 px-2.5 text-sm font-medium",
+                !isDebunkActive && "text-violet-700 dark:text-violet-400",
+              )}
               data-testid="link-debunk"
               onClick={() => trackDebunkCta()}
             >
-              <FlaskConical className="h-3.5 w-3.5" />
+              <FlaskConical className="h-3.5 w-3.5 opacity-70" />
               تفنيد الشائعات
             </Button>
           </Link>
@@ -210,6 +207,16 @@ export default function Header() {
                 >
                   <Users className="h-4 w-4" />
                   كتّاب كبسولة
+                </DropdownMenuItem>
+              </Link>
+              <Link href="/ask-capsule">
+                <DropdownMenuItem
+                  onClick={() => trackDebunkCta()}
+                  className="flex cursor-pointer items-center justify-center gap-2 py-2 font-medium text-violet-700 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/30"
+                  data-testid="link-ask-capsule-dropdown"
+                >
+                  <FlaskConical className="h-4 w-4" />
+                  اسأل كبسولة - مفنّد الشائعات
                 </DropdownMenuItem>
               </Link>
               <Link href="/news">
@@ -356,20 +363,6 @@ export default function Header() {
                   <img src={logoImage} alt="كبسولة" className="h-9 w-auto" />
                 </div>
                 <nav className="flex flex-col gap-1">
-                  <Link href="/ask-capsule">
-                    <Button
-                      variant="default"
-                      className="mb-1 w-full justify-start gap-3"
-                      onClick={() => {
-                        trackDebunkCta();
-                        setMobileOpen(false);
-                      }}
-                      data-testid="link-mobile-debunk"
-                    >
-                      <FlaskConical className="h-5 w-5" />
-                      تفنيد الشائعات
-                    </Button>
-                  </Link>
                   {navItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = item.activePaths.includes(location);
@@ -388,6 +381,21 @@ export default function Header() {
                     );
                   })}
                 </nav>
+
+                <Link href="/ask-capsule">
+                  <Button
+                    variant={isDebunkActive ? "secondary" : "ghost"}
+                    className="w-full justify-start gap-3 text-violet-700 dark:text-violet-400"
+                    onClick={() => {
+                      trackDebunkCta();
+                      setMobileOpen(false);
+                    }}
+                    data-testid="link-mobile-debunk"
+                  >
+                    <FlaskConical className="h-5 w-5" />
+                    تفنيد الشائعات
+                  </Button>
+                </Link>
 
                 <div className="mt-2 border-t pt-4">
                   <div className="mb-3 flex items-center gap-2 px-2">
@@ -415,6 +423,22 @@ export default function Header() {
                       );
                     })}
                   </div>
+                </div>
+
+                <div className="mt-2 border-t pt-3">
+                  <Link href="/ask-capsule">
+                    <button
+                      onClick={() => {
+                        trackDebunkCta();
+                        setMobileOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/30"
+                      data-testid="link-mobile-ask-capsule"
+                    >
+                      <FlaskConical className="h-4 w-4" />
+                      اسأل كبسولة - مفنّد الشائعات
+                    </button>
+                  </Link>
                 </div>
 
                 <div className="mt-2 flex flex-col gap-2 border-t pt-4">
@@ -490,36 +514,5 @@ export default function Header() {
         </div>
       </div>
     </header>
-    {!hideDebunkStrip && (
-      <div
-        className="border-b border-border/70 bg-muted/40 backdrop-blur supports-[backdrop-filter]:bg-muted/50"
-        data-testid="header-debunk-strip"
-      >
-        <div className="container mx-auto px-4 md:px-6">
-          <Link
-            href="/ask-capsule"
-            onClick={() => trackDebunkCta()}
-            className="group flex items-center gap-3 py-2.5 transition-colors hover:bg-muted/60"
-            data-testid="link-header-debunk-strip"
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary">
-              <FlaskConical className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-foreground">
-                تفنيد الشائعات الصحية
-              </span>
-              <span className="block truncate text-xs text-muted-foreground">
-                شارك مع أهلك — قد تنقذ حياة
-              </span>
-            </span>
-            <span className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground group-hover:opacity-95">
-              أرسل شائعة
-            </span>
-          </Link>
-        </div>
-      </div>
-    )}
-    </div>
   );
 }
