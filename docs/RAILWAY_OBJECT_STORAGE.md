@@ -79,3 +79,9 @@ AI_INTEGRATIONS_OPENAI_BASE_URL=https://api.openai.com/v1
 - بدون ترحيل الباكت ستظهر الصور مكسورة رغم نجاح نسخ Neon.
 - الرفع الجديد من لوحة الأدمن في وضع S3 يمر عبر `/api/objects/upload/:id` (بدون CORS على الباكت).
 - روابط `/objects/uploads/...` في Neon تبقى كما هي — لا حاجة لتحديث صفوف `news`.
+
+
+## SEO على Railway
+- اضبط `BASE_URL=https://capsulah.com` (بدون شرطة أخيرة) — يُستخدم في `robots.txt` وملفات sitemap.
+- بعد الربط: Google Search Console → إضافة الموقع → إرسال `https://capsulah.com/sitemap.xml`.
+- صفحات الأخبار والمقالات تخدم HTML للزواحف؛ المسارات غير الموجودة ترجع HTTP 404 مع `noindex`.

@@ -4,6 +4,7 @@ import { Clock, CheckCircle, User, Calendar, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SEO } from "@/components/SEO";
+import { Helmet } from "react-helmet-async";
 import { articles as articlesTable } from "@shared/schema";
 
 type Article = typeof articlesTable.$inferSelect;
@@ -33,6 +34,10 @@ export default function ArticleDetail() {
   if (error || !article) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
+        <SEO title="المقال غير متوفر" description="المقال المطلوب غير متوفر." />
+        <Helmet>
+          <meta name="robots" content="noindex, follow" />
+        </Helmet>
         <h1 className="text-2xl font-bold mb-4">المقال غير متوفر</h1>
         <p className="text-muted-foreground mb-6">قد يكون المقال محذوفاً أو غير منشور بعد.</p>
         <Link href="/articles">
@@ -56,6 +61,7 @@ export default function ArticleDetail() {
         title={article.seoTitle || article.title}
         description={article.seoDescription || article.excerpt || ""}
         image={article.imageUrl || undefined}
+        url={typeof window !== "undefined" ? `${window.location.origin}/articles/${article.slug}` : undefined}
         type="article"
         publishedTime={publishedTime}
         author={article.author || article.reviewedBy || undefined}

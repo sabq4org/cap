@@ -373,6 +373,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .replace(/\s+/g, ' ')
       .trim();
 
+  // Canonical public origin for sitemaps/robots (prefer BASE_URL on Railway).
+  const getSiteBaseUrl = (): string => {
+    const fromEnv = (process.env.BASE_URL || '').trim().replace(/\/$/, '');
+    if (fromEnv) return fromEnv;
+    return 'https://capsulah.com';
+  };
+
+  const getRequestBaseUrl = (req: { get: (h: string) => string | undefined }): string => {
+    const reqHost = req.get('host') || 'capsulah.com';
+    const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
+    return `${proto}://${reqHost}`;
+  };
+
+  const isCrawlerRequest = (req: { get: (h: string) => string | undefined }): boolean => {
+    const userAgent = req.get('User-Agent') || '';
+    return /Googlebot|bingbot|WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
+  };
+
+  const isPublicNews = (item: { status?: string | null; scheduledAt?: Date | string | null; deletedAt?: Date | string | null }): boolean => {
+    if (!item || item.deletedAt) return false;
+    if (item.status === 'deleted' || item.status === 'draft') return false;
+    if (item.status === 'published') return true;
+    if (item.status === 'scheduled' && item.scheduledAt && new Date(item.scheduledAt).getTime() <= Date.now()) {
+      return true;
+    }
+    return false;
+  };
+
+  const isPublicArticle = (item: { status?: string | null; scheduledAt?: Date | string | null }): boolean => {
+    if (!item) return false;
+    if (item.status === 'published') return true;
+    if (item.status === 'scheduled' && item.scheduledAt && new Date(item.scheduledAt).getTime() <= Date.now()) {
+      return true;
+    }
+    return false;
+  };
+
+  const notFoundHtml = (title = 'الصفحة غير موجودة'): string => {
+    const escTitle = escapeHtml(title);
+    return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escTitle} | كبسولة</title>
+  <meta name="robots" content="noindex, follow">
+  <meta name="description" content="الصفحة المطلوبة غير موجودة على كبسولة.">
+</head>
+<body>
+  <h1>404 — ${escTitle}</h1>
+  <p><a href="/">العودة إلى كبسولة</a></p>
+</body>
+</html>`;
+  };
+
   function buildCrawlerHtml(opts: {
     title: string;
     description: string;
@@ -405,7 +460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       publisher: {
         '@type': 'Organization',
         name: 'كبسولة',
-        logo: { '@type': 'ImageObject', url: 'https://capsulah.com/favicon.png' },
+        logo: { '@type': 'ImageObject', url: `${getSiteBaseUrl()}/favicon.png` },
       },
     };
     if (pub) jsonLd.datePublished = pub;
@@ -556,6 +611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // robots.txt
   app.get('/robots.txt', (_req, res) => {
+    const baseUrl = getSiteBaseUrl();
     res.type('text/plain').send(
       [
         'User-agent: *',
@@ -565,15 +621,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Disallow: /login',
         'Disallow: /register',
         '',
-        'Sitemap: https://capsulah.com/sitemap.xml',
-        'Sitemap: https://capsulah.com/sitemap-news.xml',
+        `Sitemap: ${baseUrl}/sitemap.xml`,
+        `Sitemap: ${baseUrl}/sitemap-news.xml`,
       ].join('\n')
     );
   });
 
   app.get('/sitemap.xml', async (_req, res) => {
     try {
-      const baseUrl = 'https://capsulah.com';
+      const baseUrl = getSiteBaseUrl();
       // Only reference the articles sitemap when articles exist — an empty
       // sitemap shows up as an error in Google Search Console.
       let hasArticles = false;
@@ -601,7 +657,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/sitemap-static.xml', async (_req, res) => {
     try {
-      const baseUrl = 'https://capsulah.com';
+      const baseUrl = getSiteBaseUrl();
       const today = new Date().toISOString().split('T')[0];
       const cats = await storage.getCategories(true);
 
@@ -635,7 +691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // (Google News rules — violating them makes Google ignore the whole sitemap)
   app.get('/sitemap-news.xml', async (_req, res) => {
     try {
-      const baseUrl = 'https://capsulah.com';
+      const baseUrl = getSiteBaseUrl();
       const published = await storage.getNewsForSitemap();
 
       const cutoff = Date.now() - 48 * 60 * 60 * 1000;
@@ -698,7 +754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // so older items stay discoverable for regular indexing.
   app.get('/sitemap-general.xml', async (_req, res) => {
     try {
-      const baseUrl = 'https://capsulah.com';
+      const baseUrl = getSiteBaseUrl();
       const published = await storage.getNewsForSitemap();
 
       const urls = published.map(item => {
@@ -717,7 +773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/sitemap-articles.xml', async (_req, res) => {
     try {
-      const baseUrl = 'https://capsulah.com';
+      const baseUrl = getSiteBaseUrl();
       const articlesList = await storage.getArticles(undefined, 500);
 
       const urls = articlesList.map(article => {
@@ -738,13 +794,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/share/news/:id', async (req, res) => {
     try {
       const newsItem = await storage.getNewsById(req.params.id);
-      if (!newsItem) {
-        return res.redirect(`/news/${req.params.id}`);
+      if (!newsItem || !isPublicNews(newsItem)) {
+        return res.status(404).set({ 'Content-Type': 'text/html', 'Cache-Control': 'private, no-store' }).send(notFoundHtml('الخبر غير موجود'));
       }
-      
-      const reqHost = req.get('host') || 'capsulah.com';
-      const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
-      const baseUrl = `${proto}://${reqHost}`;
+
+      const baseUrl = getRequestBaseUrl(req);
       // Prefer short URL if available
       const pageUrl = newsItem.shortCode 
         ? `${baseUrl}/n/${newsItem.shortCode}`
@@ -766,24 +820,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Social media crawler detection and short URL redirect for news URLs with UUID
   app.get('/news/:id', async (req, res, next) => {
-    const userAgent = req.get('User-Agent') || '';
-    const isCrawler = /Googlebot|bingbot|WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
-    
+    const isCrawler = isCrawlerRequest(req);
+
     try {
       const newsItem = await storage.getNewsById(req.params.id);
-      
-      if (!newsItem) {
-        if (isCrawler) {
-          return res.status(404).set('Content-Type', 'text/html').send('<html><head><title>404 - غير موجود</title><meta name="robots" content="noindex"></head><body><h1>404 - الصفحة غير موجودة</h1></body></html>');
-        }
-        return next();
+
+      if (!newsItem || !isPublicNews(newsItem)) {
+        // Hard 404 for everyone — avoid soft-404 SPA shells that hurt indexing.
+        return res.status(404).set({ 'Content-Type': 'text/html', 'Cache-Control': 'private, no-store' }).send(notFoundHtml('الخبر غير موجود'));
       }
-      
+
       if (newsItem.shortCode) {
         if (isCrawler) {
-          const reqHost = req.get('host') || 'capsulah.com';
-          const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
-          const baseUrl = `${proto}://${reqHost}`;
+          const baseUrl = getRequestBaseUrl(req);
           const canonicalUrl = `${baseUrl}/n/${newsItem.shortCode}`;
           const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode}`;
           const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
@@ -793,11 +842,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         return res.redirect(301, `/n/${newsItem.shortCode}`);
       }
-      
+
       if (isCrawler) {
-        const reqHost = req.get('host') || 'capsulah.com';
-        const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
-        const baseUrl = `${proto}://${reqHost}`;
+        const baseUrl = getRequestBaseUrl(req);
         const pageUrl = `${baseUrl}/news/${newsItem.id}`;
         const ogImageUrl = `${baseUrl}/og/${newsItem.id}`;
         const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
@@ -805,7 +852,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const html = buildCrawlerHtml({ title: newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
         return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
       }
-      
+
       return next();
     } catch (error) {
       console.error('Error in /news/:id handler:', error);
@@ -814,36 +861,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get('/n/:shortCode', async (req, res, next) => {
-    const userAgent = req.get('User-Agent') || '';
-    const isCrawler = /Googlebot|bingbot|WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
-    
+    const isCrawler = isCrawlerRequest(req);
+
     try {
       const newsItem = await storage.getNewsByShortCode(req.params.shortCode);
-      
-      if (!newsItem) {
-        if (isCrawler) {
-          return res.status(404).set('Content-Type', 'text/html').send('<html><head><title>404 - غير موجود</title><meta name="robots" content="noindex"></head><body><h1>404 - الصفحة غير موجودة</h1></body></html>');
-        }
-        return next();
+
+      if (!newsItem || !isPublicNews(newsItem)) {
+        return res.status(404).set({ 'Content-Type': 'text/html', 'Cache-Control': 'private, no-store' }).send(notFoundHtml('الخبر غير موجود'));
       }
-      
+
       if (!isCrawler) {
         return next();
       }
-      
-      const reqHost = req.get('host') || 'capsulah.com';
-      const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
-      const baseUrl = `${proto}://${reqHost}`;
+
+      const baseUrl = getRequestBaseUrl(req);
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
       const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode || newsItem.id}`;
       const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
       const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
-      
+
       const html = buildCrawlerHtml({ title: newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
-      
+
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
       console.error('Error in /n/:shortCode handler:', error);
+      next();
+    }
+  });
+
+  // Crawler HTML for medical articles (same SPA problem as news pages)
+  app.get('/articles/:slug', async (req, res, next) => {
+    if (!isCrawlerRequest(req)) {
+      return next();
+    }
+
+    try {
+      const article = await storage.getArticleBySlug(req.params.slug);
+      if (!article || !isPublicArticle(article)) {
+        return res.status(404).set({ 'Content-Type': 'text/html', 'Cache-Control': 'private, no-store' }).send(notFoundHtml('المقال غير موجود'));
+      }
+
+      const baseUrl = getRequestBaseUrl(req);
+      const pageUrl = `${baseUrl}/articles/${article.slug}`;
+      const articleImageUrl = article.imageUrl
+        ? (article.imageUrl.startsWith('/') ? `${baseUrl}${article.imageUrl}` : article.imageUrl)
+        : `${baseUrl}/og-image.png`;
+      const ogImageUrl = articleImageUrl;
+      const rawDescription = article.seoDescription || article.excerpt || (article.content ? stripHtml(article.content).slice(0, 160) : article.title);
+      const keywords = (article.keywords && article.keywords.length > 0) ? article.keywords : (article.tags || []);
+      const html = buildCrawlerHtml({
+        title: article.seoTitle || article.title,
+        description: rawDescription,
+        ogImageUrl,
+        pageUrl,
+        publishedAt: article.publishedAt,
+        updatedAt: article.updatedAt,
+        contentHtml: article.content,
+        keywords,
+        author: article.author || article.reviewedBy,
+        articleImageUrl,
+        redirect: false,
+      });
+      return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
+    } catch (error) {
+      console.error('Error in /articles/:slug crawler handler:', error);
       next();
     }
   });
@@ -1160,14 +1241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!article) {
         return res.status(404).json({ message: "Article not found" });
       }
-      // Public visibility: only return published OR scheduled-due articles
-      const now = new Date();
-      const isPublic =
-        article.status === 'published' ||
-        (article.status === 'scheduled' &&
-          article.scheduledAt &&
-          new Date(article.scheduledAt) <= now);
-      if (!isPublic) {
+      if (!isPublicArticle(article)) {
         return res.status(404).json({ message: "Article not found" });
       }
       res.json(article);
@@ -2117,10 +2191,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/news/:id', async (req, res) => {
+  app.get('/api/news/:id', async (req: any, res) => {
     try {
       const newsItem = await storage.getNewsById(req.params.id);
-      if (!newsItem) {
+      const isAdmin = !!req.session?.adminAuthenticated;
+      if (!newsItem || (!isPublicNews(newsItem) && !isAdmin)) {
         return res.status(404).json({ message: "News not found" });
       }
       res.json(newsItem);
@@ -2241,7 +2316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/news/:id/related', async (req, res) => {
     try {
       const newsItem = await storage.getNewsById(req.params.id);
-      if (!newsItem) {
+      if (!newsItem || !isPublicNews(newsItem)) {
         return res.status(404).json({ message: "News not found" });
       }
       const related = await storage.getRelatedNews(newsItem.id, newsItem.category || 'general', 10);
@@ -2253,10 +2328,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get news by short code (for short URLs)
-  app.get('/api/n/:shortCode', async (req, res) => {
+  app.get('/api/n/:shortCode', async (req: any, res) => {
     try {
       const newsItem = await storage.getNewsByShortCode(req.params.shortCode);
-      if (!newsItem) {
+      const isAdmin = !!req.session?.adminAuthenticated;
+      if (!newsItem || (!isPublicNews(newsItem) && !isAdmin)) {
         return res.status(404).json({ message: "News not found" });
       }
       res.json(newsItem);

@@ -29,6 +29,7 @@ export function SEO({
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
+      {currentUrl && <link rel="canonical" href={currentUrl} />}
       {keywords.length > 0 && (
         <meta name="keywords" content={keywords.join(", ")} />
       )}

@@ -4,6 +4,7 @@ import AdBanner from "@/components/AdBanner";
 import { useRoute, Link } from "wouter";
 import DOMPurify from "dompurify";
 import { SEO } from "@/components/SEO";
+import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -268,6 +269,10 @@ export default function NewsDetail() {
   if (!news) {
     return (
       <div className="min-h-screen p-6 flex items-center justify-center" dir="rtl">
+        <SEO title="الخبر غير موجود" description="الخبر المطلوب غير متوفر." />
+        <Helmet>
+          <meta name="robots" content="noindex, follow" />
+        </Helmet>
         <Card className="p-8 text-center">
           <p className="text-lg text-muted-foreground mb-4">الخبر غير موجود</p>
           <Link href="/news">
@@ -290,6 +295,7 @@ export default function NewsDetail() {
         title={news.title}
         description={seoDescription}
         image={seoImage}
+        url={news.shortCode ? `${window.location.origin}/n/${news.shortCode}` : `${window.location.origin}/news/${news.id}`}
         type="article"
         publishedTime={news.publishedAt?.toString()}
         author={news.source || "كبسولة"}
