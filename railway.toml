@@ -1,11 +1,6 @@
 [build]
-builder = "NIXPACKS"
+builder = "RAILPACK"
 buildCommand = "npm run build"
-
-# Railpack/Nixpacks set NODE_ENV=production during install, which skips
-# vite/esbuild (devDependencies). Force full install so `npm run build` works.
-[variables]
-NPM_CONFIG_PRODUCTION = "false"
 
 [deploy]
 startCommand = "npm start"
