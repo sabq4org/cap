@@ -1,6 +1,29 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Heart, User, Home, Newspaper, Apple, Activity, Settings, LogOut, Sparkles, MapPin, Users, FileText, Calendar, HeartPulse, Salad, ChevronDown, LayoutDashboard, ShieldCheck, Search, FlaskConical, Headphones, Pill } from "lucide-react";
+import {
+  Menu,
+  X,
+  Heart,
+  User,
+  Home,
+  Newspaper,
+  Apple,
+  Activity,
+  Settings,
+  LogOut,
+  Sparkles,
+  MapPin,
+  Users,
+  FileText,
+  Calendar,
+  HeartPulse,
+  Salad,
+  ChevronDown,
+  ShieldCheck,
+  Search,
+  FlaskConical,
+  Pill,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -15,6 +38,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import logoImage from "@assets/LOGO-L_1769253692563.png";
 import { trackDebunkCta } from "@/lib/debunkCta";
+import { cn } from "@/lib/utils";
 
 const categories = [
   { label: "أخبار صحية", icon: Newspaper, color: "text-green-600", path: "/news?category=health-news" },
@@ -58,26 +82,39 @@ export default function Header() {
     }
   };
 
-  const navItems = isAuthenticated ? [
-    { label: "الرئيسية", path: "/", icon: Home, activePaths: ["/"] },
-    { label: "الأخبار", path: "/news", icon: Newspaper, activePaths: ["/news"] },
-    { label: "جرعتك اليومية", path: "/capsule", icon: Pill, activePaths: ["/capsule"] },
-    { label: "المساعد الصحي", path: "/assistant", icon: Heart, activePaths: ["/assistant"] },
-    { label: "التغذية", path: "/nutrition", icon: Apple, activePaths: ["/nutrition"] },
-    { label: "ملفي الصحي", path: "/profile", icon: Activity, activePaths: ["/profile"] },
-  ] : [
-    { label: "الرئيسية", path: "/", icon: Home, activePaths: ["/"] },
-    { label: "الأخبار", path: "/news", icon: Newspaper, activePaths: ["/news"] },
-  ];
+  const navItems = isAuthenticated
+    ? [
+        { label: "الرئيسية", path: "/", icon: Home, activePaths: ["/"] },
+        { label: "الأخبار", path: "/news", icon: Newspaper, activePaths: ["/news"] },
+        { label: "جرعتك اليومية", path: "/capsule", icon: Pill, activePaths: ["/capsule"] },
+        { label: "المساعد الصحي", path: "/assistant", icon: Heart, activePaths: ["/assistant"] },
+        { label: "التغذية", path: "/nutrition", icon: Apple, activePaths: ["/nutrition"] },
+        { label: "ملفي الصحي", path: "/profile", icon: Activity, activePaths: ["/profile"] },
+      ]
+    : [
+        { label: "الرئيسية", path: "/", icon: Home, activePaths: ["/"] },
+        { label: "الأخبار", path: "/news", icon: Newspaper, activePaths: ["/news"] },
+      ];
+
+  const isDebunkActive = location === "/ask-capsule";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-        <Link href="/" className="flex items-center gap-2 hover-elevate active-elevate-2 rounded-lg px-3 py-2 transition-colors" data-testid="link-home">
-          <img src={logoImage} alt="كبسولة" className="h-12 w-auto" />
+      <div className="container mx-auto grid h-16 grid-cols-[auto_1fr_auto] items-center gap-3 px-4 md:gap-6 md:px-6">
+        {/* Brand */}
+        <Link
+          href="/"
+          className="flex shrink-0 items-center rounded-lg px-1 py-1 transition-opacity hover:opacity-90"
+          data-testid="link-home"
+        >
+          <img src={logoImage} alt="كبسولة" className="h-9 w-auto md:h-10" />
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1" data-testid="nav-desktop">
+        {/* Center nav */}
+        <nav
+          className="hidden min-w-0 items-center justify-center gap-0.5 lg:flex"
+          data-testid="nav-desktop"
+        >
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.activePaths.includes(location);
@@ -85,37 +122,49 @@ export default function Header() {
               <Link key={item.path} href={item.path}>
                 <Button
                   variant={isActive ? "secondary" : "ghost"}
-                  className="gap-2"
+                  size="sm"
+                  className={cn(
+                    "gap-1.5 px-2.5 text-sm font-medium",
+                    isActive && "bg-secondary",
+                  )}
                   data-testid={`link-${item.label}`}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-3.5 w-3.5 opacity-70" />
                   {item.label}
                 </Button>
               </Link>
             );
           })}
-          
+
           <Link href="/ask-capsule">
             <Button
-              variant={location === "/ask-capsule" ? "secondary" : "ghost"}
-              className="gap-2 text-violet-700 dark:text-violet-400"
+              variant={isDebunkActive ? "secondary" : "ghost"}
+              size="sm"
+              className={cn(
+                "gap-1.5 px-2.5 text-sm font-medium",
+                !isDebunkActive && "text-violet-700 dark:text-violet-400",
+              )}
               data-testid="link-debunk"
               onClick={() => trackDebunkCta()}
             >
-              <FlaskConical className="h-4 w-4" />
+              <FlaskConical className="h-3.5 w-3.5 opacity-70" />
               تفنيد الشائعات
             </Button>
           </Link>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="gap-2" data-testid="button-categories">
-                <Sparkles className="h-4 w-4 text-primary" />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1 px-2.5 text-sm font-medium"
+                data-testid="button-categories"
+              >
                 الأقسام
-                <ChevronDown className="h-3 w-3" />
+                <ChevronDown className="h-3.5 w-3.5 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="center" className="w-56">
               <DropdownMenuLabel className="text-center">
                 <div className="flex items-center justify-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
@@ -128,8 +177,11 @@ export default function Header() {
                   const CatIcon = cat.icon;
                   return (
                     <Link key={cat.label} href={cat.path}>
-                      <DropdownMenuItem className="flex flex-col items-center gap-1 p-3 cursor-pointer hover-elevate rounded-lg" data-testid={`link-category-${cat.label}`}>
-                        <div className={`p-2 rounded-full bg-muted ${cat.color}`}>
+                      <DropdownMenuItem
+                        className="flex cursor-pointer flex-col items-center gap-1 rounded-lg p-3 hover-elevate"
+                        data-testid={`link-category-${cat.label}`}
+                      >
+                        <div className={`rounded-full bg-muted p-2 ${cat.color}`}>
                           <CatIcon className="h-5 w-5" />
                         </div>
                         <span className="text-xs font-medium">{cat.label}</span>
@@ -140,25 +192,38 @@ export default function Header() {
               </div>
               <DropdownMenuSeparator />
               <Link href="/drugs">
-                <DropdownMenuItem className="flex items-center justify-center gap-2 py-2 cursor-pointer text-primary font-medium hover:bg-primary/5" data-testid="link-drugs-dropdown">
+                <DropdownMenuItem
+                  className="flex cursor-pointer items-center justify-center gap-2 py-2 font-medium text-primary hover:bg-primary/5"
+                  data-testid="link-drugs-dropdown"
+                >
                   <Pill className="h-4 w-4" />
                   موسوعة الأدوية
                 </DropdownMenuItem>
               </Link>
               <Link href="/authors">
-                <DropdownMenuItem className="flex items-center justify-center gap-2 py-2 cursor-pointer text-primary font-medium hover:bg-primary/5" data-testid="link-authors-dropdown">
+                <DropdownMenuItem
+                  className="flex cursor-pointer items-center justify-center gap-2 py-2 font-medium text-primary hover:bg-primary/5"
+                  data-testid="link-authors-dropdown"
+                >
                   <Users className="h-4 w-4" />
                   كتّاب كبسولة
                 </DropdownMenuItem>
               </Link>
               <Link href="/ask-capsule">
-                <DropdownMenuItem onClick={() => trackDebunkCta()} className="flex items-center justify-center gap-2 py-2 cursor-pointer text-violet-700 dark:text-violet-400 font-medium hover:bg-violet-50 dark:hover:bg-violet-950/30" data-testid="link-ask-capsule-dropdown">
+                <DropdownMenuItem
+                  onClick={() => trackDebunkCta()}
+                  className="flex cursor-pointer items-center justify-center gap-2 py-2 font-medium text-violet-700 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/30"
+                  data-testid="link-ask-capsule-dropdown"
+                >
                   <FlaskConical className="h-4 w-4" />
                   اسأل كبسولة - مفنّد الشائعات
                 </DropdownMenuItem>
               </Link>
               <Link href="/news">
-                <DropdownMenuItem className="justify-center text-primary font-medium cursor-pointer" data-testid="link-all-categories">
+                <DropdownMenuItem
+                  className="cursor-pointer justify-center font-medium text-primary"
+                  data-testid="link-all-categories"
+                >
                   عرض جميع الأخبار
                 </DropdownMenuItem>
               </Link>
@@ -166,9 +231,13 @@ export default function Header() {
           </DropdownMenu>
         </nav>
 
-        <div className="flex items-center gap-2">
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-1 sm:gap-1.5">
           {searchOpen ? (
-            <form onSubmit={handleSearchSubmit} className="flex items-center gap-1">
+            <form
+              onSubmit={handleSearchSubmit}
+              className="flex items-center gap-1"
+            >
               <input
                 ref={searchInputRef}
                 type="text"
@@ -176,55 +245,101 @@ export default function Header() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="ابحث في الأخبار..."
-                className="h-9 w-48 md:w-64 rounded-md border border-input bg-background px-3 text-sm outline-none ring-primary focus:ring-2 transition-all"
+                className="h-9 w-36 rounded-md border border-input bg-background px-3 text-sm outline-none ring-primary transition-all focus:ring-2 sm:w-48 md:w-56"
                 data-testid="input-header-search"
               />
-              <Button type="submit" size="icon" variant="ghost" className="shrink-0" data-testid="button-header-search-submit">
+              <Button
+                type="submit"
+                size="icon"
+                variant="ghost"
+                className="h-9 w-9 shrink-0"
+                data-testid="button-header-search-submit"
+              >
                 <Search className="h-4 w-4" />
               </Button>
-              <Button type="button" size="icon" variant="ghost" className="shrink-0" onClick={() => { setSearchOpen(false); setSearchTerm(""); }} data-testid="button-header-search-close">
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-9 w-9 shrink-0"
+                onClick={() => {
+                  setSearchOpen(false);
+                  setSearchTerm("");
+                }}
+                data-testid="button-header-search-close"
+              >
                 <X className="h-4 w-4" />
               </Button>
             </form>
           ) : (
-            <Button variant="ghost" size="icon" onClick={() => setSearchOpen(true)} data-testid="button-header-search">
-              <Search className="h-5 w-5" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setSearchOpen(true)}
+              data-testid="button-header-search"
+            >
+              <Search className="h-4 w-4" />
             </Button>
           )}
+
           <ThemeToggle />
+
           {isAuthenticated ? (
-            <>
+            <div className="hidden items-center gap-1 md:flex">
               {user?.id === "admin" && (
                 <Link href="/admin/dashboard">
-                  <Button variant="default" size="sm" className="hidden md:flex gap-2 bg-emerald-700 hover:bg-emerald-800 text-white" data-testid="button-admin-dashboard">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="gap-1.5 bg-emerald-700 text-white hover:bg-emerald-800"
+                    data-testid="button-admin-dashboard"
+                  >
                     <ShieldCheck className="h-4 w-4" />
                     لوحة التحكم
                   </Button>
                 </Link>
               )}
-              <Button variant="outline" className="hidden md:flex gap-2" data-testid="button-profile">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                data-testid="button-profile"
+              >
                 <User className="h-4 w-4" />
-                {user?.firstName || user?.email || "حسابي"}
+                <span className="max-w-[7rem] truncate">
+                  {user?.firstName || user?.email || "حسابي"}
+                </span>
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="hidden md:flex" 
-                onClick={() => window.location.href = "/api/logout"}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => (window.location.href = "/api/logout")}
                 data-testid="button-logout"
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-4 w-4" />
               </Button>
-            </>
+            </div>
           ) : (
-            <div className="hidden md:flex items-center gap-2">
+            <div className="hidden items-center gap-1.5 md:flex">
               <Link href="/login">
-                <Button variant="ghost" data-testid="button-login-header">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="px-3"
+                  data-testid="button-login-header"
+                >
                   تسجيل الدخول
                 </Button>
               </Link>
               <Link href="/register">
-                <Button variant="default" data-testid="button-register-header">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="px-3"
+                  data-testid="button-register-header"
+                >
                   إنشاء حساب
                 </Button>
               </Link>
@@ -232,17 +347,22 @@ export default function Header() {
           )}
 
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild className="md:hidden">
-              <Button variant="ghost" size="icon" data-testid="button-menu">
-                <Menu className="h-6 w-6" />
+            <SheetTrigger asChild className="lg:hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                data-testid="button-menu"
+              >
+                <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-64">
+            <SheetContent side="right" className="w-72">
               <div className="flex flex-col gap-4 py-6">
-                <div className="flex items-center gap-3 px-2 pb-4 border-b">
-                  <img src={logoImage} alt="كبسولة" className="h-10 w-auto" />
+                <div className="flex items-center gap-3 border-b px-2 pb-4">
+                  <img src={logoImage} alt="كبسولة" className="h-9 w-auto" />
                 </div>
-                <nav className="flex flex-col gap-2">
+                <nav className="flex flex-col gap-1">
                   {navItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = item.activePaths.includes(location);
@@ -261,12 +381,15 @@ export default function Header() {
                     );
                   })}
                 </nav>
-                
+
                 <Link href="/ask-capsule">
                   <Button
-                    variant={location === "/ask-capsule" ? "secondary" : "ghost"}
+                    variant={isDebunkActive ? "secondary" : "ghost"}
                     className="w-full justify-start gap-3 text-violet-700 dark:text-violet-400"
-                    onClick={() => { trackDebunkCta(); setMobileOpen(false); }}
+                    onClick={() => {
+                      trackDebunkCta();
+                      setMobileOpen(false);
+                    }}
                     data-testid="link-mobile-debunk"
                   >
                     <FlaskConical className="h-5 w-5" />
@@ -274,10 +397,10 @@ export default function Header() {
                   </Button>
                 </Link>
 
-                <div className="mt-4 border-t pt-4">
-                  <div className="flex items-center gap-2 px-2 mb-3">
+                <div className="mt-2 border-t pt-4">
+                  <div className="mb-3 flex items-center gap-2 px-2">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    <span className="font-semibold text-sm">الأقسام</span>
+                    <span className="text-sm font-semibold">الأقسام</span>
                   </div>
                   <div className="grid grid-cols-4 gap-1">
                     {categories.map((cat) => {
@@ -286,24 +409,30 @@ export default function Header() {
                         <Link key={cat.label} href={cat.path}>
                           <button
                             onClick={() => setMobileOpen(false)}
-                            className="flex flex-col items-center gap-1 p-1.5 rounded-lg hover-elevate w-full"
+                            className="flex w-full flex-col items-center gap-1 rounded-lg p-1.5 hover-elevate"
                             data-testid={`link-mobile-category-${cat.label}`}
                           >
-                            <div className={`p-1.5 rounded-full bg-muted ${cat.color}`}>
+                            <div className={`rounded-full bg-muted p-1.5 ${cat.color}`}>
                               <CatIcon className="h-3.5 w-3.5" />
                             </div>
-                            <span className="text-[10px] text-center leading-tight">{cat.label}</span>
+                            <span className="text-center text-[10px] leading-tight">
+                              {cat.label}
+                            </span>
                           </button>
                         </Link>
                       );
                     })}
                   </div>
                 </div>
+
                 <div className="mt-2 border-t pt-3">
                   <Link href="/ask-capsule">
                     <button
-                      onClick={() => { trackDebunkCta(); setMobileOpen(false); }}
-                      className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium text-violet-700 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors"
+                      onClick={() => {
+                        trackDebunkCta();
+                        setMobileOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/30"
                       data-testid="link-mobile-ask-capsule"
                     >
                       <FlaskConical className="h-4 w-4" />
@@ -311,29 +440,45 @@ export default function Header() {
                     </button>
                   </Link>
                 </div>
+
                 <div className="mt-2 flex flex-col gap-2 border-t pt-4">
                   {isAuthenticated ? (
                     <>
                       {user?.id === "admin" && (
-                        <Link href="/admin/dashboard" onClick={() => setMobileOpen(false)}>
-                          <Button variant="default" className="w-full gap-2 bg-emerald-700 hover:bg-emerald-800 text-white" data-testid="button-mobile-admin">
+                        <Link
+                          href="/admin/dashboard"
+                          onClick={() => setMobileOpen(false)}
+                        >
+                          <Button
+                            variant="default"
+                            className="w-full gap-2 bg-emerald-700 text-white hover:bg-emerald-800"
+                            data-testid="button-mobile-admin"
+                          >
                             <ShieldCheck className="h-4 w-4" />
                             لوحة التحكم
                           </Button>
                         </Link>
                       )}
-                      <Button variant="outline" className="w-full gap-2" data-testid="button-mobile-profile">
+                      <Button
+                        variant="outline"
+                        className="w-full gap-2"
+                        data-testid="button-mobile-profile"
+                      >
                         <User className="h-4 w-4" />
                         {user?.firstName || user?.email || "حسابي"}
                       </Button>
-                      <Button variant="ghost" className="w-full gap-2" data-testid="button-mobile-settings">
+                      <Button
+                        variant="ghost"
+                        className="w-full gap-2"
+                        data-testid="button-mobile-settings"
+                      >
                         <Settings className="h-4 w-4" />
                         الإعدادات
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        className="w-full gap-2" 
-                        onClick={() => window.location.href = "/api/logout"}
+                      <Button
+                        variant="ghost"
+                        className="w-full gap-2"
+                        onClick={() => (window.location.href = "/api/logout")}
                         data-testid="button-mobile-logout"
                       >
                         <LogOut className="h-4 w-4" />
@@ -343,12 +488,20 @@ export default function Header() {
                   ) : (
                     <>
                       <Link href="/login" onClick={() => setMobileOpen(false)}>
-                        <Button variant="outline" className="w-full" data-testid="button-mobile-login">
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          data-testid="button-mobile-login"
+                        >
                           تسجيل الدخول
                         </Button>
                       </Link>
                       <Link href="/register" onClick={() => setMobileOpen(false)}>
-                        <Button variant="default" className="w-full" data-testid="button-mobile-register">
+                        <Button
+                          variant="default"
+                          className="w-full"
+                          data-testid="button-mobile-register"
+                        >
                           إنشاء حساب جديد
                         </Button>
                       </Link>
