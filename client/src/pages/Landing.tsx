@@ -378,7 +378,7 @@ export default function Landing() {
                 const verdict = getVerdictFromTitle(item.title);
                 const VerdictIcon = verdict?.icon;
                 const cleanTitle = getCleanDebunkTitle(item.title);
-                const itemUrl = `https://capsulah.net${item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}`;
+                const itemUrl = `https://capsulah.com${item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}`;
                 const shareText = `${verdict?.label ? verdict.label + ': ' : ''}${cleanTitle}`;
                 const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + itemUrl)}`;
                 const twUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(itemUrl)}`;

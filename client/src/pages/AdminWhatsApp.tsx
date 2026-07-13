@@ -114,7 +114,7 @@ export default function AdminWhatsApp() {
         ``,
         ...points.map((p: string, i: number) => `${i + 1}. ${p}`),
         ``,
-        `📖 اقرأ المزيد: https://capsulah.net`,
+        `📖 اقرأ المزيد: https://capsulah.com`,
         ``,
         `━━━━━━━━━━━━━━━━━━`,
         `للإلغاء أرسل: *إيقاف*`,

@@ -81,7 +81,14 @@ AI_INTEGRATIONS_OPENAI_BASE_URL=https://api.openai.com/v1
 - روابط `/objects/uploads/...` في Neon تبقى كما هي — لا حاجة لتحديث صفوف `news`.
 
 
-## SEO على Railway
-- اضبط `BASE_URL=https://capsulah.net` (بدون شرطة أخيرة) — يُستخدم في `robots.txt` وملفات sitemap.
-- بعد الربط: Google Search Console → إضافة الموقع → إرسال `https://capsulah.net/sitemap.xml`.
-- صفحات الأخبار والمقالات تخدم HTML للزواحف؛ المسارات غير الموجودة ترجع HTTP 404 مع `noindex`.
+## الدومين والـ SEO (تجريبي → إنتاج)
+
+- **الآن (تجريبي أثناء ترحيل الصور):** على خدمة `cap` في Railway ضع
+  `BASE_URL=https://capsulah.net`
+  الصور تُخدم كـ `https://capsulah.net/objects/uploads/...` والمسارات في Neon تبقى نسبية `/objects/uploads/...`.
+- **بعد اكتمال الترحيل والجاهزية:** غيّر فقط
+  `BASE_URL=https://capsulah.com`
+  واربط DNS لـ `capsulah.com` → خدمة Railway. **لا حاجة لتعديل صفوف الصور في Neon.**
+- `robots.txt` وملفات sitemap تأخذ الدومين من `BASE_URL`.
+- عند التحويل النهائي: Google Search Console على `capsulah.com` → إرسال `https://capsulah.com/sitemap.xml`.
+- صفحات الأخبار/المقالات تخدم HTML للزواحف؛ المسارات غير الموجودة ترجع HTTP 404 مع `noindex`.

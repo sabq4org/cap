@@ -446,7 +446,7 @@ async function fixCategoriesArabic() {
           ``,
           ...content.points.map((p, i) => `${i + 1}. ${p}`),
           ``,
-          `📖 اقرأ المزيد: https://capsulah.net`,
+          `📖 اقرأ المزيد: https://capsulah.com`,
           ``,
           `━━━━━━━━━━━━━━━━━━`,
           `للإلغاء أرسل: *إيقاف*`,
