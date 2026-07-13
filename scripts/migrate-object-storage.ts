@@ -17,13 +17,16 @@
  *   DEST_PREFIX                 بادئة مفاتيح الوجهة (افتراضي .private)
  *   MIGRATE_DRY_RUN=1           سرد فقط بدون رفع
  *   MIGRATE_LIMIT=N             حد أقصى للملفات (للاختبار)
+ *   MIGRATE_FORCE=1             أعد الرفع حتى لو الملف موجود
+ *
+ * الاستئناف: يسرد باكت الوجهة مرة واحدة ويتخطى المفاتيح الموجودة بنفس الحجم.
  */
 
 import { Storage } from "@google-cloud/storage";
 import {
   S3Client,
   PutObjectCommand,
-  HeadObjectCommand,
+  ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
@@ -136,17 +139,50 @@ async function main() {
   });
 
   console.log(`[migrate] found ${files.length} objects on Replit`);
-  console.log("[migrate] starting (HeadObject skip-check per file — progress every 50)...");
+  console.log("[migrate] listing destination bucket (resume inventory)...");
+
+  // One list beats 20k HeadObject calls — and avoids S3's 403-on-missing quirk
+  // that made every file look "new" and restart the whole copy.
+  const existing = new Map<string, number>();
+  let continuationToken: string | undefined;
+  do {
+    const page = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: destBucket,
+        Prefix: destPrefix || undefined,
+        ContinuationToken: continuationToken,
+      }),
+    );
+    for (const obj of page.Contents || []) {
+      if (obj.Key) existing.set(obj.Key, Number(obj.Size ?? 0));
+    }
+    continuationToken = page.IsTruncated
+      ? page.NextContinuationToken
+      : undefined;
+    if (existing.size > 0 && existing.size % 2000 === 0) {
+      console.log(`[migrate] listed ${existing.size} dest objects so far...`);
+    }
+  } while (continuationToken);
+
+  console.log(
+    `[migrate] dest already has ${existing.size} objects under ${destPrefix || "(root)"}`,
+  );
+  if (existing.size === 0) {
+    console.log("[migrate] note: empty dest inventory — full copy will run");
+  } else {
+    console.log("[migrate] resume mode: existing keys will be skipped (same size)");
+  }
 
   let copied = 0;
   let skipped = 0;
   let failed = 0;
   let announcedFirstUpload = false;
+  const force = process.env.MIGRATE_FORCE === "1";
   const startedAt = Date.now();
 
-  const logProgress = (force = false) => {
+  const logProgress = (forceLog = false) => {
     const processed = copied + skipped + failed;
-    if (!force && processed > 0 && processed % 50 !== 0) return;
+    if (!forceLog && processed > 0 && processed % 50 !== 0) return;
     const elapsedSec = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
     const rate = Math.round(processed / elapsedSec);
     console.log(
@@ -169,21 +205,16 @@ async function main() {
     const destKey = `${destPrefix}${relative}`;
 
     try {
-      // Skip if already present with same size
-      try {
-        const head = await s3.send(
-          new HeadObjectCommand({ Bucket: destBucket, Key: destKey }),
-        );
+      const destSize = existing.get(destKey);
+      if (destSize !== undefined && !force) {
         const [meta] = await file.getMetadata();
         const srcSize = Number(meta.size ?? 0);
-        const destSize = Number(head.ContentLength ?? -1);
-        if (srcSize > 0 && srcSize === destSize) {
+        // Skip when sizes match, or when dest exists with unknown/zero src meta
+        if (srcSize === 0 || srcSize === destSize) {
           skipped++;
           logProgress();
           continue;
         }
-      } catch {
-        // not found — continue upload
       }
 
       if (dryRun) {
@@ -209,6 +240,7 @@ async function main() {
           CacheControl: meta.cacheControl || "public, max-age=31536000",
         }),
       );
+      existing.set(destKey, buf.length);
       copied++;
       logProgress();
     } catch (err: any) {
