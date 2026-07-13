@@ -1,11 +1,9 @@
 // Blueprint: javascript_openai_ai_integrations
 import OpenAI from "openai";
+import { getOpenAIConfig } from "./openaiConfig";
 
-// This is using Replit's AI Integrations service, which provides OpenAI-compatible API access without requiring your own OpenAI API key.
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
-});
+// Replit AI Integrations or direct OpenAI (OPENAI_API_KEY) on Railway
+const openai = new OpenAI(getOpenAIConfig());
 
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -640,14 +638,13 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
     }
   }
 
-  // FALLBACK 1: gpt-image-1 via Replit AI Integrations
-  const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const openaiBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  if (openaiApiKey && openaiBaseUrl) {
+  // FALLBACK 1: gpt-image-1 via Replit AI Integrations or direct OpenAI
+  const openaiCfg = getOpenAIConfig();
+  if (openaiCfg.apiKey && openaiCfg.apiKey !== "missing-openai-api-key") {
     try {
       console.log("Generating image via gpt-image-1 (fallback 1)...");
       const { default: OpenAI } = await import('openai');
-      const client = new OpenAI({ apiKey: openaiApiKey, baseURL: openaiBaseUrl });
+      const client = new OpenAI(openaiCfg);
       const response = await client.images.generate({
         model: "gpt-image-1",
         prompt: fullPrompt,

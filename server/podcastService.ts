@@ -2,16 +2,10 @@ import OpenAI from "openai";
 import { objectStorageClient } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import type { News } from "@shared/schema";
+import { getOpenAIConfig } from "./openaiConfig";
 
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
-
-const audioOpenai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+const openai = new OpenAI(getOpenAIConfig());
+const audioOpenai = new OpenAI(getOpenAIConfig());
 
 async function generatePodcastScript(newsItems: News[]): Promise<string> {
   const newsContent = newsItems.map((item, i) => {
