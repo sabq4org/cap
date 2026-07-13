@@ -7,7 +7,13 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
+import { randomBytes } from "crypto";
 import { storage } from "./storage";
+
+// Replit OIDC is only available when the app runs with a REPL_ID (on Replit
+// or with the var copied to the host). Without it the server must still boot
+// so the admin-session auth keeps working.
+export const replitAuthEnabled = Boolean(process.env.REPL_ID);
 
 const getOidcConfig = memoize(
   async () => {
@@ -28,8 +34,17 @@ export function getSession() {
     ttl: Math.floor(sessionTtl / 1000),
     tableName: "sessions",
   });
+  let secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    // Ephemeral fallback: sessions won't survive a restart until
+    // SESSION_SECRET is configured on the host.
+    console.warn(
+      "[Auth] SESSION_SECRET is not set — using a temporary random secret. Set SESSION_SECRET in the environment."
+    );
+    secret = randomBytes(32).toString("hex");
+  }
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
@@ -71,6 +86,28 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  passport.serializeUser((user: Express.User, cb) => cb(null, user));
+  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+  if (!replitAuthEnabled) {
+    console.warn(
+      "[Auth] REPL_ID is not set — Replit login is disabled; admin-session auth still works."
+    );
+    app.get("/api/login", (_req, res) => {
+      res.status(503).json({ message: "تسجيل الدخول عبر Replit غير متاح على هذا الخادم" });
+    });
+    app.get("/api/callback", (_req, res) => res.redirect("/"));
+    app.get("/api/logout", (req, res) => {
+      req.logout(() => {
+        req.session?.destroy(() => {
+          res.clearCookie("connect.sid");
+          res.redirect("/");
+        });
+      });
+    });
+    return;
+  }
+
   const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (
@@ -103,9 +140,6 @@ export async function setupAuth(app: Express) {
       registeredStrategies.add(strategyName);
     }
   };
-
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
     ensureStrategy(req.hostname);
