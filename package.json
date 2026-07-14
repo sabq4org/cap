@@ -8,6 +8,7 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && node scripts/post-build.js",
     "start": "NODE_ENV=production node dist/index.mjs",
     "check": "tsc",
+    "check:scheduling": "tsx scripts/check-saudi-scheduling.ts",
     "db:push": "drizzle-kit push",
     "migrate:objects": "tsx scripts/migrate-object-storage.ts"
   },

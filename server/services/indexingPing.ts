@@ -1,36 +1,28 @@
 /**
- * Fast-indexing helpers for Google/Bing.
+ * Indexing discovery helpers.
  * - IndexNow (Bing/Yandex/others) when INDEXNOW_KEY is set
- * - Google sitemap ping for the news sitemap
+ * - Google discovers the sitemap through robots.txt/Search Console; its old
+ *   unauthenticated sitemap ping endpoint was retired and now returns 404.
  *
  * Never throws to callers — failures are logged only.
  */
+
+import { getCanonicalOrigin } from "../seo";
 
 export type IndexableNews = {
   id: string;
   shortCode?: string | null;
   status?: string | null;
+  publishedAt?: Date | string | null;
 };
 
 function siteBaseUrl(): string {
-  return (process.env.BASE_URL || "https://capsulah.net").trim().replace(/\/$/, "");
+  return getCanonicalOrigin();
 }
 
 export function newsPublicUrl(item: IndexableNews): string {
   const base = siteBaseUrl();
   return item.shortCode ? `${base}/n/${item.shortCode}` : `${base}/news/${item.id}`;
-}
-
-async function pingGoogleSitemap(): Promise<void> {
-  const sitemapUrl = `${siteBaseUrl()}/sitemap-news.xml`;
-  const pingUrl = `https://www.google.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`;
-  const res = await fetch(pingUrl, {
-    method: "GET",
-    headers: { "User-Agent": "CapsulahIndexingBot/1.0" },
-  });
-  if (!res.ok) {
-    console.warn(`[Indexing] Google sitemap ping HTTP ${res.status}`);
-  }
 }
 
 async function pingIndexNow(urls: string[]): Promise<void> {
@@ -61,8 +53,11 @@ async function pingIndexNow(urls: string[]): Promise<void> {
 
 /** Fire-and-forget indexing signals after publish/update. */
 export function notifySearchEnginesOfNews(items: IndexableNews | IndexableNews[]): void {
+  const now = Date.now();
   const list = (Array.isArray(items) ? items : [items]).filter(
-    (n) => n && n.status === "published",
+    (n) => n
+      && n.status === "published"
+      && (!n.publishedAt || new Date(n.publishedAt).getTime() <= now),
   );
   if (list.length === 0) return;
 
@@ -70,8 +65,8 @@ export function notifySearchEnginesOfNews(items: IndexableNews | IndexableNews[]
 
   void (async () => {
     try {
-      await Promise.allSettled([pingGoogleSitemap(), pingIndexNow(urls)]);
-      console.log(`[Indexing] notified engines for ${urls.length} URL(s)`);
+      await pingIndexNow(urls);
+      console.log(`[Indexing] submitted ${urls.length} URL(s) to IndexNow`);
     } catch (err) {
       console.warn("[Indexing] notify failed:", err);
     }

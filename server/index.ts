@@ -7,6 +7,7 @@ import { pool } from "./db";
 import { seedDefaultSources, seedDefaultKeywords } from "./radarService";
 import { startTrendRefreshScheduler } from "./trendService";
 import { notifySearchEnginesOfNews } from "./services/indexingPing";
+import { getCanonicalHostname, getCanonicalOrigin, isCapsulahAliasHost } from "./seo";
 
 // Keep the process alive on uncaught exceptions.
 // Crashing on every unexpected error causes deployment outages.
@@ -37,6 +38,21 @@ const app = express();
 
 // Trust proxy headers so req.protocol returns https behind Railway/Cloudflare
 app.set('trust proxy', 1);
+
+// Collapse every owned domain variant to the one official public origin.
+// This is intentionally early so HTML, API pages, sitemaps, and assets never
+// serve a competing 200 response on capsulah.net or www.capsulah.com.
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV !== "production") return next();
+
+  const requestHost = req.hostname.toLowerCase();
+  const canonicalHost = getCanonicalHostname();
+  if (isCapsulahAliasHost(requestHost) && requestHost !== canonicalHost) {
+    return res.redirect(301, `${getCanonicalOrigin()}${req.originalUrl}`);
+  }
+
+  next();
+});
 
 declare module 'http' {
   interface IncomingMessage {

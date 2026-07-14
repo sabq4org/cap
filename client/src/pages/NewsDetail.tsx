@@ -274,7 +274,7 @@ export default function NewsDetail() {
   if (!news) {
     return (
       <div className="min-h-screen p-6 flex items-center justify-center" dir="rtl">
-        <SEO title="الخبر غير موجود" description="الخبر المطلوب غير متوفر." />
+        <SEO title="الخبر غير موجود" description="الخبر المطلوب غير متوفر." noIndex />
         <Helmet>
           <meta name="robots" content="noindex, follow" />
         </Helmet>
@@ -291,7 +291,7 @@ export default function NewsDetail() {
     );
   }
 
-  const seoDescription = news.summary || news.seoDescription || `${news.title} - اقرأ المزيد على كبسولة`;
+  const seoDescription = news.seoDescription || news.summary || `${news.title} - اقرأ المزيد على كبسولة`;
   const seoImage = news.imageUrl || getNewsFallbackImage(news.id);
 
   return (
@@ -302,7 +302,7 @@ export default function NewsDetail() {
         image={seoImage}
         url={news.shortCode ? `${window.location.origin}/n/${news.shortCode}` : `${window.location.origin}/news/${news.id}`}
         type="article"
-        publishedTime={news.publishedAt?.toString()}
+        publishedTime={news.publishedAt ? new Date(news.publishedAt).toISOString() : undefined}
         author={news.source || "كبسولة"}
         keywords={news.keywords as string[] || []}
       />

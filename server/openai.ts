@@ -255,14 +255,71 @@ export async function generateArticleContent(brief: string): Promise<{
 }
 
 // Generate news metadata from content
-export async function generateNewsMeta(content: string): Promise<{
+type GeneratedNewsMeta = {
   title: string;
   subtitle: string;
   summary: string;
   seoTitle: string;
   seoDescription: string;
   keywords: string[];
-}> {
+  warnings: string[];
+};
+
+function prepareNewsContentForSeo(content: string): string {
+  const normalized = content.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 12000) return normalized;
+  // Preserve both the lead and the conclusion instead of silently ignoring
+  // everything after the first 2,000 characters.
+  return `${normalized.slice(0, 8000)}\n\n[...منتصف النص مختصر لطوله...]\n\n${normalized.slice(-4000)}`;
+}
+
+function normalizeGeneratedNewsMeta(input: any): GeneratedNewsMeta {
+  const clean = (value: unknown) => typeof value === "string"
+    ? value.replace(/\s+/g, " ").trim()
+    : "";
+  const completeSentence = (value: string) => value && !/[.!؟…]$/.test(value)
+    ? `${value}.`
+    : value;
+
+  const result: GeneratedNewsMeta = {
+    title: clean(input?.title),
+    subtitle: clean(input?.subtitle),
+    summary: completeSentence(clean(input?.summary)),
+    seoTitle: clean(input?.seoTitle),
+    seoDescription: completeSentence(clean(input?.seoDescription)),
+    keywords: Array.isArray(input?.keywords)
+      ? Array.from(new Set<string>(
+          (input.keywords as unknown[])
+            .map((value) => clean(value))
+            .filter((value): value is string => Boolean(value)),
+        )).slice(0, 8)
+      : [],
+    warnings: [],
+  };
+
+  const required: Array<keyof Pick<GeneratedNewsMeta, "title" | "summary" | "seoTitle" | "seoDescription">> = [
+    "title", "summary", "seoTitle", "seoDescription",
+  ];
+  if (required.some((field) => !result[field])) {
+    throw new Error("AI returned incomplete SEO metadata");
+  }
+  if (result.seoTitle.length < 35 || result.seoTitle.length > 70) {
+    result.warnings.push("عنوان SEO خارج النطاق الإرشادي 35–70 حرفاً");
+  }
+  if (result.seoDescription.length < 100 || result.seoDescription.length > 180) {
+    result.warnings.push("وصف SEO خارج النطاق الإرشادي 100–180 حرفاً");
+  }
+  if (result.keywords.length < 3) {
+    result.warnings.push("عدد الكلمات المفتاحية أقل من 3");
+  }
+  if (result.seoTitle === result.title) {
+    result.warnings.push("عنوان SEO مطابق تماماً للعنوان الرئيسي؛ راجعه قبل النشر");
+  }
+
+  return result;
+}
+
+export async function generateNewsMeta(content: string): Promise<GeneratedNewsMeta> {
   try {
     console.log("[generateNewsMeta] Starting with content length:", content.length);
     
@@ -273,9 +330,9 @@ export async function generateNewsMeta(content: string): Promise<{
       messages: [
         { 
           role: "system", 
-          content: `أنت محرر صحفي محترف بخبرة 20 سنة في صناعة العناوين الجذابة عالية التأثير.
+          content: `أنت محرر SEO وصحفي صحي عربي محترف. مهمتك إنتاج بيانات دقيقة ومبنية حصراً على النص المقدم.
 
-مهمتك: توليد عناوين رئيسية وفرعية لمحتوى صحفي صحي.
+ممنوع اختراع أرقام أو نتائج أو أسماء أو علاقات سببية غير موجودة في النص. تجنب الإثارة والوعود الطبية والعبارات المضللة. يجب أن تكون كل جملة مكتملة لغوياً وتنتهي بعلامة ترقيم مناسبة.
 
 قواعد العنوان الرئيسي (مهم جداً):
 - يجب أن يكون العنوان بين 8 و 12 كلمة (لا أقل من 8 كلمات أبداً!)
@@ -297,11 +354,18 @@ export async function generateNewsMeta(content: string): Promise<{
 قواعد الموجز:
 - يحتوي على أهم 3-4 نقاط في الخبر
 - بين 150 و 200 حرف
-- معلوماتي ومفيد` 
+- معلوماتي ومفيد
+
+قواعد SEO:
+- عنوان SEO واضح ومباشر بين 45 و65 حرفاً تقريباً، يضع الموضوع الأساسي مبكراً ولا يكرر اسم الموقع
+- وصف SEO مستقل عن الموجز، بين 120 و165 حرفاً تقريباً، يلخص الفائدة الأساسية بجملة عربية مكتملة
+- لا تستخدم عبارات مثل «اضغط هنا» أو «لن تصدق» أو «اكتشف السر»
+- الكلمات المفتاحية من 3 إلى 8 عبارات موجودة فعلياً في النص، من دون حشو أو تكرار
+- أعد الحقول المطلوبة فقط وراجع سلامة الصياغة قبل الإرسال`
         },
         { 
           role: "user", 
-          content: `ولّد عناوين جذابة ومثيرة لهذا المحتوى الصحي:\n\n${content.substring(0, 2000)}` 
+          content: `حلل النص الصحي التالي بعناية ثم ولّد بياناته الصحفية وبيانات SEO:\n\n${prepareNewsContentForSeo(content)}`
         }
       ] as any,
       max_completion_tokens: 1024,
@@ -352,20 +416,14 @@ export async function generateNewsMeta(content: string): Promise<{
     if (toolCall?.function?.arguments) {
       console.log("[generateNewsMeta] Tool call arguments:", toolCall.function.arguments.substring(0, 300));
       const parsed = JSON.parse(toolCall.function.arguments);
-      if (!parsed.title) {
-        throw new Error("AI returned empty metadata");
-      }
-      return parsed;
+      return normalizeGeneratedNewsMeta(parsed);
     }
     
     // Fallback to message content
     const result = response.choices[0]?.message?.content || "{}";
     console.log("[generateNewsMeta] Fallback content:", result.substring(0, 300));
     const parsed = JSON.parse(result);
-    if (!parsed.title) {
-      throw new Error("AI returned empty metadata");
-    }
-    return parsed;
+    return normalizeGeneratedNewsMeta(parsed);
   } catch (error: any) {
     console.error("[generateNewsMeta] Error:", error?.message || error);
     throw error;

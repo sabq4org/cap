@@ -35,6 +35,8 @@ import { randomUUID, createHmac, timingSafeEqual } from "crypto";
 import sharp from "sharp";
 import rateLimit from "express-rate-limit";
 import { notifySearchEnginesOfNews } from "./services/indexingPing";
+import { getCanonicalOrigin } from "./seo";
+import { parseSaudiDateTime } from "@shared/saudiTime";
 
 const rumorSubmissionLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -375,15 +377,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Canonical public origin for sitemaps/robots (prefer BASE_URL on Railway).
   const getSiteBaseUrl = (): string => {
-    const fromEnv = (process.env.BASE_URL || '').trim().replace(/\/$/, '');
-    if (fromEnv) return fromEnv;
-    return 'https://capsulah.com';
+    return getCanonicalOrigin();
   };
 
-  const getRequestBaseUrl = (req: { get: (h: string) => string | undefined }): string => {
-    const reqHost = req.get('host') || 'capsulah.com';
-    const proto = req.get('x-forwarded-proto') || (reqHost.includes('localhost') ? 'http' : 'https');
-    return `${proto}://${reqHost}`;
+  const getRequestBaseUrl = (_req: { get: (h: string) => string | undefined }): string => {
+    return getCanonicalOrigin();
   };
 
   const isCrawlerRequest = (req: { get: (h: string) => string | undefined }): boolean => {
@@ -391,19 +389,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return /Googlebot|Google-InspectionTool|GoogleOther|Storebot-Google|bingbot|WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
   };
 
-  const isPublicNews = (item: { status?: string | null; scheduledAt?: Date | string | null; deletedAt?: Date | string | null }): boolean => {
+  const isPublicNews = (item: { status?: string | null; scheduledAt?: Date | string | null; publishedAt?: Date | string | null; deletedAt?: Date | string | null }): boolean => {
     if (!item || item.deletedAt) return false;
     if (item.status === 'deleted' || item.status === 'draft') return false;
-    if (item.status === 'published') return true;
+    if (item.status === 'published') {
+      return !!item.publishedAt && new Date(item.publishedAt).getTime() <= Date.now();
+    }
     if (item.status === 'scheduled' && item.scheduledAt && new Date(item.scheduledAt).getTime() <= Date.now()) {
       return true;
     }
     return false;
   };
 
-  const isPublicArticle = (item: { status?: string | null; scheduledAt?: Date | string | null }): boolean => {
+  const isPublicArticle = (item: { status?: string | null; scheduledAt?: Date | string | null; publishedAt?: Date | string | null }): boolean => {
     if (!item) return false;
-    if (item.status === 'published') return true;
+    if (item.status === 'published') {
+      return !!item.publishedAt && new Date(item.publishedAt).getTime() <= Date.now();
+    }
     if (item.status === 'scheduled' && item.scheduledAt && new Date(item.scheduledAt).getTime() <= Date.now()) {
       return true;
     }
@@ -439,18 +441,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     keywords?: string[] | null;
     author?: string | null;
     articleImageUrl?: string | null;
+    schemaType?: 'NewsArticle' | 'Article';
     redirect?: boolean;
   }) {
-    const { title, description, ogImageUrl, pageUrl, publishedAt, updatedAt, contentHtml, keywords, author, articleImageUrl, redirect = true } = opts;
+    const { title, description, ogImageUrl, pageUrl, publishedAt, updatedAt, contentHtml, keywords, author, articleImageUrl, schemaType = 'NewsArticle', redirect = true } = opts;
     const escTitle = escapeHtml(title);
     const escDesc = escapeHtml(description);
     const pub = publishedAt ? new Date(publishedAt).toISOString() : undefined;
-    const mod = updatedAt ? new Date(updatedAt).toISOString() : pub;
+    const updatedMs = updatedAt ? new Date(updatedAt).getTime() : NaN;
+    const publishedMs = publishedAt ? new Date(publishedAt).getTime() : NaN;
+    const modifiedMs = Number.isFinite(updatedMs) && Number.isFinite(publishedMs)
+      ? Math.max(updatedMs, publishedMs)
+      : Number.isFinite(updatedMs) ? updatedMs : publishedMs;
+    const mod = Number.isFinite(modifiedMs) ? new Date(modifiedMs).toISOString() : pub;
     const plainBody = contentHtml ? stripHtml(contentHtml) : '';
 
     const jsonLd: Record<string, any> = {
       '@context': 'https://schema.org',
-      '@type': 'NewsArticle',
+      '@type': schemaType,
       mainEntityOfPage: { '@type': 'WebPage', '@id': pageUrl },
       headline: title.slice(0, 110),
       description,
@@ -626,8 +634,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Allow: /',
         'Disallow: /admin',
         'Disallow: /api/',
-        'Disallow: /login',
-        'Disallow: /register',
         '',
         `Sitemap: ${baseUrl}/sitemap.xml`,
         `Sitemap: ${baseUrl}/sitemap-news.xml`,
@@ -666,25 +672,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/sitemap-static.xml', async (_req, res) => {
     try {
       const baseUrl = getSiteBaseUrl();
-      const today = new Date().toISOString().split('T')[0];
       const cats = await storage.getCategories(true);
 
       const staticPages = [
-        { loc: baseUrl, priority: '1.0', changefreq: 'hourly' },
-        { loc: `${baseUrl}/news`, priority: '0.9', changefreq: 'hourly' },
-        { loc: `${baseUrl}/articles`, priority: '0.8', changefreq: 'daily' },
+        { loc: baseUrl },
+        { loc: `${baseUrl}/news` },
+        { loc: `${baseUrl}/articles` },
       ];
 
       const catPages = cats.map(c => ({
         loc: `${baseUrl}/news?category=${encodeURIComponent(c.slug)}`,
-        priority: '0.7',
-        changefreq: 'daily',
       }));
 
       const allPages = [...staticPages, ...catPages];
 
       const urls = allPages.map(u =>
-        `  <url>\n    <loc>${escapeXml(u.loc)}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
+        `  <url>\n    <loc>${escapeXml(u.loc)}</loc>\n  </url>`
       ).join('\n');
 
       const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
@@ -703,20 +706,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const published = await storage.getNewsForSitemap();
 
       const cutoff = Date.now() - 48 * 60 * 60 * 1000;
-      const withinWindow = (item: { publishedAt: Date | null }) =>
-        !!item.publishedAt && new Date(item.publishedAt).getTime() >= cutoff;
-      let recent = published.filter(withinWindow).slice(0, 1000);
-      // Fallback: if nothing was published in the last 48h, include the latest
-      // few items WITHOUT <news:news> tags (old items with news tags violate
-      // Google News rules) so the sitemap is never empty.
-      if (recent.length === 0) {
-        recent = published.slice(0, 10);
-      }
+      const now = Date.now();
+      const withinWindow = (item: { publishedAt: Date | null }) => {
+        if (!item.publishedAt) return false;
+        const publishedMs = new Date(item.publishedAt).getTime();
+        return publishedMs >= cutoff && publishedMs <= now;
+      };
+      const recent = published.filter(withinWindow).slice(0, 1000);
 
       const urls = recent.map(item => {
-        const includeNewsTag = withinWindow(item);
         const loc = item.shortCode ? `${baseUrl}/n/${item.shortCode}` : `${baseUrl}/news/${item.id}`;
-        const lastmod = item.publishedAt ? new Date(item.publishedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        const lastModifiedAt = item.updatedAt && item.publishedAt
+          ? new Date(Math.max(new Date(item.updatedAt).getTime(), new Date(item.publishedAt).getTime()))
+          : new Date(item.updatedAt || item.publishedAt || now);
+        const lastmod = lastModifiedAt.toISOString().split('T')[0];
         const pubDate = item.publishedAt ? new Date(item.publishedAt).toISOString() : new Date().toISOString();
 
         let imageTag = '';
@@ -725,7 +728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           imageTag = `\n    <image:image>\n      <image:loc>${escapeXml(fullImageUrl)}</image:loc>\n      <image:title>${escapeXml(item.title)}</image:title>\n    </image:image>`;
         }
 
-        const newsTag = includeNewsTag ? '\n' + [
+        const newsTag = '\n' + [
           '    <news:news>',
           '      <news:publication>',
           '        <news:name>كبسولة</news:name>',
@@ -737,9 +740,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? `      <news:keywords>${escapeXml(item.keywords.join(', '))}</news:keywords>`
             : '',
           '    </news:news>',
-        ].filter(Boolean).join('\n') : '';
+        ].filter(Boolean).join('\n');
 
-        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>${imageTag}${newsTag}\n  </url>`;
+        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>${imageTag}${newsTag}\n  </url>`;
       }).join('\n');
 
       const xml = [
@@ -767,8 +770,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const urls = published.map(item => {
         const loc = item.shortCode ? `${baseUrl}/n/${item.shortCode}` : `${baseUrl}/news/${item.id}`;
-        const lastmod = item.publishedAt ? new Date(item.publishedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.6</priority>\n  </url>`;
+        const lastModifiedAt = item.updatedAt && item.publishedAt
+          ? new Date(Math.max(new Date(item.updatedAt).getTime(), new Date(item.publishedAt).getTime()))
+          : new Date(item.updatedAt || item.publishedAt || Date.now());
+        const lastmod = lastModifiedAt.toISOString().split('T')[0];
+        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </url>`;
       }).join('\n');
 
       const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
@@ -787,7 +793,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const urls = articlesList.map(article => {
         const loc = `${baseUrl}/articles/${article.slug}`;
         const lastmod = article.updatedAt ? new Date(article.updatedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>`;
+        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </url>`;
       }).join('\n');
 
       const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
@@ -815,7 +821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const imageId = newsItem.shortCode || newsItem.id;
       const ogImageUrl = `${baseUrl}/og/${imageId}`;
       const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
-      const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
+      const rawDescription = newsItem.seoDescription || newsItem.summary || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
       
       const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl });
       
@@ -844,7 +850,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const canonicalUrl = `${baseUrl}/n/${newsItem.shortCode}`;
           const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode}`;
           const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
-          const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
+          const rawDescription = newsItem.seoDescription || newsItem.summary || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
           const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl: canonicalUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
           return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
         }
@@ -856,7 +862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const pageUrl = `${baseUrl}/news/${newsItem.id}`;
         const ogImageUrl = `${baseUrl}/og/${newsItem.id}`;
         const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
-        const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
+        const rawDescription = newsItem.seoDescription || newsItem.summary || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
         const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
         return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
       }
@@ -886,7 +892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
       const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode || newsItem.id}`;
       const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
-      const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
+      const rawDescription = newsItem.seoDescription || newsItem.summary || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
 
       const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
 
@@ -899,15 +905,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Crawler HTML for medical articles (same SPA problem as news pages)
   app.get('/articles/:slug', async (req, res, next) => {
-    if (!isCrawlerRequest(req)) {
-      return next();
-    }
+    const isCrawler = isCrawlerRequest(req);
 
     try {
       const article = await storage.getArticleBySlug(req.params.slug);
       if (!article || !isPublicArticle(article)) {
         return res.status(404).set({ 'Content-Type': 'text/html', 'Cache-Control': 'private, no-store' }).send(notFoundHtml('المقال غير موجود'));
       }
+      if (!isCrawler) return next();
 
       const baseUrl = getRequestBaseUrl(req);
       const pageUrl = `${baseUrl}/articles/${article.slug}`;
@@ -928,6 +933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         keywords,
         author: article.author || article.reviewedBy,
         articleImageUrl,
+        schemaType: 'Article',
         redirect: false,
       });
       return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
@@ -1263,13 +1269,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/articles', requireAdminPermission('publish_news'), async (req, res) => {
     try {
       const body: any = { ...req.body };
-      if (body.scheduledAt) body.scheduledAt = new Date(body.scheduledAt);
-      if (body.publishedAt) body.publishedAt = new Date(body.publishedAt);
+      const now = new Date();
+      if (body.scheduledAt) body.scheduledAt = parseSaudiDateTime(body.scheduledAt);
+      if (body.publishedAt) body.publishedAt = parseSaudiDateTime(body.publishedAt);
+      if (body.status === 'scheduled' && (!body.scheduledAt || !Number.isFinite(body.scheduledAt.getTime()) || body.scheduledAt.getTime() <= now.getTime())) {
+        return res.status(400).json({ message: "يجب اختيار وقت مستقبلي صالح لجدولة المقال" });
+      }
       // Scheduling: when status === 'scheduled', mirror scheduledAt to publishedAt for ordering
       if (body.status === 'scheduled' && body.scheduledAt) {
         body.publishedAt = body.scheduledAt;
-      } else if (body.status === 'published' && !body.publishedAt) {
-        body.publishedAt = new Date();
+      } else if (body.status === 'published') {
+        body.scheduledAt = null;
+        if (!body.publishedAt || body.publishedAt.getTime() > now.getTime()) {
+          body.publishedAt = now;
+        }
       }
       const articleData = insertArticleSchema.parse(body);
       const article = await storage.createArticle(articleData);
@@ -1284,14 +1297,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const body: any = { ...req.body };
+      const existingArticle = await storage.getArticleById(id);
+      if (!existingArticle) {
+        return res.status(404).json({ message: "Article not found" });
+      }
+      const now = new Date();
       if (body.scheduledAt !== undefined) {
-        body.scheduledAt = body.scheduledAt ? new Date(body.scheduledAt) : null;
+        body.scheduledAt = body.scheduledAt ? parseSaudiDateTime(body.scheduledAt) : null;
         if (body.status === 'scheduled' && body.scheduledAt) {
           body.publishedAt = body.scheduledAt;
         }
       }
       if (body.publishedAt !== undefined && body.publishedAt) {
-        body.publishedAt = new Date(body.publishedAt);
+        body.publishedAt = parseSaudiDateTime(body.publishedAt);
+      }
+      if (body.status === 'scheduled') {
+        const desiredSchedule = parseSaudiDateTime(body.scheduledAt || existingArticle.scheduledAt);
+        const desiredScheduleMs = desiredSchedule?.getTime() ?? NaN;
+        if (!desiredSchedule || !Number.isFinite(desiredScheduleMs) || desiredScheduleMs <= now.getTime()) {
+          return res.status(400).json({ message: "يجب اختيار وقت مستقبلي صالح لجدولة المقال" });
+        }
+        body.scheduledAt = desiredSchedule;
+        body.publishedAt = desiredSchedule;
+      }
+      if (body.status === 'published') {
+        const existingPublishedMs = existingArticle.publishedAt
+          ? new Date(existingArticle.publishedAt).getTime()
+          : NaN;
+        const wasFuturePublished = Number.isFinite(existingPublishedMs) && existingPublishedMs > now.getTime();
+        const isPublishingNow = existingArticle.status !== 'published' || wasFuturePublished;
+        body.scheduledAt = null;
+        if (isPublishingNow || (body.publishedAt && body.publishedAt.getTime() > now.getTime())) {
+          body.publishedAt = now;
+        }
       }
       const validatedData = insertArticleSchema.partial().parse(body);
       const article = await storage.updateArticle(id, validatedData);
@@ -2369,12 +2407,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Determine status and publishedAt based on scheduling
+      const now = new Date();
+      if (status === 'scheduled') {
+        const scheduleTime = parseSaudiDateTime(scheduledAt);
+        if (!scheduleTime || !Number.isFinite(scheduleTime.getTime()) || scheduleTime.getTime() <= now.getTime()) {
+          return res.status(400).json({ message: "يجب اختيار وقت مستقبلي صالح لجدولة الخبر" });
+        }
+      }
       let finalStatus = status || 'published';
-      let finalPublishedAt = publishedAt ? new Date(publishedAt) : new Date();
+      const requestedPublishedAt = parseSaudiDateTime(publishedAt) || now;
+      let finalPublishedAt = requestedPublishedAt.getTime() <= now.getTime() ? requestedPublishedAt : now;
       let finalScheduledAt = null;
       
       if (status === 'scheduled' && scheduledAt) {
-        finalScheduledAt = new Date(scheduledAt);
+        finalScheduledAt = parseSaudiDateTime(scheduledAt);
+        if (!finalScheduledAt) {
+          return res.status(400).json({ message: "وقت الجدولة غير صالح" });
+        }
         finalPublishedAt = finalScheduledAt; // Set publishedAt to scheduledAt for proper ordering
       }
       
@@ -2413,6 +2462,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { title, subtitle, content, summary, category, source, imageUrl, imageAlt, seoTitle, seoDescription, keywords, status, scheduledAt, isFeatured, isBreaking } = req.body;
+      const existingNews = await storage.getNewsById(id);
+      if (!existingNews) {
+        return res.status(404).json({ message: "News not found" });
+      }
       
       const updateData: any = {};
       if (title !== undefined) updateData.title = title;
@@ -2430,10 +2483,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isBreaking !== undefined) updateData.isBreaking = isBreaking;
       if (status !== undefined) updateData.status = status;
       if (scheduledAt !== undefined) {
-        updateData.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;
+        updateData.scheduledAt = scheduledAt ? parseSaudiDateTime(scheduledAt) : null;
         if (status === 'scheduled' && scheduledAt) {
-          updateData.publishedAt = new Date(scheduledAt);
+          updateData.publishedAt = parseSaudiDateTime(scheduledAt);
         }
+      }
+      if (status === 'scheduled') {
+        const desiredSchedule = parseSaudiDateTime(scheduledAt || existingNews.scheduledAt);
+        if (!desiredSchedule || !Number.isFinite(desiredSchedule.getTime()) || desiredSchedule.getTime() <= Date.now()) {
+          return res.status(400).json({ message: "يجب اختيار وقت مستقبلي صالح لجدولة الخبر" });
+        }
+        updateData.scheduledAt = desiredSchedule;
+        updateData.publishedAt = desiredSchedule;
+      }
+      if (status === 'published') {
+        const now = new Date();
+        const existingPublishedMs = existingNews.publishedAt
+          ? new Date(existingNews.publishedAt).getTime()
+          : NaN;
+        const wasFuturePublished = Number.isFinite(existingPublishedMs) && existingPublishedMs > now.getTime();
+        const isPublishingNow = existingNews.status !== 'published' || wasFuturePublished;
+        updateData.scheduledAt = null;
+        if (isPublishingNow) updateData.publishedAt = now;
       }
 
       const updated = await storage.updateNews(id, updateData);
@@ -2860,8 +2931,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { generateNewsMeta } = await import('./openai');
       const result = await generateNewsMeta(content);
       
-      // Check if result is empty (generation failed)
-      if (!result.title && !result.summary) {
+      // Never return partially generated SEO data to the editor; partial
+      // responses previously erased valid fields in the form.
+      if (!result.title || !result.summary || !result.seoTitle || !result.seoDescription) {
         return res.status(500).json({ message: "فشل توليد البيانات الوصفية، حاول مرة أخرى" });
       }
       
@@ -4671,7 +4743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "يرجى إدخال كلمة بحث صالحة" });
       }
       const results = await storage.searchArchive(query.trim());
-      const baseUrl = process.env.BASE_URL || 'https://capsulah.com';
+      const baseUrl = getCanonicalOrigin();
 
       const newsItems = results.news.map((n) => ({
         id: n.id,
@@ -4768,7 +4840,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .sort((a, b) => b.relevanceScore - a.relevanceScore)
         .slice(0, 4);
 
-      const baseUrl = process.env.BASE_URL || 'https://capsulah.com';
+      const baseUrl = getCanonicalOrigin();
 
       const archiveResults: ArchiveSearchResult[] = [
         ...mergedNews.map((n) => ({
