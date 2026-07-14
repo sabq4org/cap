@@ -868,9 +868,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cacheKey = ogCacheKey(newsItem.id, ogVersionMs(newsItem));
       const cachedImage = getCachedOgImage(cacheKey);
       if (cachedImage) {
+        res.set('X-OG-Cache', 'hit');
         return sendSafeImage(cachedImage, 86400);
       }
 
+      res.set('X-OG-Cache', 'miss');
       const optimizedImage = await optimizeImageForOG(newsItem.imageUrl);
       // Only cache a real article render; fallbacks keep their short TTL so a
       // transient failure is retried rather than pinned.
