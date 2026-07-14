@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ScrollToTop from "@/components/ScrollToTop";
 
 // Critical public pages — keep eager for fast first paint
 import Landing from "@/pages/Landing";
@@ -153,6 +154,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <ScrollToTop />
         {isAdminRoute ? (
           <AdminRouter />
         ) : (

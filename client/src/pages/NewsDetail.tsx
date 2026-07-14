@@ -183,6 +183,11 @@ export default function NewsDetail() {
   // Fire-and-forget view count increment — counts every open/refresh
   const viewedRef = useRef<string | null>(null);
   useEffect(() => {
+    // Always start article pages at the top (SPA keeps previous scroll otherwise).
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [newsId, shortCode]);
+
+  useEffect(() => {
     if (!news?.id) return;
     // Count every open/refresh (repeated views from the same person count too).
     // viewedRef only prevents a double-fire within a single mount (e.g. dev StrictMode).
