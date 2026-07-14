@@ -1,170 +1,88 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import AdBanner from "@/components/AdBanner";
-import { useRoute, Link } from "wouter";
+import { Link, useRoute } from "wouter";
 import DOMPurify from "dompurify";
-import { SEO } from "@/components/SEO";
 import { Helmet } from "react-helmet-async";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
+import { SiWhatsapp, SiX } from "react-icons/si";
 import {
-  Calendar,
-  User,
-  Clock,
-  Share2,
-  MessageCircle,
-  Heart,
-  Bookmark,
+  AlertTriangle,
   ArrowRight,
+  Calendar,
+  Check,
+  ChevronLeft,
+  Clock,
+  Copy,
   ExternalLink,
-  Lightbulb,
-  HelpCircle,
-  Activity,
-  ChevronDown,
-  ChevronUp,
-  Send,
+  Eye,
   Facebook,
-  Linkedin,
-  Stethoscope,
-  Apple,
-  Dumbbell,
-  Droplets,
-  Tag,
   ImageIcon,
-  Brain,
-  HeartPulse,
-  Pill,
+  Link2,
+  Newspaper,
+  Share2,
   ShieldCheck,
-  Utensils,
-  TrendingUp,
-  AlertTriangle
+  Sparkles,
+  Tag,
 } from "lucide-react";
-import { SiX, SiWhatsapp } from "react-icons/si";
+import AdBanner from "@/components/AdBanner";
 import { AIImageBadge } from "@/components/AIImageBadge";
+import { SEO } from "@/components/SEO";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { getNewsFallbackImage, getNewsImage } from "@/lib/newsImages";
 import type { News } from "@shared/schema";
-import { getNewsImage, getNewsFallbackImage } from "@/lib/newsImages";
 
 const categoryLabels: Record<string, string> = {
-  "health": "صحة عامة",
+  health: "صحة عامة",
   "health-news": "أخبار صحية",
   "saudi-health": "صحة السعودية",
   "health-community": "المجتمع الصحي",
   "health-reports": "تقارير صحية",
   "health-events": "فعاليات صحية",
   "quality-life": "جودة حياة",
-  "nutrition": "تغذية",
-  "debunk": "تفنيد",
-  "misc": "منوعات"
+  nutrition: "تغذية",
+  debunk: "تفنيد",
+  misc: "منوعات",
 };
 
-const categoryColors: Record<string, string> = {
-  "health": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
-  "health-news": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
-  "saudi-health": "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200",
-  "health-community": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
-  "health-reports": "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200",
-  "health-events": "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200",
-  "quality-life": "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200",
-  "nutrition": "bg-lime-100 dark:bg-lime-900/30 text-lime-800 dark:text-lime-200",
-  "debunk": "bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-200",
-  "misc": "bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-200"
-};
+function formatDate(value: Date | string | null | undefined, compact = false): string {
+  if (!value) return "وقت النشر غير متاح";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "وقت النشر غير متاح";
 
-const healthTips = [
-  {
-    tip: "استشر طبيبك قبل اتخاذ أي قرار صحي مهم",
-    icon: Stethoscope,
-    color: "from-blue-500 to-cyan-500",
-    bgColor: "bg-blue-50 dark:bg-blue-950/30",
-    iconBg: "bg-blue-100 dark:bg-blue-900/50"
-  },
-  {
-    tip: "حافظ على نمط حياة صحي ومتوازن",
-    icon: HeartPulse,
-    color: "from-rose-500 to-pink-500",
-    bgColor: "bg-rose-50 dark:bg-rose-950/30",
-    iconBg: "bg-rose-100 dark:bg-rose-900/50"
-  },
-  {
-    tip: "مارس الرياضة بانتظام لمدة 30 دقيقة يومياً",
-    icon: Dumbbell,
-    color: "from-orange-500 to-amber-500",
-    bgColor: "bg-orange-50 dark:bg-orange-950/30",
-    iconBg: "bg-orange-100 dark:bg-orange-900/50"
-  },
-  {
-    tip: "اشرب 8 أكواب من الماء يومياً على الأقل",
-    icon: Droplets,
-    color: "from-sky-500 to-blue-500",
-    bgColor: "bg-sky-50 dark:bg-sky-950/30",
-    iconBg: "bg-sky-100 dark:bg-sky-900/50"
-  }
-];
+  return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
+    timeZone: "Asia/Riyadh",
+    calendar: "gregory",
+    year: compact ? undefined : "numeric",
+    month: "long",
+    day: "numeric",
+    hour: compact ? undefined : "2-digit",
+    minute: compact ? undefined : "2-digit",
+  }).format(date);
+}
 
-const keywordsMap: Record<string, string[]> = {
-  medical: ["طب", "علاج", "تشخيص", "مرض", "صحة", "طبيب"],
-  health: ["صحة", "وقاية", "حياة صحية", "عافية", "لياقة"],
-  pharmaceutical: ["دواء", "صيدلة", "علاج", "وصفة طبية", "أدوية"],
-  conference: ["مؤتمر", "ندوة", "بحث علمي", "أطباء", "اكتشاف"],
-  awareness: ["توعية", "وقاية", "تثقيف صحي", "حملة", "مجتمع"],
-  nutrition: ["تغذية", "غذاء", "فيتامينات", "حمية", "صحة غذائية"]
-};
+function getReadTime(content: string): number {
+  const text = content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return Math.max(1, Math.ceil(text.split(" ").filter(Boolean).length / 180));
+}
 
-
-const infoGraphics = [
-  {
-    title: "هل تعلم؟",
-    content: "النوم الكافي يعزز مناعة الجسم ويحسن الذاكرة",
-    icon: Brain,
-    gradient: "from-primary/80 to-primary"
-  },
-  {
-    title: "نصيحة اليوم",
-    content: "تناول 5 حصص من الفواكه والخضروات يومياً",
-    icon: Apple,
-    gradient: "from-emerald-600 to-emerald-700"
-  },
-  {
-    title: "معلومة مهمة",
-    content: "المشي 10,000 خطوة يومياً يقلل خطر أمراض القلب",
-    icon: TrendingUp,
-    gradient: "from-teal-600 to-teal-700"
-  }
-];
-
-const faqs = [
-  {
-    question: "ما هي أهمية المتابعة الطبية الدورية؟",
-    answer: "تساعد المتابعة الدورية في الكشف المبكر عن الأمراض وتحسين فرص العلاج الناجح."
-  },
-  {
-    question: "كيف يمكنني الحفاظ على صحة جيدة؟",
-    answer: "من خلال التغذية المتوازنة، ممارسة الرياضة، النوم الكافي، وتجنب التوتر."
-  },
-  {
-    question: "متى يجب استشارة الطبيب؟",
-    answer: "عند ظهور أي أعراض غير طبيعية أو مستمرة، أو للفحوصات الدورية."
-  }
-];
+function getNewsHref(item: News): string {
+  return item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
+}
 
 export default function NewsDetail() {
-  // Support both /news/:id and /n/:shortCode routes
   const [, idParams] = useRoute("/news/:id");
   const [, shortCodeParams] = useRoute("/n/:shortCode");
-  
   const newsId = idParams?.id || null;
   const shortCode = shortCodeParams?.shortCode || null;
-  
-  const [liked, setLiked] = useState(false);
-  const [bookmarked, setBookmarked] = useState(false);
-  const [comment, setComment] = useState("");
-  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const { toast } = useToast();
+  const articleRef = useRef<HTMLElement | null>(null);
+  const viewedRef = useRef<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [readingProgress, setReadingProgress] = useState(0);
 
-  // Fetch by ID if available, otherwise by shortCode
   const { data: news, isLoading } = useQuery<News>({
     queryKey: shortCode ? ["/api/n", shortCode] : ["/api/news", newsId],
     enabled: !!(newsId || shortCode),
@@ -173,25 +91,32 @@ export default function NewsDetail() {
   const { data: relatedNews } = useQuery<News[]>({
     queryKey: ["/api/news", news?.id, "related"],
     queryFn: async () => {
-      const res = await fetch(`/api/news/${news!.id}/related`);
-      if (!res.ok) return [];
-      return res.json();
+      const response = await fetch(`/api/news/${news!.id}/related`);
+      if (!response.ok) return [];
+      return response.json();
     },
     enabled: !!news?.id,
   });
 
-  // Fire-and-forget view count increment — counts every open/refresh
-  const viewedRef = useRef<string | null>(null);
+  const sanitizedContent = useMemo(() => {
+    if (!news?.content) return "";
+    return DOMPurify.sanitize(news.content, {
+      ALLOWED_TAGS: [
+        "p", "br", "strong", "em", "u", "s", "h1", "h2", "h3",
+        "ul", "ol", "li", "blockquote", "a", "img", "hr", "code", "pre",
+      ],
+      ALLOWED_ATTR: ["href", "src", "alt", "class", "target", "rel", "style"],
+      ALLOW_DATA_ATTR: false,
+    });
+  }, [news?.content]);
+
   useEffect(() => {
-    // Always start article pages at the top (SPA keeps previous scroll otherwise).
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    setReadingProgress(0);
   }, [newsId, shortCode]);
 
   useEffect(() => {
-    if (!news?.id) return;
-    // Count every open/refresh (repeated views from the same person count too).
-    // viewedRef only prevents a double-fire within a single mount (e.g. dev StrictMode).
-    if (viewedRef.current === news.id) return;
+    if (!news?.id || viewedRef.current === news.id) return;
     viewedRef.current = news.id;
     const params = new URLSearchParams(window.location.search);
     fetch(`/api/news/${news.id}/view`, {
@@ -206,66 +131,105 @@ export default function NewsDetail() {
     }).catch(() => {});
   }, [news?.id]);
 
-  const formatDate = (date: Date | string) => {
-    const d = new Date(date);
-    const dateStr = d.toLocaleDateString('ar-EG-u-nu-latn', {
-      timeZone: 'Asia/Riyadh',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      calendar: 'gregory'
-    });
-    const timeStr = d.toLocaleTimeString('ar-SA-u-nu-latn', {
-      timeZone: 'Asia/Riyadh',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-    return `${dateStr} - ${timeStr}`;
+  useEffect(() => {
+    const updateProgress = () => {
+      const article = articleRef.current;
+      if (!article) return;
+      const start = article.offsetTop;
+      const scrollable = Math.max(article.offsetHeight - window.innerHeight, 1);
+      const next = ((window.scrollY - start) / scrollable) * 100;
+      setReadingProgress(Math.min(100, Math.max(0, next)));
+    };
+    updateProgress();
+    window.addEventListener("scroll", updateProgress, { passive: true });
+    window.addEventListener("resize", updateProgress);
+    return () => {
+      window.removeEventListener("scroll", updateProgress);
+      window.removeEventListener("resize", updateProgress);
+    };
+  }, [news?.id]);
+
+  const getShareUrl = () => {
+    const origin = window.location.hostname === "localhost"
+      ? window.location.origin
+      : "https://capsulah.com";
+    return news?.shortCode
+      ? `${origin}/n/${news.shortCode}`
+      : `${origin}/news/${news?.id || newsId}`;
   };
 
-  const getReadTime = (content: string) => {
-    const wordsPerMinute = 200;
-    const words = content.split(/\s+/).length;
-    return Math.ceil(words / wordsPerMinute);
+  const copyShareLink = async () => {
+    const shareUrl = getShareUrl();
+    let didCopy = false;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        didCopy = true;
+      }
+    } catch {
+      // Fall back below for older browsers and non-secure preview environments.
+    }
+
+    if (!didCopy) {
+      const textarea = document.createElement("textarea");
+      textarea.value = shareUrl;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      didCopy = document.execCommand("copy");
+      textarea.remove();
+    }
+
+    if (didCopy) {
+      setCopied(true);
+      toast({ title: "تم نسخ رابط الخبر", description: "يمكنك مشاركته الآن في أي تطبيق." });
+      window.setTimeout(() => setCopied(false), 2200);
+    } else {
+      toast({ title: "تعذر نسخ الرابط", description: "حاول مرة أخرى.", variant: "destructive" });
+    }
   };
 
-  const shareOnSocial = (platform: string) => {
-    // Use short URL with shortCode if available
-    const shareUrl = news?.shortCode 
-      ? `${window.location.origin}/n/${news.shortCode}`
-      : `${window.location.origin}/news/${newsId}`;
+  const shareOnSocial = (platform: "whatsapp" | "twitter" | "facebook") => {
+    const shareUrl = getShareUrl();
     const title = news?.title || "";
-    
-    const urls: Record<string, string> = {
+    const urls = {
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(`${title}\n${shareUrl}`)}`,
       twitter: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(title)}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
-      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
-      whatsapp: `https://wa.me/?text=${encodeURIComponent(title + ' ' + shareUrl)}`
     };
-    
-    window.open(urls[platform], "_blank", "width=600,height=400");
-  };
-  
-  const copyShareLink = () => {
-    // Use short URL with shortCode if available
-    const shareUrl = news?.shortCode 
-      ? `${window.location.origin}/n/${news.shortCode}`
-      : `${window.location.origin}/news/${newsId}`;
-    navigator.clipboard.writeText(shareUrl);
+    window.open(urls[platform], "_blank", "noopener,noreferrer,width=680,height=560");
   };
 
-  const related = relatedNews || [];
+  const shareNatively = async () => {
+    if (!news) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: news.title, text: news.summary || news.subtitle || "", url: getShareUrl() });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    }
+    await copyShareLink();
+  };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen p-6" dir="rtl">
-        <div className="container mx-auto max-w-4xl">
-          <Skeleton className="h-8 w-3/4 mb-4" />
-          <Skeleton className="h-64 w-full mb-6 rounded-lg" />
-          <Skeleton className="h-4 w-full mb-2" />
-          <Skeleton className="h-4 w-full mb-2" />
-          <Skeleton className="h-4 w-3/4" />
+      <div className="min-h-screen bg-muted/20 px-4 py-6" dir="rtl">
+        <div className="mx-auto max-w-6xl space-y-6">
+          <Skeleton className="h-5 w-48" />
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="space-y-5">
+              <Skeleton className="h-9 w-28 rounded-full" />
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-6 w-4/5" />
+              <Skeleton className="aspect-[16/9] w-full rounded-3xl" />
+              <Skeleton className="h-52 w-full rounded-3xl" />
+            </div>
+            <Skeleton className="hidden h-96 rounded-2xl lg:block" />
+          </div>
         </div>
       </div>
     );
@@ -273,17 +237,19 @@ export default function NewsDetail() {
 
   if (!news) {
     return (
-      <div className="min-h-screen p-6 flex items-center justify-center" dir="rtl">
+      <div className="flex min-h-[70vh] items-center justify-center bg-muted/20 px-4" dir="rtl">
         <SEO title="الخبر غير موجود" description="الخبر المطلوب غير متوفر." noIndex />
-        <Helmet>
-          <meta name="robots" content="noindex, follow" />
-        </Helmet>
-        <Card className="p-8 text-center">
-          <p className="text-lg text-muted-foreground mb-4">الخبر غير موجود</p>
+        <Helmet><meta name="robots" content="noindex, follow" /></Helmet>
+        <Card className="w-full max-w-md border-0 p-8 text-center shadow-lg">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+            <Newspaper className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <h1 className="mb-2 text-xl font-bold">الخبر غير موجود</h1>
+          <p className="mb-6 text-sm text-muted-foreground">ربما تم نقل الخبر أو لم يعد متاحًا.</p>
           <Link href="/news">
             <Button data-testid="button-back-to-news">
-              <ArrowRight className="h-4 w-4 ml-2" />
-              العودة للأخبار
+              <ArrowRight className="ml-2 h-4 w-4" />
+              تصفح آخر الأخبار
             </Button>
           </Link>
         </Card>
@@ -291,8 +257,15 @@ export default function NewsDetail() {
     );
   }
 
+  const related = (relatedNews || []).slice(0, 5);
+  const categoryLabel = categoryLabels[news.category] || news.category;
+  const readTime = getReadTime(news.content);
   const seoDescription = news.seoDescription || news.summary || `${news.title} - اقرأ المزيد على كبسولة`;
   const seoImage = news.imageUrl || getNewsFallbackImage(news.id);
+  const keywords = news.keywords || [];
+  const updatedAt = news.updatedAt ? new Date(news.updatedAt).getTime() : 0;
+  const publishedAt = news.publishedAt ? new Date(news.publishedAt).getTime() : 0;
+  const wasUpdated = Number.isFinite(updatedAt) && Number.isFinite(publishedAt) && updatedAt > publishedAt + 5 * 60 * 1000;
 
   return (
     <>
@@ -300,401 +273,316 @@ export default function NewsDetail() {
         title={news.seoTitle || news.title}
         description={seoDescription}
         image={seoImage}
-        url={news.shortCode ? `${window.location.origin}/n/${news.shortCode}` : `${window.location.origin}/news/${news.id}`}
+        url={getShareUrl()}
         type="article"
         publishedTime={news.publishedAt ? new Date(news.publishedAt).toISOString() : undefined}
         author={news.source || "كبسولة"}
-        keywords={news.keywords as string[] || []}
+        keywords={keywords as string[]}
       />
-      <div className="min-h-screen p-4 md:p-6 bg-background" dir="rtl">
-        <div className="container mx-auto max-w-7xl">
-          <Link href="/news">
-            <Button variant="ghost" className="mb-4" data-testid="button-back">
-              <ArrowRight className="h-4 w-4 ml-2" />
-              العودة للأخبار
-          </Button>
-        </Link>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <article>
-              <header className="mb-6">
-                {news.isBreaking && (
-                  <div className="inline-flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold mb-3 animate-pulse shadow-lg">
-                    <AlertTriangle className="h-4 w-4" />
-                    خبر عاجل
-                  </div>
-                )}
-                <Badge className={`${news.isBreaking ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200" : categoryColors[news.category] || ""} mb-4 text-sm`}>
-                  {categoryLabels[news.category] || news.category}
-                </Badge>
-                
-                <h1 className={`text-2xl md:text-3xl lg:text-4xl font-bold leading-tight mb-2 ${news.isBreaking ? "text-red-700 dark:text-red-400" : ""}`} data-testid="text-news-title">
+      <div
+        className="fixed left-0 top-0 z-[70] h-1 bg-primary transition-[width] duration-150"
+        style={{ width: `${readingProgress}%` }}
+        aria-hidden="true"
+      />
+
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.08),transparent_32rem)] px-4 py-5 md:py-8" dir="rtl">
+        <div className="mx-auto max-w-6xl">
+          <nav className="mb-6 flex items-center gap-1.5 overflow-hidden text-sm text-muted-foreground" aria-label="مسار الصفحة">
+            <Link href="/" className="shrink-0 transition-colors hover:text-primary">الرئيسية</Link>
+            <ChevronLeft className="h-4 w-4 shrink-0" />
+            <Link href="/news" className="shrink-0 transition-colors hover:text-primary">الأخبار</Link>
+            <ChevronLeft className="h-4 w-4 shrink-0" />
+            <span className="truncate text-foreground">{categoryLabel}</span>
+          </nav>
+
+          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px] xl:gap-10">
+            <article ref={articleRef} className="min-w-0" data-testid="news-article">
+              <header className="mb-6 md:mb-8">
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  {news.isBreaking && (
+                    <Badge className="gap-1.5 rounded-full border-0 bg-red-600 px-3 py-1.5 text-white shadow-sm hover:bg-red-600">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      عاجل
+                    </Badge>
+                  )}
+                  <Link href={`/news?category=${encodeURIComponent(news.category)}`}>
+                    <Badge variant="secondary" className="rounded-full px-3 py-1.5 text-primary hover:bg-primary/10">
+                      {categoryLabel}
+                    </Badge>
+                  </Link>
+                </div>
+
+                <h1
+                  className="max-w-4xl text-3xl font-black leading-[1.35] tracking-tight text-foreground md:text-4xl lg:text-[2.75rem]"
+                  data-testid="text-news-title"
+                >
                   {news.title}
                 </h1>
-                
+
                 {news.subtitle && (
-                  <p className="text-lg md:text-xl text-muted-foreground font-medium mb-4" data-testid="text-news-subtitle">
+                  <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground md:text-xl" data-testid="text-news-subtitle">
                     {news.subtitle}
                   </p>
                 )}
-                
-                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-4">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
+
+                <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4 text-primary" />
                     <span data-testid="text-publish-date">{formatDate(news.publishedAt)}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <User className="h-4 w-4" />
-                    <span>فريق التحرير</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    <span>{getReadTime(news.content)} دقائق للقراءة</span>
-                  </div>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock className="h-4 w-4 text-primary" />
+                    {readTime} {readTime === 1 ? "دقيقة" : "دقائق"} قراءة
+                  </span>
+                  {typeof news.viewCount === "number" && news.viewCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Eye className="h-4 w-4 text-primary" />
+                      {new Intl.NumberFormat("ar-SA").format(news.viewCount)} مشاهدة
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    variant={liked ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setLiked(!liked)}
-                    data-testid="button-like"
-                  >
-                    <Heart className={`h-4 w-4 ml-1 ${liked ? "fill-current" : ""}`} />
-                    أعجبني
+                {wasUpdated && (
+                  <p className="mt-2 text-xs text-muted-foreground">آخر تحديث: {formatDate(news.updatedAt)}</p>
+                )}
+
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                  <Button onClick={shareNatively} className="rounded-full" data-testid="button-share-native">
+                    <Share2 className="ml-2 h-4 w-4" />
+                    مشاركة الخبر
                   </Button>
                   <Button
-                    variant={bookmarked ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setBookmarked(!bookmarked)}
-                    data-testid="button-bookmark"
+                    variant="outline"
+                    size="icon"
+                    className="rounded-full text-emerald-600"
+                    onClick={() => shareOnSocial("whatsapp")}
+                    aria-label="مشاركة عبر واتساب"
+                    data-testid="button-share-whatsapp"
                   >
-                    <Bookmark className={`h-4 w-4 ml-1 ${bookmarked ? "fill-current" : ""}`} />
-                    حفظ
+                    <SiWhatsapp className="h-4 w-4" />
                   </Button>
-                  <div className="flex items-center gap-1">
-                    <Button variant="outline" size="icon" onClick={() => shareOnSocial("whatsapp")} data-testid="button-share-whatsapp" className="text-green-600">
-                      <SiWhatsapp className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => shareOnSocial("twitter")} data-testid="button-share-twitter">
-                      <SiX className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => shareOnSocial("facebook")} data-testid="button-share-facebook">
-                      <Facebook className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => shareOnSocial("linkedin")} data-testid="button-share-linkedin">
-                      <Linkedin className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="rounded-full"
+                    onClick={() => shareOnSocial("twitter")}
+                    aria-label="مشاركة عبر إكس"
+                    data-testid="button-share-twitter"
+                  >
+                    <SiX className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="rounded-full text-blue-600"
+                    onClick={() => shareOnSocial("facebook")}
+                    aria-label="مشاركة عبر فيسبوك"
+                    data-testid="button-share-facebook"
+                  >
+                    <Facebook className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="rounded-full"
+                    onClick={copyShareLink}
+                    aria-label="نسخ رابط الخبر"
+                    data-testid="button-copy-link"
+                  >
+                    {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                  </Button>
                 </div>
               </header>
 
-              <figure className="relative mb-6 rounded-xl overflow-hidden shadow-lg bg-muted/30">
-                <img 
-                  src={getNewsImage(news, "hero")} 
+              <figure className="relative mb-7 overflow-hidden rounded-2xl bg-muted shadow-[0_18px_50px_-24px_hsl(var(--foreground)/0.35)] md:rounded-3xl">
+                <img
+                  src={getNewsImage(news, "hero")}
                   alt={news.imageAlt || news.title}
                   loading="eager"
                   decoding="async"
                   fetchPriority="high"
-                  className="w-full h-auto"
+                  className="aspect-[16/9] w-full object-cover"
                   data-testid="img-news-cover"
                 />
                 <AIImageBadge imageUrl={news.imageUrl} size="md" />
-                {news.imageAlt && (
-                  <figcaption className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent p-4">
-                    <div className="flex items-center gap-2 text-white/90">
+                {news.imageAlt && news.imageAlt !== news.title && (
+                  <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-4 pt-12 text-sm text-white/90">
+                    <span className="inline-flex items-center gap-2" data-testid="text-image-caption">
                       <ImageIcon className="h-4 w-4" />
-                      <span className="text-sm" data-testid="text-image-caption">
-                        {news.imageAlt}
-                      </span>
-                    </div>
+                      {news.imageAlt}
+                    </span>
                   </figcaption>
                 )}
               </figure>
 
-              <div className="flex flex-wrap gap-2 mb-6" data-testid="keywords-section">
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Tag className="h-4 w-4" />
-                  <span>الكلمات المفتاحية:</span>
-                </div>
-                {(news.keywords && news.keywords.length > 0 ? news.keywords : keywordsMap[news.category] || []).map((keyword, idx) => (
-                  <Link key={idx} href={`/keyword/${encodeURIComponent(keyword)}`}>
-                    <Badge 
-                      className="text-xs hover-elevate cursor-pointer bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
-                      data-testid={`badge-keyword-${idx}`}
-                    >
-                      {keyword}
-                    </Badge>
-                  </Link>
-                ))}
-              </div>
-
               {news.summary && (
-                <Card className="mb-6 overflow-hidden border-primary/20" data-testid="summary-box">
-                  <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 border-b border-primary/10">
-                    <Lightbulb className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-semibold text-primary">الموجز الذكي</span>
+                <section className="mb-7 overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/10 via-primary/5 to-background p-5 md:p-6" data-testid="summary-box">
+                  <div className="mb-3 flex items-center gap-2 text-primary">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                      <Sparkles className="h-4 w-4" />
+                    </span>
+                    <h2 className="font-bold">الخلاصة</h2>
                   </div>
-                  <CardContent className="p-4">
-                    <p className="text-base leading-relaxed text-foreground" data-testid="text-news-summary">
-                      {news.summary}
-                    </p>
-                  </CardContent>
-                </Card>
+                  <p className="text-base font-medium leading-8 text-foreground/90 md:text-lg" data-testid="text-news-summary">
+                    {news.summary}
+                  </p>
+                </section>
               )}
 
-              <div className="prose prose-lg dark:prose-invert max-w-none mb-8">
-                <Separator className="my-6" />
-                
-                <div 
-                  className="leading-relaxed text-foreground news-content"
+              <section className="rounded-2xl border bg-card px-5 py-7 shadow-sm md:rounded-3xl md:px-9 md:py-10">
+                <div
+                  className="news-content"
                   data-testid="text-news-content"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(news.content, {
-                    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'a', 'img', 'hr', 'code', 'pre'],
-                    ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'target', 'rel', 'style'],
-                    ALLOW_DATA_ATTR: false,
-                  }) }}
+                  dangerouslySetInnerHTML={{ __html: sanitizedContent }}
                 />
-              </div>
+              </section>
 
               {news.source && (
-                <div className="mb-8 relative overflow-hidden rounded-xl border bg-gradient-to-br from-primary/5 via-background to-primary/10">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
-                  <div className="relative p-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <ExternalLink className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">المصدر</p>
-                        {news.sourceUrl ? (
-                          <a 
-                            href={news.sourceUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-lg font-semibold text-primary hover:underline inline-flex items-center gap-2"
-                            data-testid="link-source"
-                          >
-                            {news.source}
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        ) : (
-                          <span className="text-lg font-semibold text-foreground" data-testid="text-source">
-                            {news.source}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="mb-8">
-                <h3 className="flex items-center gap-2 text-xl font-bold mb-6">
-                  <Lightbulb className="h-6 w-6 text-primary" />
-                  نصائح صحية مستخلصة
-                </h3>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {healthTips.map((item, index) => {
-                    const IconComponent = item.icon;
-                    return (
-                      <div 
-                        key={index} 
-                        className={`relative ${item.bgColor} rounded-xl p-4 border border-transparent hover:shadow-md transition-all overflow-hidden group`}
-                        data-testid={`tip-card-${index}`}
-                      >
-                        <div className="absolute top-0 left-0 w-24 h-24 opacity-10">
-                          <div className={`w-full h-full bg-gradient-to-br ${item.color} rounded-full blur-2xl`} />
-                        </div>
-                        <div className="relative flex items-start gap-3">
-                          <div className={`${item.iconBg} w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                            <IconComponent className="h-6 w-6 text-primary" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="text-xs font-medium text-muted-foreground mb-1">نصيحة {index + 1}</div>
-                            <p className="font-medium text-foreground leading-relaxed">{item.tip}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="mb-8">
-                <h3 className="flex items-center gap-2 text-xl font-bold mb-6">
-                  <ShieldCheck className="h-6 w-6 text-primary" />
-                  معلومات صحية مهمة
-                </h3>
-                <div className="grid sm:grid-cols-3 gap-4">
-                  {infoGraphics.map((info, index) => {
-                    const IconComponent = info.icon;
-                    return (
-                      <div 
-                        key={index}
-                        className="relative overflow-hidden rounded-xl shadow-lg"
-                        data-testid={`infographic-${index}`}
-                      >
-                        <div className={`absolute inset-0 bg-gradient-to-br ${info.gradient}`} />
-                        <div className="relative p-5 text-white">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                              <IconComponent className="h-5 w-5" />
-                            </div>
-                            <span className="font-bold text-lg">{info.title}</span>
-                          </div>
-                          <p className="text-white/90 text-sm leading-relaxed">{info.content}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <Card className="mb-8">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <HelpCircle className="h-5 w-5 text-primary" />
-                    أسئلة شائعة
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {faqs.map((faq, index) => (
-                    <div 
-                      key={index} 
-                      className="border rounded-lg overflow-hidden"
-                    >
-                      <button
-                        className="w-full p-4 text-right flex items-center justify-between hover-elevate"
-                        onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
-                        data-testid={`button-faq-${index}`}
-                      >
-                        <span className="font-medium">{faq.question}</span>
-                        {expandedFaq === index ? (
-                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </button>
-                      {expandedFaq === index && (
-                        <div className="px-4 pb-4 text-muted-foreground">
-                          {faq.answer}
-                        </div>
+                <section className="mt-6 rounded-2xl border bg-muted/30 p-5" aria-label="مصدر الخبر">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-background text-primary shadow-sm">
+                      <ExternalLink className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="mb-1 text-xs font-medium text-muted-foreground">المصدر</p>
+                      {news.sourceUrl ? (
+                        <a
+                          href={news.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex max-w-full items-center gap-1.5 font-bold text-primary hover:underline"
+                          data-testid="link-source"
+                        >
+                          <span className="truncate">{news.source}</span>
+                          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                        </a>
+                      ) : (
+                        <span className="font-bold" data-testid="text-source">{news.source}</span>
                       )}
                     </div>
-                  ))}
+                  </div>
+                </section>
+              )}
+
+              <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200/70 bg-amber-50/70 p-4 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-100">
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
+                <p className="text-sm leading-6">المحتوى للتوعية والمعرفة، ولا يغني عن استشارة الطبيب أو المختص عند الحاجة.</p>
+              </div>
+
+              {keywords.length > 0 && (
+                <section className="mt-7" data-testid="keywords-section">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                    <Tag className="h-4 w-4 text-primary" />
+                    مواضيع مرتبطة
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {keywords.map((keyword, index) => (
+                      <Link key={`${keyword}-${index}`} href={`/keyword/${encodeURIComponent(keyword)}`}>
+                        <Badge variant="secondary" className="rounded-full px-3 py-1.5 font-normal hover:bg-primary/10 hover:text-primary" data-testid={`badge-keyword-${index}`}>
+                          {keyword}
+                        </Badge>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              <section className="mt-8 overflow-hidden rounded-2xl bg-foreground px-5 py-6 text-background md:flex md:items-center md:justify-between md:px-7">
+                <div>
+                  <h2 className="text-lg font-bold">هل وجدت الخبر مفيدًا؟</h2>
+                  <p className="mt-1 text-sm text-background/70">شاركه مع من يهمه الموضوع.</p>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2 md:mt-0">
+                  <Button variant="secondary" className="rounded-full" onClick={() => shareOnSocial("whatsapp")} data-testid="button-share-whatsapp-bottom">
+                    <SiWhatsapp className="ml-2 h-4 w-4 text-emerald-600" />
+                    واتساب
+                  </Button>
+                  <Button variant="secondary" className="rounded-full" onClick={copyShareLink} data-testid="button-copy-link-bottom">
+                    <Link2 className="ml-2 h-4 w-4" />
+                    نسخ الرابط
+                  </Button>
+                </div>
+              </section>
+            </article>
+
+            <aside className="space-y-5 lg:sticky lg:top-24" aria-label="محتوى جانبي">
+              <AdBanner position="news_sidebar" />
+
+              <Card className="overflow-hidden border-0 shadow-sm ring-1 ring-border">
+                <CardHeader className="border-b bg-muted/30 pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Newspaper className="h-5 w-5 text-primary" />
+                    اقرأ أيضًا
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3">
+                  {related.length > 0 ? (
+                    <div className="divide-y">
+                      {related.map((item) => (
+                        <Link key={item.id} href={getNewsHref(item)}>
+                          <div className="group flex gap-3 rounded-xl p-2.5 transition-colors hover:bg-muted/60" data-testid={`card-related-${item.id}`}>
+                            <img
+                              src={getNewsImage(item, "thumb")}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              className="h-20 w-24 shrink-0 rounded-lg object-cover"
+                            />
+                            <div className="min-w-0 flex-1 py-0.5">
+                              <h3 className="line-clamp-2 text-sm font-bold leading-6 transition-colors group-hover:text-primary">{item.title}</h3>
+                              <p className="mt-1 text-xs text-muted-foreground">{formatDate(item.publishedAt, true)}</p>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-3 py-8 text-center">
+                      <Newspaper className="mx-auto mb-2 h-7 w-7 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">لا توجد أخبار مرتبطة حاليًا</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-            </article>
+              <Card className="border-primary/15 bg-primary/[0.04]">
+                <CardContent className="p-5">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Share2 className="h-5 w-5 text-primary" />
+                    <h2 className="font-bold">شارك الخبر</h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" className="bg-background text-emerald-600" onClick={() => shareOnSocial("whatsapp")} data-testid="button-share-whatsapp-sidebar">
+                      <SiWhatsapp className="ml-2 h-4 w-4" />
+                      واتساب
+                    </Button>
+                    <Button variant="outline" className="bg-background" onClick={() => shareOnSocial("twitter")} data-testid="button-share-twitter-sidebar">
+                      <SiX className="ml-2 h-4 w-4" />
+                      إكس
+                    </Button>
+                    <Button variant="outline" className="bg-background text-blue-600" onClick={() => shareOnSocial("facebook")} data-testid="button-share-facebook-sidebar">
+                      <Facebook className="ml-2 h-4 w-4" />
+                      فيسبوك
+                    </Button>
+                    <Button variant="outline" className="bg-background" onClick={copyShareLink} data-testid="button-copy-link-sidebar">
+                      {copied ? <Check className="ml-2 h-4 w-4 text-emerald-600" /> : <Copy className="ml-2 h-4 w-4" />}
+                      نسخ
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Link href="/news">
+                <Button variant="ghost" className="w-full justify-between text-muted-foreground" data-testid="button-back">
+                  <span className="inline-flex items-center"><ArrowRight className="ml-2 h-4 w-4" />جميع الأخبار</span>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              </Link>
+            </aside>
           </div>
-
-          <aside className="lg:col-span-1 space-y-6">
-            <AdBanner position="news_sidebar" />
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">أخبار ذات صلة</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {related.length > 0 ? (
-                  related.map((item, index) => (
-                    <Link key={item.id} href={`/news/${item.id}`}>
-                      <div className="flex gap-3 p-2 rounded-lg hover-elevate cursor-pointer" data-testid={`card-related-${item.id}`}>
-                        <img 
-                          src={getNewsImage(item, "thumb")} 
-                          alt={item.title}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-20 h-16 object-cover rounded"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm line-clamp-2 mb-1">{item.title}</p>
-                          <p className="text-xs text-muted-foreground">{formatDate(item.publishedAt)}</p>
-                        </div>
-                      </div>
-                    </Link>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">لا توجد أخبار ذات صلة</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Share2 className="h-5 w-5" />
-                  شارك الخبر
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2 flex-wrap">
-                  <Button 
-                    className="flex-1 text-green-600" 
-                    variant="outline"
-                    onClick={() => shareOnSocial("whatsapp")}
-                    data-testid="button-share-whatsapp-sidebar"
-                  >
-                    <SiWhatsapp className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    className="flex-1" 
-                    variant="outline"
-                    onClick={() => shareOnSocial("twitter")}
-                    data-testid="button-share-twitter-sidebar"
-                  >
-                    <SiX className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    className="flex-1" 
-                    variant="outline"
-                    onClick={() => shareOnSocial("facebook")}
-                    data-testid="button-share-facebook-sidebar"
-                  >
-                    <Facebook className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    className="flex-1" 
-                    variant="outline"
-                    onClick={() => shareOnSocial("linkedin")}
-                    data-testid="button-share-linkedin-sidebar"
-                  >
-                    <Linkedin className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">تابع صحتك</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Link href="/chat">
-                  <Button variant="outline" className="w-full justify-start" data-testid="button-goto-chat">
-                    <MessageCircle className="h-4 w-4 ml-2" />
-                    المساعد الصحي الذكي
-                  </Button>
-                </Link>
-                <Link href="/nutrition">
-                  <Button variant="outline" className="w-full justify-start" data-testid="button-goto-nutrition">
-                    <Activity className="h-4 w-4 ml-2" />
-                    متتبع التغذية
-                  </Button>
-                </Link>
-                <Link href="/profile">
-                  <Button variant="outline" className="w-full justify-start" data-testid="button-goto-profile">
-                    <User className="h-4 w-4 ml-2" />
-                    ملفي الصحي
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </aside>
         </div>
       </div>
-    </div>
     </>
   );
 }
