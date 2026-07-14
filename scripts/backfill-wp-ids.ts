@@ -130,16 +130,41 @@ async function main() {
   let matched = 0, unmatched = 0, spam = 0, failed = 0, done = 0;
   const unmatchedSamples: string[] = [];
 
+  // لقطات غير صالحة: تحدي كلاودفلير المؤرشف أو غلاف الموقع الجديد بعد الهجرة
+  const isJunkTitle = (t: string) =>
+    /bot verification|just a moment|attention required/i.test(t) ||
+    /^كبسولة\s*[|–-]/.test(t.trim());
+
+  // يجرب لقطة CDX الأولى، وإن كانت غير صالحة يطلب قائمة لقطات الرابط كاملة ويجربها
+  const fetchBestTitle = async (wpId: number, firstTimestamp: string): Promise<string | null> => {
+    const tryOne = async (ts: string): Promise<string | null> => {
+      const html = await fetchWithRetry(`http://web.archive.org/web/${ts}id_/https://capsulah.com/${wpId}`);
+      if (!html) return null;
+      const t = extractTitle(html);
+      return t && !isJunkTitle(t) ? t : null;
+    };
+
+    const first = await tryOne(firstTimestamp);
+    if (first) return first;
+
+    const cdxPerId = await fetchWithRetry(
+      `http://web.archive.org/cdx/search/cdx?url=capsulah.com/${wpId}&filter=statuscode:200&fl=timestamp&limit=6`
+    );
+    if (!cdxPerId) return null;
+    for (const ts of cdxPerId.split('\n').map(s => s.trim()).filter(Boolean)) {
+      if (ts === firstTimestamp) continue;
+      const title = await tryOne(ts);
+      if (title) return title;
+    }
+    return null;
+  };
+
   await Promise.all(work.map(({ wpId, timestamp }) => limiter(async () => {
-    const snapshotUrl = `http://web.archive.org/web/${timestamp}id_/https://capsulah.com/${wpId}`;
-    const html = await fetchWithRetry(snapshotUrl);
+    const rawTitle = await fetchBestTitle(wpId, timestamp);
     done++;
     if (done % 50 === 0) {
       console.log(`[Backfill] ${done}/${work.length} — مطابق ${matched}، بلا تطابق ${unmatched}، سبام ${spam}، فشل ${failed}`);
     }
-    if (!html) { failed++; return; }
-
-    const rawTitle = extractTitle(html);
     if (!rawTitle) { failed++; return; }
     if (hasCJK(rawTitle)) { spam++; return; } // صفحة سبام الاختراق الياباني — تبقى 410
 
