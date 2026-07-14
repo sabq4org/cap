@@ -150,6 +150,7 @@ export interface IStorage {
   getNewsById(id: string): Promise<News | undefined>;
   getNewsByShortCode(shortCode: string): Promise<News | undefined>;
   getNewsByLegacyUrl(urlPath: string): Promise<News | undefined>;
+  getNewsByWpId(wpId: number): Promise<News | undefined>;
   getNewsByKeyword(keyword: string): Promise<News[]>;
   getNewsByStatus(status: string): Promise<News[]>;
   getAllNewsForAdmin(): Promise<News[]>;
@@ -894,6 +895,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(news)
       .where(eq(news.shortCode, shortCode));
+    return newsItem;
+  }
+
+  async getNewsByWpId(wpId: number): Promise<News | undefined> {
+    const [newsItem] = await db
+      .select()
+      .from(news)
+      .where(eq(news.wpId, wpId));
     return newsItem;
   }
 

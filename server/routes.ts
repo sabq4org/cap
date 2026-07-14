@@ -2843,6 +2843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             publishedAt: new Date(post.date),
             isFeatured: post.sticky || false,
             shortCode: generateShortCode(),
+            wpId: post.id, // keeps the legacy /:id/ permalink redirect working for future imports
           };
 
           const created = await storage.createNews(newsData);
@@ -5677,16 +5678,67 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   // ─────────────────────────────────────────────────────────────────────────────
 
   // ─── Legacy WordPress URL redirect ────────────────────────────────────────
-  // Catches old capsulah.com WordPress permalinks (e.g. /2025/03/article-slug/)
-  // and performs a 301 permanent redirect to the correct new URL.
-  // Only activates for paths that start with a 4-digit year OR contain
-  // a slug that matches a known article's sourceUrl.
+  // The old capsulah.com ran WordPress with numeric permalinks (/20538/) plus
+  // category archives (/health-community/page/3/). Google's index still holds
+  // thousands of those URLs (including Japanese-hack spam pages). Policy:
+  //   • known wp_id            → 301 to the imported article's /n/ short URL
+  //   • unknown numeric/WP path → 410 Gone (drops from the index faster than 404)
+  //   • category archives       → 301 to the matching /news?category= page
   const EXCLUDED_PREFIXES = [
     '/api/', '/n/', '/news', '/admin', '/articles', '/chat',
     '/profile', '/login', '/register', '/objects/', '/assets/',
   ];
 
-  app.get(/^\/\d{4}(\/.*)?$/, async (req, res, next) => {
+  const goneHtml = (): string => notFoundHtml('هذه الصفحة أُزيلت نهائياً');
+  const sendGone = (res: any) =>
+    res.status(410).set({
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=86400',
+      'X-Robots-Tag': 'noindex',
+    }).send(goneHtml());
+
+  // Numeric WordPress permalinks: /20538, /20538/ (IDs ranged roughly 100–99999)
+  app.get(/^\/(\d{1,7})\/?$/, async (req, res, next) => {
+    try {
+      const wpId = parseInt(req.params[0], 10);
+      if (!Number.isSafeInteger(wpId)) return next();
+      const newsItem = await storage.getNewsByWpId(wpId);
+      if (newsItem && newsItem.shortCode) {
+        console.log(`[Redirect] /${wpId} → /n/${newsItem.shortCode}`);
+        return res.redirect(301, `/n/${newsItem.shortCode}`);
+      }
+      // Unmapped numeric permalink — dead WP page or hack spam. Gone.
+      return sendGone(res);
+    } catch (err) {
+      next();
+    }
+  });
+
+  // Category archives + pagination: /health-community/page/3/ → /news?category=…
+  app.get('/:slug/page/:page(\\d+)', async (req, res, next) => {
+    try {
+      const categories = await storage.getCategories(true);
+      const match = categories.find(c => c.slug === req.params.slug);
+      if (match) {
+        return res.redirect(301, `/news?category=${encodeURIComponent(match.slug)}`);
+      }
+      return sendGone(res);
+    } catch (err) {
+      next();
+    }
+  });
+
+  app.get('/page/:page(\\d+)', (_req, res) => {
+    res.redirect(301, '/news');
+  });
+
+  // WordPress leftovers that only bots and attackers still request
+  app.get(['/wp-admin', '/wp-admin/*', '/wp-content/*', '/wp-includes/*', '/wp-login.php', '/xmlrpc.php', '/feed', '/comments/feed'], (_req, res) => {
+    sendGone(res);
+  });
+
+  // Year-based permalinks (/2025/03/article-slug/) — try sourceUrl match, else Gone
+  app.get(/^\/\d{4}\/.+$/, async (req, res, next) => {
     try {
       const urlPath = req.path;
       const newsItem = await storage.getNewsByLegacyUrl(urlPath);
@@ -5695,7 +5747,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
         console.log(`[Redirect] ${urlPath} → ${newUrl}`);
         return res.redirect(301, newUrl);
       }
-      next();
+      return sendGone(res);
     } catch (err) {
       next();
     }
@@ -5845,6 +5897,13 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     // Only try slug redirect if it looks like an Arabic/URL slug (contains - or Arabic chars)
     if (!/[-\u0600-\u06FF]/.test(slug)) return next();
     try {
+      // Old WP category archive root (/health-community/) \u2192 new category listing
+      const categories = await storage.getCategories(true);
+      const categoryMatch = categories.find(c => c.slug === slug);
+      if (categoryMatch) {
+        return res.redirect(301, `/news?category=${encodeURIComponent(categoryMatch.slug)}`);
+      }
+
       const newsItem = await storage.getNewsByLegacyUrl(fullPath);
       if (newsItem) {
         const newUrl = newsItem.shortCode ? `/n/${newsItem.shortCode}` : `/news/${newsItem.id}`;

@@ -250,6 +250,7 @@ export const news = pgTable("news", {
   category: varchar("category").notNull(), // "medical", "health", "pharmaceutical", "conference", "awareness", "nutrition"
   source: varchar("source"),
   sourceUrl: varchar("source_url"),
+  wpId: integer("wp_id"), // WordPress post ID from the old capsulah.com site — powers 301 redirects from legacy /:id/ permalinks
   imageUrl: varchar("image_url"),
   imageAlt: varchar("image_alt"),
   seoTitle: varchar("seo_title"),
