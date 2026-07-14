@@ -634,7 +634,7 @@ export default function AdminNewsCreate() {
                       {formData.seoTitle || formData.title || "عنوان الخبر"}
                     </p>
                     <p className="text-green-700 text-sm" dir="ltr">
-                      capsulah.replit.app/news/...
+                      capsulah.net/news/...
                     </p>
                     <p className="text-sm text-muted-foreground line-clamp-2">
                       {formData.seoDescription || formData.summary || "وصف الخبر سيظهر هنا..."}

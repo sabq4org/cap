@@ -1,4 +1,3 @@
-// Blueprint: javascript_database, javascript_log_in_with_replit
 import {
   users,
   healthProfiles,
@@ -109,7 +108,7 @@ import { db } from "./db";
 import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike, inArray, ne } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations - mandatory for Replit Auth
+  // User operations
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   getUserByEmail(email: string): Promise<User | undefined>;

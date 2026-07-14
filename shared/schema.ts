@@ -1,11 +1,10 @@
-// Blueprint: javascript_log_in_with_replit, javascript_database
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, integer, real, jsonb, index, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table - mandatory for Replit Auth
+// Session storage table
 export const sessions = pgTable(
   "sessions",
   {
@@ -31,7 +30,7 @@ export const userRoleEnum = [
 
 export type UserRole = typeof userRoleEnum[number];
 
-// User storage table - mandatory for Replit Auth
+// User storage table
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
@@ -39,7 +38,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   passwordHash: varchar("password_hash"),
-  authProvider: varchar("auth_provider").default("replit"),
+  authProvider: varchar("auth_provider").default("local"),
   role: varchar("role").notNull().default("subscriber"),
   isActive: boolean("is_active").default(true),
   lastLoginAt: timestamp("last_login_at"),

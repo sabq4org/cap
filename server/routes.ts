@@ -1,9 +1,8 @@
-// Blueprint: javascript_log_in_with_replit
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./auth";
 import { setupLocalAuth, registerLocalAuthRoutes } from "./localAuth";
 import { generateHealthResponse, analyzeSymptoms, analyzeNutrition, analyzeNewsContent, generateImage, generatePromptFromContent, buildNewsImagePrompt, generateInfographicPrompt, extractInfographicFromText, generateInfographicImage, translateAndProcessNews, evaluateNewsImportance, categorizeNewsArticle, generateEditorialInsights, generateArchiveChatResponse, type ArchiveSearchResult, factCheckMedicalContent, simplifyMedicalText, extractNewsFromPdf, debunkMedicalRumor, generateSocialContent } from "./openai";
 import multer from "multer";
@@ -1111,7 +1110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return next();
     }
     
-    // Check Replit Auth user with admin role
+    // Check authenticated user with admin role
     if (req.isAuthenticated && req.isAuthenticated() && req.user) {
       const user = await storage.getUser(req.user.id);
       if (user && userManagementRoles.includes(user.role || '')) {
@@ -2299,7 +2298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             try { hostname = new URL(refHeader).hostname.replace(/^www\./, '').toLowerCase(); }
             catch { /* malformed referrer → keep direct */ }
             if (hostname) {
-              if (hostname.includes('capsulah.net') || hostname.includes('capsulah.com') || hostname.includes('replit')) {
+              if (hostname.includes('capsulah.net') || hostname.includes('capsulah.com')) {
                 source = 'internal'; sourceLabel = 'تصفّح داخلي';
               } else {
                 const m = mapKnown(hostname);
@@ -3677,7 +3676,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Download and upload image if available
       let finalImageUrl = item.imageUrl;
-      if (item.imageUrl && !item.imageUrl.includes('replit.app')) {
+      if (item.imageUrl) {
         const uploadedUrl = await downloadAndUploadImage(item.imageUrl);
         if (uploadedUrl) {
           finalImageUrl = uploadedUrl;

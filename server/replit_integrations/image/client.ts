@@ -7,7 +7,7 @@ export const openai = new OpenAI(getOpenAIConfig());
 
 /**
  * Generate an image and return as Buffer.
- * Uses gpt-image-1 model via Replit AI Integrations.
+ * Uses gpt-image-1 model via AI Integrations.
  */
 export async function generateImageBuffer(
   prompt: string,
@@ -24,7 +24,7 @@ export async function generateImageBuffer(
 
 /**
  * Edit/combine multiple images into a composite.
- * Uses gpt-image-1 model via Replit AI Integrations.
+ * Uses gpt-image-1 model via AI Integrations.
  */
 export async function editImages(
   imageFiles: string[],

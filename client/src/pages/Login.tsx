@@ -139,21 +139,6 @@ export default function Login() {
                 إنشاء حساب جديد
               </Link>
             </div>
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200 dark:border-gray-700" />
-              </div>
-              <div className="relative flex justify-center text-xs text-gray-400 uppercase">
-                <span className="bg-white dark:bg-gray-800 px-2">أو</span>
-              </div>
-            </div>
-
-            <a href="/api/login" className="block">
-              <Button data-testid="button-replit-login" variant="outline" className="w-full h-11">
-                الدخول عبر Replit
-              </Button>
-            </a>
           </CardContent>
         </Card>
       </div>

@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import sharp from "sharp";
 import { ObjectStorageService, ObjectNotFoundError, objectStorageClient } from "./objectStorage";
-import { isAuthenticated } from "../../replitAuth";
+import { isAuthenticated } from "../../auth";
 import { isS3Configured, verifyUploadTicket } from "./s3Client";
 
 const ALLOWED_MIME_TYPES = new Set([

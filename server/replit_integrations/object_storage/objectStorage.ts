@@ -15,7 +15,7 @@ const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
 // The object storage client is used to interact with the object storage
 // service. S3-compatible driver (Railway Bucket) when the S3 env vars are
-// set; otherwise the original Replit sidecar (GCS) — dev on Replit only.
+// set; otherwise the GCS sidecar client (legacy local storage mode).
 export const objectStorageClient: Storage = isS3Configured
   ? (new S3Storage() as unknown as Storage)
   : new Storage({
@@ -347,7 +347,7 @@ async function signObjectURL({
   if (!response.ok) {
     throw new Error(
       `Failed to sign object URL, errorcode: ${response.status}, ` +
-        `make sure you're running on Replit`
+        `check PRIVATE_OBJECT_DIR / S3 credentials`
     );
   }
 

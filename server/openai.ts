@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 import { getOpenAIConfig } from "./openaiConfig";
 
-// Replit AI Integrations or direct OpenAI (OPENAI_API_KEY) on Railway
+// OpenAI (OPENAI_API_KEY) or optional AI integration env vars
 const openai = new OpenAI(getOpenAIConfig());
 
 export interface ChatMessage {
@@ -267,7 +267,7 @@ export async function generateNewsMeta(content: string): Promise<{
     console.log("[generateNewsMeta] Starting with content length:", content.length);
     
     // Use gpt-4o with function calling for reliable structured output
-    // gpt-5 has issues with structured output on Replit AI Integrations
+    // gpt-5 can have issues with structured output on some proxies
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -638,7 +638,7 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
     }
   }
 
-  // FALLBACK 1: gpt-image-1 via Replit AI Integrations or direct OpenAI
+  // FALLBACK 1: gpt-image-1 via OpenAI
   const openaiCfg = getOpenAIConfig();
   if (openaiCfg.apiKey && openaiCfg.apiKey !== "missing-openai-api-key") {
     try {
@@ -658,17 +658,17 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
         return { success: true, imageBuffer, imageMimeType: 'image/png', revisedPrompt: fullPrompt, generationTimeMs: Date.now() - startTime };
       }
     } catch (error: any) {
-      console.warn("gpt-image-1 failed, trying Replit Gemini:", error.message);
+      console.warn("gpt-image-1 failed, trying Gemini fallback:", error.message);
     }
   }
 
-  // FALLBACK 2: Gemini via Replit AI Integrations
-  const replitGeminiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
-  const replitGeminiUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
-  if (replitGeminiKey && replitGeminiUrl) {
+  // FALLBACK 2: Gemini via AI_INTEGRATIONS_* env if configured
+  const geminiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  const geminiUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  if (geminiKey && geminiUrl) {
     try {
-      console.log("Generating image via Replit Gemini (fallback 2)...");
-      return await callGeminiImageGeneration(replitGeminiKey, fullPrompt, replitGeminiUrl, "gemini-2.0-flash-preview-image-generation");
+      console.log("Generating image via Gemini (fallback 2)...");
+      return await callGeminiImageGeneration(geminiKey, fullPrompt, geminiUrl, "gemini-2.0-flash-preview-image-generation");
     } catch (error: any) {
       console.error("All image generation methods failed:", error.message);
       return { success: false, error: error.message || "فشل في توليد الصورة", generationTimeMs: Date.now() - startTime };
@@ -832,7 +832,7 @@ ${englishContent.substring(0, 4000)}
 
   try {
     // Use gpt-4o with function calling for reliable structured output
-    // gpt-5 has issues with structured output on Replit AI Integrations
+    // gpt-5 can have issues with structured output on some proxies
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [

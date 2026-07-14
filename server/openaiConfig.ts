@@ -1,4 +1,4 @@
-/** OpenAI client options for Replit AI Integrations or direct OpenAI on Railway. */
+/** OpenAI client options (direct OPENAI_API_KEY or AI_INTEGRATIONS_* proxy). */
 export function getOpenAIConfig() {
   const apiKey =
     process.env.AI_INTEGRATIONS_OPENAI_API_KEY ||

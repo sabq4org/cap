@@ -1,10 +1,10 @@
 // S3-compatible storage driver (Railway Bucket, R2, MinIO, ...).
 //
 // The rest of the app talks to object storage through the small subset of the
-// Google Cloud Storage API used by the Replit blueprint (bucket().file() with
+// Google Cloud Storage–compatible surface (bucket().file() with
 // exists/getMetadata/setMetadata/createReadStream/save/download/delete).
 // This module implements that subset on top of the AWS SDK so no callsite
-// changes when the app runs off Replit. Activated when the S3 env vars are
+// changes when switching storage backends. Activated when the S3 env vars are
 // present; see isS3Configured.
 import {
   S3Client,
@@ -202,7 +202,7 @@ export class S3Storage {
 // ---------------------------------------------------------------------------
 // Server-proxied uploads.
 //
-// The Replit sidecar handed the browser a presigned PUT URL straight to the
+// Legacy mode handed the browser a presigned PUT URL straight to the
 // bucket. Railway's bucket endpoint isn't CORS-configured for the site, so in
 // S3 mode the "upload URL" is a same-origin route (/api/objects/upload/:id)
 // that the server verifies with an HMAC ticket and streams into the bucket.

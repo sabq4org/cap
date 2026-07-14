@@ -34,7 +34,7 @@ process.on('unhandledRejection', (reason: unknown) => {
 
 const app = express();
 
-// Trust proxy headers (Replit's deployment proxy) so req.protocol returns https in production
+// Trust proxy headers so req.protocol returns https behind Railway/Cloudflare
 app.set('trust proxy', 1);
 
 declare module 'http' {
@@ -296,7 +296,7 @@ async function fixCategoriesArabic() {
     server.listen({
       port,
       host: "0.0.0.0",
-      // reusePort is Replit/Linux-only; macOS throws ENOTSUP
+      // reusePort is Linux-only; macOS throws ENOTSUP
       ...(process.platform === "linux" ? { reusePort: true } : {}),
     }, () => {
       log(`serving on port ${port}`);

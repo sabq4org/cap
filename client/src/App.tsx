@@ -1,4 +1,3 @@
-// Blueprint: javascript_log_in_with_replit
 import { lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
