@@ -18,7 +18,6 @@ import {
   ChevronLeft,
   Brain,
   AlertTriangle,
-  Eye,
   Flame,
   Send,
   XCircle,
@@ -851,10 +850,6 @@ export default function Landing() {
                         decoding="async"
                         className="w-full h-32 md:h-36 object-cover"
                       />
-                      <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[11px] font-semibold">
-                        <Eye className="h-3 w-3" />
-                        {(item.viewCount || 0).toLocaleString('ar-SA-u-nu-latn')}
-                      </div>
                       <Badge className={`absolute top-2 right-2 text-[10px] ${categoryColors[item.category] || ""}`}>
                         {categoryLabels[item.category] || item.category}
                       </Badge>

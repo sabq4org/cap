@@ -15,8 +15,8 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { 
-  ShieldCheck, FlaskConical, AlertTriangle, CheckCircle, XCircle, 
-  Eye, Send, ExternalLink, Share2, Clock
+  ShieldCheck, FlaskConical, AlertTriangle, CheckCircle, XCircle,
+  Send, ExternalLink, Share2, Clock
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { SiX } from "react-icons/si";
@@ -97,12 +97,8 @@ function RumorCard({ rumor }: { rumor: RumorSubmission }) {
   return (
     <Card className={`border-2 ${cfg.borderColor} ${cfg.bgColor} overflow-hidden`} data-testid={`rumor-card-${rumor.id}`}>
       <CardContent className="p-4" dir="rtl">
-        <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="mb-3">
           <VerdictBadge verdict={verdict} />
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Eye className="h-3 w-3" />
-            <span data-testid={`text-view-count-${rumor.id}`}>{rumor.viewCount}</span>
-          </div>
         </div>
 
         <p className="text-sm text-muted-foreground mb-2 line-clamp-2 italic">
