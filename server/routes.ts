@@ -300,6 +300,52 @@ function setCachedOgImage(key: string, buffer: Buffer): void {
   }
 }
 
+// Persistent OG store: the in-process Map dies on every Railway deploy/restart
+// and is not shared across replicas — exactly when a fresh container gets the
+// first crawler hit. Persist each generated JPEG to object storage (S3 on
+// Railway) under og-cache/, so a cold process serves a fast GetObject instead
+// of a full re-render. Key embeds the content version, so stale entries are
+// simply never read again (no invalidation needed).
+function ogStorageFile(key: string): ReturnType<ReturnType<typeof objectStorageClient.bucket>['file']> | null {
+  try {
+    const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
+    if (!privateObjectDir) return null;
+    const pathParts = privateObjectDir.startsWith('/')
+      ? privateObjectDir.slice(1).split('/')
+      : privateObjectDir.split('/');
+    const bucketName = pathParts[0];
+    if (!bucketName) return null;
+    const basePath = pathParts.slice(1).join('/');
+    const objectName = `${basePath ? `${basePath}/` : ''}og-cache/${key.replace(':', '-')}.jpg`;
+    return objectStorageClient.bucket(bucketName).file(objectName);
+  } catch {
+    return null;
+  }
+}
+
+async function getStoredOgImage(key: string): Promise<Buffer | null> {
+  try {
+    const file = ogStorageFile(key);
+    if (!file) return null;
+    const [exists] = await file.exists();
+    if (!exists) return null;
+    const [data] = await file.download();
+    return data && data.length > 0 && data.length <= OG_MAX_SIZE_LIMIT ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function storeOgImage(key: string, buffer: Buffer): Promise<void> {
+  try {
+    const file = ogStorageFile(key);
+    if (!file) return;
+    await file.save(buffer, { metadata: { contentType: 'image/jpeg' } });
+  } catch (err) {
+    console.warn('[OG] persist to object storage failed:', err);
+  }
+}
+
 /**
  * Generate and cache a news item's OG image so a later crawler fetch is an
  * instant cache hit. Fire-and-forget from publish paths — never throws, and
@@ -317,9 +363,16 @@ export async function warmOgImageForNews(item: {
     if (!item?.id || !item.imageUrl || item.status !== 'published') return;
     const key = ogCacheKey(item.id, ogVersionMs(item));
     if (getCachedOgImage(key)) return;
+    // Already persisted by a previous process/replica? Load it into memory.
+    const stored = await getStoredOgImage(key);
+    if (stored) {
+      setCachedOgImage(key, stored);
+      return;
+    }
     const optimized = await optimizeImageForOG(item.imageUrl);
     if (optimized && optimized.length <= OG_MAX_SIZE_LIMIT) {
       setCachedOgImage(key, optimized);
+      await storeOgImage(key, optimized);
     }
   } catch (err) {
     console.warn('[OG] pre-warm failed:', err);
@@ -332,6 +385,23 @@ export function warmOgImagesForNews(items: unknown): void {
   for (const it of list) {
     void warmOgImageForNews(it as Parameters<typeof warmOgImageForNews>[0]);
   }
+}
+
+/**
+ * Blocking variant for the manual publish flow: an editor publishes and can
+ * tweet the link within seconds, so the publish response must not return
+ * before the card image is ready — otherwise X's one-shot scrape races a
+ * cold render and loses. Bounded so a pathological render can never hang
+ * the editor's request; on timeout the warm keeps running in the background.
+ */
+export async function warmOgImageBlocking(
+  item: Parameters<typeof warmOgImageForNews>[0],
+  timeoutMs = 8000,
+): Promise<void> {
+  await Promise.race([
+    warmOgImageForNews(item),
+    new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
 }
 
 // Generate 7-character short code (mixed case letters and numbers)
@@ -872,12 +942,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sendSafeImage(cachedImage, 86400);
       }
 
+      // Not in this process's memory (fresh container after a deploy, or a
+      // different replica) — try the persistent og-cache/ object first. A
+      // single GetObject is far faster and more reliable than a re-render.
+      const storedImage = await getStoredOgImage(cacheKey);
+      if (storedImage) {
+        setCachedOgImage(cacheKey, storedImage);
+        res.set('X-OG-Cache', 'store');
+        return sendSafeImage(storedImage, 86400);
+      }
+
       res.set('X-OG-Cache', 'miss');
       const optimizedImage = await optimizeImageForOG(newsItem.imageUrl);
       // Only cache a real article render; fallbacks keep their short TTL so a
       // transient failure is retried rather than pinned.
       if (optimizedImage && optimizedImage.length <= OG_MAX_SIZE_LIMIT) {
         setCachedOgImage(cacheKey, optimizedImage);
+        void storeOgImage(cacheKey, optimizedImage);
       }
       await sendSafeImage(optimizedImage, 86400);
     } catch (error) {
@@ -2728,7 +2809,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: createdByName,
       });
       notifySearchEnginesOfNews(newsItem);
-      warmOgImagesForNews(newsItem);
+      // Block (bounded) until the card image is warm: the editor may tweet
+      // the link seconds after this response, and X scrapes exactly once.
+      await warmOgImageBlocking(newsItem);
       res.status(201).json(newsItem);
     } catch (error) {
       console.error("Error creating news:", error);
@@ -2790,7 +2873,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "News not found" });
       }
       notifySearchEnginesOfNews(updated);
-      warmOgImagesForNews(updated);
+      // Bounded block — see the create handler; same tweet-race applies after
+      // an edit that changes the image.
+      await warmOgImageBlocking(updated);
       res.json(updated);
     } catch (error) {
       console.error("Error updating news:", error);
@@ -5402,8 +5487,11 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
               resumable: false,
             });
 
-            await storage.updateNews(publishedNews.id, { imageUrl: `/objects/uploads/${fileName}` });
+            const withImage = await storage.updateNews(publishedNews.id, { imageUrl: `/objects/uploads/${fileName}` });
             console.log(`[Rumor] صورة الشائعة ${publishedNews.id} تم توليدها وحفظها`);
+            // The rumor article was published before its AI image existed —
+            // warm the OG card now so the first crawler hit isn't a cold render.
+            if (withImage) warmOgImagesForNews(withImage);
           } catch (imgErr) {
             console.error('[Rumor] فشل توليد صورة الشائعة (غير حرج):', imgErr);
           }

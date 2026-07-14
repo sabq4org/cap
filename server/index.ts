@@ -1,5 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes, warmOgImagesForNews } from "./routes";
+import { registerRoutes, warmOgImagesForNews, warmOgImageForNews } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { seedProductionIfEmpty } from "./seedProduction";
 import { storage } from "./storage";
@@ -354,6 +354,26 @@ async function fixCategoriesArabic() {
 
     runScheduler();
     setInterval(runScheduler, 60 * 1000);
+
+    // Boot-time OG warm: a deploy/restart starts this process with an empty
+    // in-memory OG cache, and publish-time pre-warm only covers items
+    // published AFTER boot. Warm the most recent articles shortly after
+    // startup so a tweet of any recent link never hits a cold render.
+    // (Most entries load instantly from the persistent og-cache/ store;
+    // sequential on purpose to keep boot-time CPU/IO flat.)
+    setTimeout(async () => {
+      try {
+        const recent = await storage.getNews(undefined, 20, { omitContent: true });
+        let warmed = 0;
+        for (const item of recent) {
+          await warmOgImageForNews(item);
+          warmed++;
+        }
+        log(`[OG] boot warm completed for ${warmed} recent articles`);
+      } catch (err) {
+        console.warn('[OG] boot warm failed:', err);
+      }
+    }, 15_000);
 
     // Background scheduler: promote overdue scheduled articles every 60 seconds
     const runArticleScheduler = async () => {
