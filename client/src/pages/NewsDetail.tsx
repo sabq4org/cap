@@ -13,7 +13,6 @@ import {
   Clock,
   Copy,
   ExternalLink,
-  Eye,
   Facebook,
   ImageIcon,
   Link2,
@@ -335,12 +334,6 @@ export default function NewsDetail() {
                     <Clock className="h-4 w-4 text-primary" />
                     {readTime} {readTime === 1 ? "دقيقة" : "دقائق"} قراءة
                   </span>
-                  {typeof news.viewCount === "number" && news.viewCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Eye className="h-4 w-4 text-primary" />
-                      {new Intl.NumberFormat("ar-SA").format(news.viewCount)} مشاهدة
-                    </span>
-                  )}
                 </div>
 
                 {wasUpdated && (

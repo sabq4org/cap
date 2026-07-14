@@ -11,7 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   Search, Pill, AlertTriangle, ShieldAlert, Thermometer,
   FlaskConical, BookOpen, Info, Heart, RefreshCw, Star,
-  ChevronLeft, ArrowLeft, Zap, Eye
+  ChevronLeft, ArrowLeft, Zap
 } from "lucide-react";
 import type { Drug } from "@shared/schema";
 
@@ -57,10 +57,6 @@ function DrugCard({ drug, onClick }: { drug: Drug; onClick: () => void }) {
           {drug.description && (
             <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{drug.description}</p>
           )}
-          <div className="flex items-center gap-1 mt-auto pt-1">
-            <Eye className="h-3 w-3 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{drug.viewCount}</span>
-          </div>
         </CardContent>
       </Card>
     </button>
