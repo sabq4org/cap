@@ -107,6 +107,13 @@ import {
 import { db } from "./db";
 import { eq, and, desc, gte, lte, sql, isNull, asc, like, or, ilike, inArray, ne } from "drizzle-orm";
 
+/**
+ * UTC wall-clock as `timestamp without time zone`.
+ * Matches how scheduled_at/published_at are stored (UTC components, no tz).
+ * Never bind a JS Date here — process TZ (e.g. Asia/Riyadh) shifts it by hours.
+ */
+const sqlUtcNow = sql`(now() AT TIME ZONE 'UTC')`;
+
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
@@ -486,8 +493,7 @@ export class DatabaseStorage implements IStorage {
 
   // Article operations
   async getArticles(category?: string, limit: number = 50, includeAll: boolean = false): Promise<Article[]> {
-    const now = new Date();
-    const publicCondition = sql`(${articles.status} = 'published' OR (${articles.status} = 'scheduled' AND ${articles.scheduledAt} IS NOT NULL AND ${articles.scheduledAt} <= ${now}))`;
+    const publicCondition = sql`(${articles.status} = 'published' OR (${articles.status} = 'scheduled' AND ${articles.scheduledAt} IS NOT NULL AND ${articles.scheduledAt} <= ${sqlUtcNow}))`;
 
     if (category) {
       if (includeAll) {
@@ -527,7 +533,7 @@ export class DatabaseStorage implements IStorage {
     const overdue = await db
       .select()
       .from(articles)
-      .where(sql`${articles.status} = 'scheduled' AND ${articles.scheduledAt} IS NOT NULL AND ${articles.scheduledAt} <= ${now}`);
+      .where(sql`${articles.status} = 'scheduled' AND ${articles.scheduledAt} IS NOT NULL AND ${articles.scheduledAt} <= ${sqlUtcNow}`);
     if (overdue.length === 0) return 0;
     for (const item of overdue) {
       await db
@@ -580,13 +586,13 @@ export class DatabaseStorage implements IStorage {
     const now = Date.now();
     if (now - this._lastPromoteCheck < 30000) return; // at most once per 30s
     this._lastPromoteCheck = now;
-    const nowDate = new Date();
+    const nowMs = Date.now();
     await db.execute(sql`
       UPDATE news SET status = 'published', published_at = scheduled_at
-      WHERE status = 'scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= ${nowDate}
+      WHERE status = 'scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= ${sqlUtcNow}
     `);
     for (const item of items) {
-      if (item.status === 'scheduled' && item.scheduledAt && item.scheduledAt <= nowDate) {
+      if (item.status === 'scheduled' && item.scheduledAt && new Date(item.scheduledAt).getTime() <= nowMs) {
         item.status = 'published';
         item.publishedAt = item.scheduledAt;
       }
@@ -599,11 +605,10 @@ export class DatabaseStorage implements IStorage {
     const cached = newsCache.get<News[]>(cacheKey);
     if (cached) return cached;
 
-    const now = new Date();
     const conditions = [
       sql`${news.status} != 'deleted'`,
       sql`${news.status} != 'draft'`,
-      sql`(${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${now})`,
+      sql`(${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${sqlUtcNow})`,
     ];
 
     if (category) {
@@ -646,7 +651,6 @@ export class DatabaseStorage implements IStorage {
     const cached = newsCache.get<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt'>[]>(cacheKey);
     if (cached) return cached;
 
-    const now = new Date();
     const results = await db
       .select({
         id: news.id,
@@ -657,7 +661,7 @@ export class DatabaseStorage implements IStorage {
         publishedAt: news.publishedAt,
       })
       .from(news)
-      .where(sql`${news.status} != 'deleted' AND ${news.status} != 'draft' AND (${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${now})`)
+      .where(sql`${news.status} != 'deleted' AND ${news.status} != 'draft' AND (${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${sqlUtcNow})`)
       .orderBy(desc(news.publishedAt), desc(news.createdAt))
       .limit(limit);
 
@@ -702,11 +706,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNewsPaginated(category?: string, page: number = 1, perPage: number = 20, search?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }> {
-    const now = new Date();
     const conditions = [
       sql`${news.status} != 'deleted'`,
       sql`${news.status} != 'draft'`,
-      sql`(${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${now})`,
+      sql`(${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${sqlUtcNow})`,
     ];
 
     if (category) {
@@ -798,7 +801,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(news)
       .where(
-        sql`${news.status} = 'scheduled' AND ${news.scheduledAt} IS NOT NULL AND ${news.scheduledAt} <= ${now}`
+        sql`${news.status} = 'scheduled' AND ${news.scheduledAt} IS NOT NULL AND ${news.scheduledAt} <= ${sqlUtcNow}`
       );
 
     if (overdueItems.length === 0) return [];
@@ -2583,13 +2586,10 @@ export class DatabaseStorage implements IStorage {
 
     const safePerPage = Math.max(1, Math.min(perPage, 50));
     const safePage = Math.max(1, page);
-    const now = new Date();
-
-    // ── Fetch matching news ──────────────────────────────────────────────────
     const newsConditions = [
       sql`${news.status} != 'deleted'`,
       sql`${news.status} != 'draft'`,
-      sql`(${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${now})`,
+      sql`(${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${sqlUtcNow})`,
       sql`(${sql.join(interests.map(cat => sql`${news.category} = ${cat}`), sql` OR `)})`,
     ];
     const newsResults = await db.select().from(news)
