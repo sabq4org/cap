@@ -189,12 +189,71 @@ export function registerObjectStorageRoutes(app: Express): void {
   }
 
   /**
+   * Resized/WebP variants for news images.
+   * Path-based (not query-string) so CDN caches don't collide with full originals.
+   *
+   * GET /objects/t/:width/webp/:objectPath(*)
+   * Example: /objects/t/720/webp/uploads/ai-….png
+   */
+  app.get(
+    "/objects/t/:width/:format/:objectPath(*)",
+    async (req: Request, res: Response) => {
+      try {
+        const widthRaw = parseInt(String(req.params.width || ""), 10);
+        const width = Number.isFinite(widthRaw)
+          ? Math.min(Math.max(widthRaw, 64), 1600)
+          : 720;
+        const format = String(req.params.format || "webp").toLowerCase();
+        const wantWebp = format === "webp";
+        const objectPath = `/objects/${String(req.params.objectPath || "")}`;
+
+        const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+        const variantKey = `${objectPath}?w=${width}&fm=${wantWebp ? "webp" : "jpeg"}`;
+        let variant = getVariant(variantKey);
+        if (!variant) {
+          const [original] = await objectFile.download();
+          let pipeline = sharp(original, { failOn: "none" })
+            .rotate()
+            .resize({ width, withoutEnlargement: true });
+          const body = wantWebp
+            ? await pipeline.webp({ quality: 72 }).toBuffer()
+            : await pipeline.jpeg({ quality: 78, mozjpeg: true }).toBuffer();
+          variant = {
+            body,
+            contentType: wantWebp ? "image/webp" : "image/jpeg",
+            expiresAt: Date.now() + VARIANT_TTL_MS,
+          };
+          setVariant(variantKey, variant.body, variant.contentType);
+        }
+
+        res.set({
+          "Content-Disposition": "inline",
+          "X-Content-Type-Options": "nosniff",
+          "Content-Security-Policy": "default-src 'none'",
+          "X-Frame-Options": "DENY",
+          "Content-Type": variant.contentType,
+          "Content-Length": String(variant.body.length),
+          "Cache-Control": "public, max-age=31536000, immutable",
+        });
+        return res.send(variant.body);
+      } catch (error: any) {
+        if (error instanceof ObjectNotFoundError) {
+          return res.status(404).json({ error: "Object not found" });
+        }
+        const code = error?.code || error?.name || "Unknown";
+        const status = error?.$metadata?.httpStatusCode;
+        console.error(
+          `Error serving object variant ${req.path}: ${code}${status ? ` (${status})` : ""}`,
+        );
+        return res.status(500).json({ error: "Failed to serve object variant" });
+      }
+    },
+  );
+
+  /**
    * Serve uploaded objects publicly (no auth required).
    *
    * GET /objects/:objectPath(*)
-   *
-   * Optional transforms for mobile bandwidth:
-   *   ?w=640&fm=webp  → resized WebP (clamped 64–1600)
    *
    * Images are served inline so browsers can render them directly in <img> tags.
    * Non-image files (PDFs, etc.) are served as attachments (download).

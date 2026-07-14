@@ -32,8 +32,9 @@ function withObjectTransform(url: string, size: NewsImageSize): string {
   if (!url.startsWith("/objects/")) return url;
   const width = SIZE_WIDTH[size];
   if (!width) return url;
-  const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}w=${width}&fm=webp`;
+  // Path-based variant (not ?query) so Cloudflare doesn't reuse the full-size cache entry.
+  const rest = url.replace(/^\/objects\//, "");
+  return `/objects/t/${width}/webp/${rest}`;
 }
 
 export function getNewsImage(
