@@ -1,5 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes, warmOgImagesForNews } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { seedProductionIfEmpty } from "./seedProduction";
 import { storage } from "./storage";
@@ -345,6 +345,7 @@ async function fixCategoriesArabic() {
         if (promoted.length > 0) {
           log(`[Scheduler] نُشر ${promoted.length} خبر مجدول تلقائياً`);
           notifySearchEnginesOfNews(promoted);
+          warmOgImagesForNews(promoted);
         }
       } catch (err) {
         console.error("[Scheduler] خطأ في نشر الأخبار المجدولة:", err);

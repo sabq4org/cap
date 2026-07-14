@@ -249,6 +249,91 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
   }
 }
 
+// ---------------------------------------------------------------------------
+// OG image server-side cache + publish-time pre-warm.
+//
+// Cloudflare does NOT edge-cache /og/*.jpg (verified: cf-cache-status MISS on
+// repeat hits), so without this every social-crawler fetch — and every retry
+// X makes — re-runs the cold fetch+sharp pipeline. That cold render is
+// 0.7–1.9s (higher when the source image is large or object storage is slow),
+// and intermittently overruns a crawler's fetch timeout, producing empty
+// (grey) cards. Symptom: "sometimes the image shows, most times it doesn't."
+//
+// Fix: cache the generated JPEG in-process keyed by article id + content
+// version (so an edited article re-renders), and pre-warm that cache the
+// moment a news item is published — before any crawler scrapes it.
+// ---------------------------------------------------------------------------
+type OgCacheEntry = { buffer: Buffer; expires: number };
+const OG_CACHE_MAX_ENTRIES = 300;
+const OG_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const ogImageCache = new Map<string, OgCacheEntry>();
+
+function ogCacheKey(newsId: string, versionMs: number): string {
+  return `${newsId}:${Number.isFinite(versionMs) ? Math.floor(versionMs) : 0}`;
+}
+
+export function ogVersionMs(item: { updatedAt?: Date | string | null; publishedAt?: Date | string | null }): number {
+  const u = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+  const p = item.publishedAt ? new Date(item.publishedAt).getTime() : 0;
+  return Math.max(Number.isFinite(u) ? u : 0, Number.isFinite(p) ? p : 0);
+}
+
+function getCachedOgImage(key: string): Buffer | null {
+  const hit = ogImageCache.get(key);
+  if (!hit) return null;
+  if (hit.expires <= Date.now()) {
+    ogImageCache.delete(key);
+    return null;
+  }
+  // Refresh recency so the Map's insertion order acts as an LRU queue.
+  ogImageCache.delete(key);
+  ogImageCache.set(key, hit);
+  return hit.buffer;
+}
+
+function setCachedOgImage(key: string, buffer: Buffer): void {
+  ogImageCache.set(key, { buffer, expires: Date.now() + OG_CACHE_TTL_MS });
+  while (ogImageCache.size > OG_CACHE_MAX_ENTRIES) {
+    const oldest = ogImageCache.keys().next().value;
+    if (oldest === undefined) break;
+    ogImageCache.delete(oldest);
+  }
+}
+
+/**
+ * Generate and cache a news item's OG image so a later crawler fetch is an
+ * instant cache hit. Fire-and-forget from publish paths — never throws, and
+ * only caches a genuine article render (never a fallback), so a transient
+ * source failure isn't pinned for a full day.
+ */
+export async function warmOgImageForNews(item: {
+  id: string;
+  imageUrl?: string | null;
+  status?: string | null;
+  updatedAt?: Date | string | null;
+  publishedAt?: Date | string | null;
+}): Promise<void> {
+  try {
+    if (!item?.id || !item.imageUrl || item.status !== 'published') return;
+    const key = ogCacheKey(item.id, ogVersionMs(item));
+    if (getCachedOgImage(key)) return;
+    const optimized = await optimizeImageForOG(item.imageUrl);
+    if (optimized && optimized.length <= OG_MAX_SIZE_LIMIT) {
+      setCachedOgImage(key, optimized);
+    }
+  } catch (err) {
+    console.warn('[OG] pre-warm failed:', err);
+  }
+}
+
+/** Warm OG images for one or many freshly-published news items. */
+export function warmOgImagesForNews(items: unknown): void {
+  const list = Array.isArray(items) ? items : [items];
+  for (const it of list) {
+    void warmOgImageForNews(it as Parameters<typeof warmOgImageForNews>[0]);
+  }
+}
+
 // Generate 7-character short code (mixed case letters and numbers)
 function generateShortCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -775,8 +860,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!newsItem || !newsItem.imageUrl) {
         return sendSafeImage(null, 3600);
       }
-      
+
+      // Serve from the in-process cache when available — Cloudflare does not
+      // edge-cache /og/*, so this is what spares every crawler hit (and every
+      // X retry) a fresh cold render. Keyed by content version so an edited
+      // article gets a new render automatically.
+      const cacheKey = ogCacheKey(newsItem.id, ogVersionMs(newsItem));
+      const cachedImage = getCachedOgImage(cacheKey);
+      if (cachedImage) {
+        return sendSafeImage(cachedImage, 86400);
+      }
+
       const optimizedImage = await optimizeImageForOG(newsItem.imageUrl);
+      // Only cache a real article render; fallbacks keep their short TTL so a
+      // transient failure is retried rather than pinned.
+      if (optimizedImage && optimizedImage.length <= OG_MAX_SIZE_LIMIT) {
+        setCachedOgImage(cacheKey, optimizedImage);
+      }
       await sendSafeImage(optimizedImage, 86400);
     } catch (error) {
       console.error('Error serving OG image:', error);
@@ -2626,6 +2726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: createdByName,
       });
       notifySearchEnginesOfNews(newsItem);
+      warmOgImagesForNews(newsItem);
       res.status(201).json(newsItem);
     } catch (error) {
       console.error("Error creating news:", error);
@@ -2687,6 +2788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "News not found" });
       }
       notifySearchEnginesOfNews(updated);
+      warmOgImagesForNews(updated);
       res.json(updated);
     } catch (error) {
       console.error("Error updating news:", error);
