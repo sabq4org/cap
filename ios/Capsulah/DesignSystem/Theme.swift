@@ -35,6 +35,8 @@ enum CapTheme {
     static let line = Color(light: 0xE2ECE6, dark: 0x223028)
     static let mint = Color(light: 0xE9F4EE, dark: 0x17251E)
     static let chip = Color(light: 0xEFF6F1, dark: 0x1A2620)
+    static let mintSoft = Color(light: 0xF1F8F4, dark: 0x132019)
+    static let skySoft = Color(light: 0xEDF7F4, dark: 0x12201C)
 
     static let amber = Color(light: 0xB97F24, dark: 0xD9A54A)
     static let amberSoft = Color(light: 0xFBF3E3, dark: 0x2A2214)
@@ -57,6 +59,9 @@ enum CapTheme {
             endPoint: .bottom
         )
     }
+
+    /// ظل خفيف موحّد للبطاقات، يكفي للفصل من دون أن يجعل الواجهة ثقيلة.
+    static let cardShadow = Color(light: 0x163E2B, dark: 0x000000).opacity(0.08)
 }
 
 // MARK: - توقيت السعودية

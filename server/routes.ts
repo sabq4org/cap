@@ -220,17 +220,15 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
       }
     }
 
-    const maxDim = 1200;
-
     let resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
-      .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
+      .resize(1200, 630, { fit: 'cover', position: 'attention' })
       .toFormat('jpeg')
       .jpeg({ quality: 82, progressive: true })
       .toBuffer();
 
     if (resizedBuffer.length > OG_MAX_SIZE_LIMIT) {
       resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
-        .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
+        .resize(1200, 630, { fit: 'cover', position: 'attention' })
         .toFormat('jpeg')
         .jpeg({ quality: 60, progressive: true })
         .toBuffer();
@@ -238,9 +236,9 @@ async function optimizeImageForOG(imageUrl: string, baseUrl?: string): Promise<B
 
     if (resizedBuffer.length > OG_MAX_SIZE_LIMIT) {
       resizedBuffer = await sharp(imageBuffer, { failOn: 'none' })
-        .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+        .resize(1200, 630, { fit: 'cover', position: 'attention' })
         .toFormat('jpeg')
-        .jpeg({ quality: 50, progressive: true })
+        .jpeg({ quality: 42, progressive: true })
         .toBuffer();
     }
 
@@ -456,6 +454,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const mod = Number.isFinite(modifiedMs) ? new Date(modifiedMs).toISOString() : pub;
     const plainBody = contentHtml ? stripHtml(contentHtml) : '';
     const isOptimizedOgImage = /\/og\/[^/?#]+\.jpg(?:[?#]|$)/i.test(ogImageUrl);
+    // Social networks cache image URLs aggressively. Version our generated OG
+    // image whenever the article changes so a transient/old fallback never
+    // remains attached to future shares of the same article.
+    const imageVersionMs = Number.isFinite(modifiedMs)
+      ? modifiedMs
+      : publishedAt ? new Date(publishedAt).getTime() : NaN;
+    const socialImageUrl = isOptimizedOgImage && Number.isFinite(imageVersionMs)
+      ? `${ogImageUrl}${ogImageUrl.includes('?') ? '&' : '?'}v=${Math.floor(imageVersionMs)}`
+      : ogImageUrl;
+    const escSocialImageUrl = escapeHtml(socialImageUrl);
     const ogImageType = isOptimizedOgImage
       ? 'image/jpeg'
       : /\.png(?:[?#]|$)/i.test(ogImageUrl) ? 'image/png'
@@ -498,8 +506,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta property="og:site_name" content="كبسولة">
   <meta property="og:title" content="${escTitle}">
   <meta property="og:description" content="${escDesc}">
-  <meta property="og:image" content="${ogImageUrl}">
-  <meta property="og:image:secure_url" content="${ogImageUrl}">
+  <meta property="og:image" content="${escSocialImageUrl}">
+  <meta property="og:image:secure_url" content="${escSocialImageUrl}">
   ${ogImageType ? `<meta property="og:image:type" content="${ogImageType}">` : ''}
   ${isOptimizedOgImage ? '<meta property="og:image:width" content="1200">' : ''}
   ${isOptimizedOgImage ? '<meta property="og:image:height" content="630">' : ''}
@@ -514,7 +522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta name="twitter:url" content="${pageUrl}">
   <meta name="twitter:title" content="${escTitle}">
   <meta name="twitter:description" content="${escDesc}">
-  <meta name="twitter:image" content="${ogImageUrl}">
+  <meta name="twitter:image" content="${escSocialImageUrl}">
   <meta name="twitter:image:alt" content="${escTitle}">
   <link rel="canonical" href="${pageUrl}">
   <script type="application/ld+json">${jsonLdStr}</script>
@@ -523,7 +531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 <body>
   <article>
     <h1>${escTitle}</h1>
-    <img src="${ogImageUrl}" alt="${escTitle}">
+    <img src="${escSocialImageUrl}" alt="${escTitle}">
     ${contentHtml ? sanitizeContentHtml(contentHtml) : `<p>${escDesc}</p>`}
   </article>
   ${redirect ? `<p><a href="${pageUrl}">اقرأ الخبر كاملاً على كبسولة</a></p>` : ''}
@@ -735,16 +743,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const serveOGImage = async (req: any, res: any) => {
     const sendSafeImage = async (buffer: Buffer | null, cacheTime: number): Promise<void> => {
       let safeBuffer = buffer;
+      let isFallback = !safeBuffer || safeBuffer.length > OG_MAX_SIZE;
       if (!safeBuffer || safeBuffer.length > OG_MAX_SIZE) {
         safeBuffer = await generateFallbackOGImage();
-        if (safeBuffer.length > OG_MAX_SIZE) safeBuffer = MINIMAL_FALLBACK_JPEG;
+        if (safeBuffer.length > OG_MAX_SIZE) {
+          safeBuffer = MINIMAL_FALLBACK_JPEG;
+        }
       }
       res.set({
         'Content-Type': 'image/jpeg',
         'Content-Length': safeBuffer.length,
-        'Cache-Control': `public, max-age=${cacheTime}`,
+        // Never let a temporary object-storage failure poison social cards for
+        // a full day. Successful article images can still be cached normally.
+        'Cache-Control': isFallback
+          ? 'public, max-age=60, must-revalidate'
+          : `public, max-age=${cacheTime}, stale-while-revalidate=300`,
         'Content-Disposition': `inline; filename="capsulah-${req.params.id}.jpg"`,
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        'X-OG-Image-Source': isFallback ? 'fallback' : 'article'
       });
       res.send(safeBuffer);
     };
