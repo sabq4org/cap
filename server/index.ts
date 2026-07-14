@@ -274,6 +274,8 @@ async function fixCategoriesArabic() {
         CREATE INDEX IF NOT EXISTS idx_news_status_published ON news(status, published_at DESC);
         CREATE INDEX IF NOT EXISTS idx_radar_items_status ON radar_items(status);
         CREATE INDEX IF NOT EXISTS idx_news_view_count ON news(view_count DESC, published_at DESC);
+        ALTER TABLE news ADD COLUMN IF NOT EXISTS wp_id integer;
+        CREATE INDEX IF NOT EXISTS idx_news_wp_id ON news(wp_id) WHERE wp_id IS NOT NULL;
       `);
       client.release();
     } catch (err) {
