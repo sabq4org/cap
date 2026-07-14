@@ -58,6 +58,8 @@ export function SEO({
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={imageUrl} />
+      <meta property="og:image:secure_url" content={imageUrl} />
+      <meta property="og:image:alt" content={fullTitle} />
       <meta property="og:url" content={currentUrl} />
       <meta property="og:site_name" content="كبسولة" />
       <meta property="og:locale" content="ar_SA" />
@@ -71,6 +73,8 @@ export function SEO({
 
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:site" content="@capsulah_sa" />
+      <meta name="twitter:domain" content="capsulah.com" />
+      <meta name="twitter:url" content={currentUrl} />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={imageUrl} />

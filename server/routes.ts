@@ -455,6 +455,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       : Number.isFinite(updatedMs) ? updatedMs : publishedMs;
     const mod = Number.isFinite(modifiedMs) ? new Date(modifiedMs).toISOString() : pub;
     const plainBody = contentHtml ? stripHtml(contentHtml) : '';
+    const isOptimizedOgImage = /\/og\/[^/?#]+\.jpg(?:[?#]|$)/i.test(ogImageUrl);
+    const ogImageType = isOptimizedOgImage
+      ? 'image/jpeg'
+      : /\.png(?:[?#]|$)/i.test(ogImageUrl) ? 'image/png'
+      : /\.webp(?:[?#]|$)/i.test(ogImageUrl) ? 'image/webp'
+      : /\.gif(?:[?#]|$)/i.test(ogImageUrl) ? 'image/gif'
+      : /\.jpe?g(?:[?#]|$)/i.test(ogImageUrl) ? 'image/jpeg'
+      : undefined;
 
     const jsonLd: Record<string, any> = {
       '@context': 'https://schema.org',
@@ -491,12 +499,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta property="og:title" content="${escTitle}">
   <meta property="og:description" content="${escDesc}">
   <meta property="og:image" content="${ogImageUrl}">
+  <meta property="og:image:secure_url" content="${ogImageUrl}">
+  ${ogImageType ? `<meta property="og:image:type" content="${ogImageType}">` : ''}
+  ${isOptimizedOgImage ? '<meta property="og:image:width" content="1200">' : ''}
+  ${isOptimizedOgImage ? '<meta property="og:image:height" content="630">' : ''}
+  <meta property="og:image:alt" content="${escTitle}">
   <meta property="og:url" content="${pageUrl}">
   <meta property="og:locale" content="ar_SA">
   ${pub ? `<meta property="article:published_time" content="${pub}">` : ''}
   ${mod ? `<meta property="article:modified_time" content="${mod}">` : ''}
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@capsulah_sa">
+  <meta name="twitter:domain" content="capsulah.com">
+  <meta name="twitter:url" content="${pageUrl}">
   <meta name="twitter:title" content="${escTitle}">
   <meta name="twitter:description" content="${escDesc}">
   <meta name="twitter:image" content="${ogImageUrl}">
@@ -728,7 +743,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Content-Type': 'image/jpeg',
         'Content-Length': safeBuffer.length,
         'Cache-Control': `public, max-age=${cacheTime}`,
-        'X-Robots-Tag': 'noindex'
+        'Content-Disposition': `inline; filename="capsulah-${req.params.id}.jpg"`,
+        'Access-Control-Allow-Origin': '*'
       });
       res.send(safeBuffer);
     };
@@ -752,7 +768,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
-  // Primary OG image route — outside /api/ so robots.txt never blocks social crawlers
+  // Explicit JPEG route is the primary social-card URL. Some card parsers are
+  // stricter with extensionless media URLs even when Content-Type is correct.
+  app.get('/og/:id.jpg', serveOGImage);
+  // Keep the extensionless route for cards already cached by social platforms.
   app.get('/og/:id', serveOGImage);
   // Keep legacy route for backward compatibility
   app.get('/api/og-image/:id', serveOGImage);
@@ -959,7 +978,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : `${baseUrl}/news/${newsItem.id}`;
       
       const imageId = newsItem.shortCode || newsItem.id;
-      const ogImageUrl = `${baseUrl}/og/${imageId}`;
+      const ogImageUrl = `${baseUrl}/og/${imageId}.jpg`;
       const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
       const rawDescription = newsItem.seoDescription || newsItem.summary || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
       
@@ -988,7 +1007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (isCrawler) {
           const baseUrl = getRequestBaseUrl(req);
           const canonicalUrl = `${baseUrl}/n/${newsItem.shortCode}`;
-          const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode}`;
+          const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode}.jpg`;
           const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
           const rawDescription = newsItem.seoDescription || newsItem.summary || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
           const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl: canonicalUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
@@ -1000,7 +1019,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isCrawler) {
         const baseUrl = getRequestBaseUrl(req);
         const pageUrl = `${baseUrl}/news/${newsItem.id}`;
-        const ogImageUrl = `${baseUrl}/og/${newsItem.id}`;
+        const ogImageUrl = `${baseUrl}/og/${newsItem.id}.jpg`;
         const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
         const rawDescription = newsItem.seoDescription || newsItem.summary || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
         const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
@@ -1030,7 +1049,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const baseUrl = getRequestBaseUrl(req);
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
-      const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode || newsItem.id}`;
+      const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode || newsItem.id}.jpg`;
       const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
       const rawDescription = newsItem.seoDescription || newsItem.summary || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
 
