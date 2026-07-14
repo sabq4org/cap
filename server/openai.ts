@@ -255,7 +255,7 @@ export async function generateArticleContent(brief: string): Promise<{
 }
 
 // Generate news metadata from content
-type GeneratedNewsMeta = {
+export type GeneratedNewsMeta = {
   title: string;
   subtitle: string;
   summary: string;
@@ -292,7 +292,7 @@ function normalizeGeneratedNewsMeta(input: any): GeneratedNewsMeta {
           (input.keywords as unknown[])
             .map((value) => clean(value))
             .filter((value): value is string => Boolean(value)),
-        )).slice(0, 8)
+        )).slice(0, 10)
       : [],
     warnings: [],
   };
@@ -303,14 +303,25 @@ function normalizeGeneratedNewsMeta(input: any): GeneratedNewsMeta {
   if (required.some((field) => !result[field])) {
     throw new Error("AI returned incomplete SEO metadata");
   }
-  if (result.seoTitle.length < 35 || result.seoTitle.length > 70) {
-    result.warnings.push("عنوان SEO خارج النطاق الإرشادي 35–70 حرفاً");
+  const titleWordCount = result.title.split(/\s+/).filter(Boolean).length;
+  const subtitleWordCount = result.subtitle.split(/\s+/).filter(Boolean).length;
+  if (titleWordCount < 10 || titleWordCount > 17) {
+    result.warnings.push("العنوان الرئيسي خارج النطاق الإرشادي 10–17 كلمة");
   }
-  if (result.seoDescription.length < 100 || result.seoDescription.length > 180) {
-    result.warnings.push("وصف SEO خارج النطاق الإرشادي 100–180 حرفاً");
+  if (result.subtitle && (subtitleWordCount < 9 || subtitleWordCount > 20)) {
+    result.warnings.push("العنوان الفرعي خارج النطاق الإرشادي 9–20 كلمة");
   }
-  if (result.keywords.length < 3) {
-    result.warnings.push("عدد الكلمات المفتاحية أقل من 3");
+  if (result.summary.length < 180 || result.summary.length > 360) {
+    result.warnings.push("الموجز خارج النطاق الإرشادي 180–360 حرفاً");
+  }
+  if (result.seoTitle.length < 45 || result.seoTitle.length > 70) {
+    result.warnings.push("عنوان SEO خارج النطاق الإرشادي 45–70 حرفاً");
+  }
+  if (result.seoDescription.length < 120 || result.seoDescription.length > 170) {
+    result.warnings.push("وصف SEO خارج النطاق الإرشادي 120–170 حرفاً");
+  }
+  if (result.keywords.length < 5) {
+    result.warnings.push("عدد الكلمات المفتاحية أقل من 5");
   }
   if (result.seoTitle === result.title) {
     result.warnings.push("عنوان SEO مطابق تماماً للعنوان الرئيسي؛ راجعه قبل النشر");
@@ -330,45 +341,47 @@ export async function generateNewsMeta(content: string): Promise<GeneratedNewsMe
       messages: [
         { 
           role: "system", 
-          content: `أنت محرر SEO وصحفي صحي عربي محترف. مهمتك إنتاج بيانات دقيقة ومبنية حصراً على النص المقدم.
+          content: `أنت رئيس تحرير رقمي وصحفي صحي عربي في صحيفة «كبسولة» السعودية. مهمتك إنتاج ملحقات خبر احترافية مبنية حصراً على المادة المقدمة، بعد تحديد الحدث الأساسي، والجهة، والأرقام، والسياق، والأثر على القارئ.
 
 ممنوع اختراع أرقام أو نتائج أو أسماء أو علاقات سببية غير موجودة في النص. تجنب الإثارة والوعود الطبية والعبارات المضللة. يجب أن تكون كل جملة مكتملة لغوياً وتنتهي بعلامة ترقيم مناسبة.
 
 قواعد العنوان الرئيسي (مهم جداً):
-- يجب أن يكون العنوان بين 8 و 12 كلمة (لا أقل من 8 كلمات أبداً!)
-- جذاب ولافت ويثير الفضول
-- يحتوي على المعلومة الأساسية للخبر
-- مناسب للنشر الرقمي والسوشيال ميديا
-- بأسلوب صحفي احترافي
+- عنوان خبري متكامل بين 10 و17 كلمة، وغالباً بين 65 و110 أحرف
+- اجمع بين الحدث أو الرقم الأهم ودلالته العملية؛ لا تكتفِ بوصف عام أو عنوان قصير يشبه التنبيه
+- استخدم فعلاً خبرياً دقيقاً وبناءً نشطاً متى أمكن
+- قدّم العنصر الأكثر تميزاً في أول العنوان، ولا تبدأ بعبارات فضفاضة مثل «تطورات جديدة» أو «خطوة مهمة»
+- لا تستخدم النقطتين أو الشرطات أو عناوين النقر المضللة، ولا تضف معلومة غير موجودة
+- لا تجعل العنوان نسخة من الجملة الأولى في المادة
 
 قواعد العنوان الفرعي:
-- بين 6 و 10 كلمات
-- يوضح تفاصيل إضافية عن الخبر
-- يكمل العنوان الرئيسي ولا يكرره
+- بين 9 و20 كلمة
+- يضيف أقوى زاوية ثانوية: رقم داعم أو نطاق التطبيق أو الأثر أو الجهة المعنية
+- يكمل العنوان الرئيسي ولا يعيد كلماته أو فكرته بصياغة أخرى
 
 الأسلوب:
-- لغة عربية صحفية قوية وواضحة
-- نبرة إعلامية حديثة ومهنية
-- خالٍ من المبالغة أو التهويل
+- لغة عربية صحفية سعودية حديثة، رشيقة ومباشرة، بلا إنشائية أو مبالغة
+- سمِّ الجهات والأرقام كما وردت ولا تستخدم أوصافاً تسويقية
+- تجنب العبارات الآلية الشائعة مثل «في خطوة تعكس» و«مما يعزز» إلا إذا كانت العلاقة مثبتة في النص
 
 قواعد الموجز:
-- يحتوي على أهم 3-4 نقاط في الخبر
-- بين 150 و 200 حرف
-- معلوماتي ومفيد
+- فقرة من جملتين مكتملتين بين 220 و320 حرفاً تقريباً
+- الجملة الأولى تلخص الخبر بأهم رقم أو قرار أو نتيجة، والثانية تشرح السياق أو نطاق التطبيق أو الأثر
+- يجب أن يفهم القارئ جوهر الخبر من الموجز وحده، من دون نسخ العنوان أو استخدام مقدمات عامة
 
 قواعد SEO:
-- عنوان SEO واضح ومباشر بين 45 و65 حرفاً تقريباً، يضع الموضوع الأساسي مبكراً ولا يكرر اسم الموقع
-- وصف SEO مستقل عن الموجز، بين 120 و165 حرفاً تقريباً، يلخص الفائدة الأساسية بجملة عربية مكتملة
+- عنوان SEO مستقل وواضح بين 45 و65 حرفاً، يبدأ بعبارة البحث المركزية ويصف الخبر بدقة ولا يكرر اسم الموقع
+- وصف SEO مستقل عن الموجز، بين 135 و165 حرفاً، يجمع الموضوع والتفصيل المميز والفائدة الخبرية بجملة مكتملة
 - لا تستخدم عبارات مثل «اضغط هنا» أو «لن تصدق» أو «اكتشف السر»
-- الكلمات المفتاحية من 3 إلى 8 عبارات موجودة فعلياً في النص، من دون حشو أو تكرار
-- أعد الحقول المطلوبة فقط وراجع سلامة الصياغة قبل الإرسال`
+- الكلمات المفتاحية من 6 إلى 10 عبارات بحثية دقيقة، كل منها من كلمتين إلى خمس كلمات، وتشمل الموضوع المركزي والجهة والمصطلح الصحي والموقع إن كان مهماً
+- لا تستخدم كلمات عامة منفردة مثل «صحة» أو «خبر»، ولا تكرر صيغة المفرد والجمع للعبارة نفسها
+- أعد الحقول المطلوبة فقط، ثم راجع عدم تكرار المعنى بين العنوان والعنوان الفرعي والموجز وSEO قبل الإرسال`
         },
         { 
           role: "user", 
           content: `حلل النص الصحي التالي بعناية ثم ولّد بياناته الصحفية وبيانات SEO:\n\n${prepareNewsContentForSeo(content)}`
         }
       ] as any,
-      max_completion_tokens: 1024,
+      max_completion_tokens: 1600,
       tools: [{
         type: "function",
         function: {
@@ -379,15 +392,15 @@ export async function generateNewsMeta(content: string): Promise<GeneratedNewsMe
             properties: {
               title: { 
                 type: "string", 
-                description: "عنوان رئيسي جذاب للخبر (8-12 كلمة، 60-90 حرف)" 
+                description: "عنوان خبري احترافي متكامل (10-17 كلمة، 65-110 أحرف)"
               },
               subtitle: { 
                 type: "string", 
-                description: "عنوان فرعي توضيحي (6-10 كلمات، 50-80 حرف)" 
+                description: "عنوان فرعي يضيف زاوية جديدة (9-20 كلمة)"
               },
               summary: { 
                 type: "string", 
-                description: "موجز ذكي للخبر (150-200 حرف)" 
+                description: "موجز من جملتين يشرح الخبر وسياقه أو أثره (220-320 حرفاً)"
               },
               seoTitle: { 
                 type: "string", 
@@ -400,7 +413,7 @@ export async function generateNewsMeta(content: string): Promise<GeneratedNewsMe
               keywords: { 
                 type: "array", 
                 items: { type: "string" },
-                description: "5-8 كلمات مفتاحية عربية"
+                description: "6-10 عبارات بحثية عربية دقيقة من كلمتين إلى خمس كلمات"
               }
             },
             required: ["title", "subtitle", "summary", "seoTitle", "seoDescription", "keywords"]
@@ -426,6 +439,138 @@ export async function generateNewsMeta(content: string): Promise<GeneratedNewsMe
     return normalizeGeneratedNewsMeta(parsed);
   } catch (error: any) {
     console.error("[generateNewsMeta] Error:", error?.message || error);
+    throw error;
+  }
+}
+
+export type EditedNewsContent = GeneratedNewsMeta & {
+  content: string;
+};
+
+type NewsEditingContext = {
+  title?: string;
+  subtitle?: string;
+  summary?: string;
+  category?: string;
+  source?: string;
+};
+
+function normalizeEditedNewsContent(input: any, sourceContent: string): EditedNewsContent {
+  const metadata = normalizeGeneratedNewsMeta(input);
+  const rawContent = typeof input?.content === "string" ? input.content.trim() : "";
+  const content = rawContent
+    .replace(/^```(?:html)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .replace(/<\/?(?:script|style|iframe|object|embed)[^>]*>/gi, "")
+    .trim();
+  const plainContent = content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const sourceLength = sourceContent.replace(/\s+/g, " ").trim().length;
+  const minimumEditedLength = sourceLength > 800
+    ? Math.min(sourceLength * 0.45, 12000)
+    : Math.max(120, sourceLength * 0.35);
+
+  if (!content || plainContent.length < minimumEditedLength) {
+    throw new Error("AI returned incomplete edited news content");
+  }
+  if (!/<(?:p|h2|h3|ul|ol|blockquote)\b/i.test(content)) {
+    throw new Error("AI returned invalid news HTML");
+  }
+  if (plainContent.length < sourceLength * 0.65) {
+    metadata.warnings.push("النص المحرر أقصر بوضوح من المادة الأصلية؛ راجعه للتأكد من اكتمال التفاصيل");
+  }
+
+  return { ...metadata, content };
+}
+
+export async function editNewsInCapsulahStyle(
+  content: string,
+  context: NewsEditingContext = {},
+): Promise<EditedNewsContent> {
+  try {
+    console.log("[editNewsInCapsulahStyle] Starting with content length:", content.length);
+    const contextLines = [
+      context.title ? `العنوان الحالي: ${context.title}` : "",
+      context.subtitle ? `العنوان الفرعي الحالي: ${context.subtitle}` : "",
+      context.summary ? `الموجز الحالي: ${context.summary}` : "",
+      context.category ? `التصنيف: ${context.category}` : "",
+      context.source ? `المصدر المدوّن: ${context.source}` : "",
+    ].filter(Boolean).join("\n");
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `أنت كبير محرري صحيفة «كبسولة» الصحية السعودية. أعد تحرير المادة الصحفية المقدمة بأسلوب كبسولة، ثم أنشئ جميع ملحقات الخبر.
+
+الأولوية القصوى للدقة:
+- حافظ على كل حقيقة ورقم واسم وجهة واقتباس وتاريخ ورد في المادة، ولا تخترع أي معلومة أو تفسير أو علاقة سببية
+- لا تحول الاحتمال إلى يقين، ولا تضف نصيحة طبية أو تشخيصاً أو ادعاءً غير موجود
+- لا تحذف التفاصيل الجوهرية؛ المطلوب تحرير المادة نفسها لا اختصارها إلى موجز
+- إذا تعارضت صياغة حماسية مع الدقة فاختر الدقة
+
+أسلوب كبسولة الصحي:
+- ابدأ بمقدمة خبرية قوية تجيب مباشرة: ماذا حدث، ومن الجهة، وما الرقم أو النتيجة الأهم
+- استخدم الهرم المقلوب: الأهم أولاً ثم التفاصيل والسياق والأثر
+- لغة عربية صحفية سعودية حديثة وواضحة، بجمل متوسطة وفقرات قصيرة، بلا حشو أو تكرار أو مديح مؤسسي
+- حافظ على المصطلحات الطبية الرسمية واشرح الغامض بإيجاز فقط عندما يسمح النص بذلك
+- استخدم عناوين فرعية H2 عند تعدد المحاور أو طول المادة، وقوائم نقطية فقط عندما تكون المعلومات تعداداً فعلياً
+- لا تضف خاتمة إنشائية أو عبارات مثل «وفي الختام»، ولا تذكر أنك أعدت التحرير
+
+تنسيق المحتوى:
+- أعد المحتوى HTML نظيفاً صالحاً للمحرر
+- الوسوم المسموحة فقط: p، h2، h3، ul، ol، li، blockquote، strong، em
+- لا تستخدم h1 داخل المحتوى، ولا Markdown، ولا أكواداً أو روابط مخترعة
+
+ملحقات الخبر:
+- العنوان الرئيسي: 10–17 كلمة، 65–110 أحرف تقريباً، يجمع الحدث أو الرقم الأهم مع دلالته، بفعل خبري دقيق ومن دون تهويل
+- العنوان الفرعي: 9–20 كلمة ويضيف زاوية مختلفة لا يكرر العنوان
+- الموجز: جملتان بين 220 و320 حرفاً؛ الأولى للخبر والثانية للسياق أو الأثر
+- عنوان SEO: 45–65 حرفاً، يبدأ بعبارة البحث المركزية، مستقل عن العنوان ولا يتضمن اسم كبسولة
+- وصف SEO: 135–165 حرفاً، جملة مكتملة مستقلة عن الموجز
+- الكلمات المفتاحية: 6–10 عبارات بحثية دقيقة من كلمتين إلى خمس كلمات، موجودة دلالياً في المادة، بلا كلمات عامة منفردة أو صيغ مكررة
+
+أعد الحقول المطلوبة فقط وراجع اتساقها مع المادة قبل الإرسال.`,
+        },
+        {
+          role: "user",
+          content: `${contextLines ? `${contextLines}\n\n` : ""}المادة المطلوب تحريرها:\n\n${content.trim()}`,
+        },
+      ] as any,
+      max_completion_tokens: 6000,
+      tools: [{
+        type: "function",
+        function: {
+          name: "save_edited_news",
+          description: "حفظ الخبر بعد تحريره بأسلوب كبسولة مع ملحقاته",
+          parameters: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "عنوان خبري احترافي من 10–17 كلمة" },
+              subtitle: { type: "string", description: "عنوان فرعي يضيف زاوية جديدة" },
+              content: { type: "string", description: "المادة كاملة بعد تحريرها بصيغة HTML نظيفة" },
+              summary: { type: "string", description: "موجز من جملتين بين 220 و320 حرفاً" },
+              seoTitle: { type: "string", description: "عنوان SEO مستقل بين 45 و65 حرفاً" },
+              seoDescription: { type: "string", description: "وصف SEO مكتمل بين 135 و165 حرفاً" },
+              keywords: {
+                type: "array",
+                items: { type: "string" },
+                description: "6–10 عبارات بحثية دقيقة",
+              },
+            },
+            required: ["title", "subtitle", "content", "summary", "seoTitle", "seoDescription", "keywords"],
+          },
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "save_edited_news" } },
+    });
+
+    const toolCall = response.choices[0]?.message?.tool_calls?.[0] as any;
+    const rawResult = toolCall?.function?.arguments || response.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(rawResult);
+    return normalizeEditedNewsContent(parsed, content);
+  } catch (error: any) {
+    console.error("[editNewsInCapsulahStyle] Error:", error?.message || error);
     throw error;
   }
 }

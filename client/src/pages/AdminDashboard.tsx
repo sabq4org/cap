@@ -153,6 +153,19 @@ function relativeScheduledTime(isoStr: string | null | undefined): string {
 
   return isFuture ? `يبدأ ${relative}` : `انتهى ${relative}`;
 }
+
+function extractNewsPlainText(html: string): string {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  container.querySelectorAll('img, script, style, iframe').forEach(element => element.remove());
+  const blocks = Array.from(container.querySelectorAll('h1, h2, h3, p, li, blockquote'))
+    .map(element => (element.textContent || '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  return (blocks.length > 0 ? blocks.join('\n\n') : (container.textContent || ''))
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
@@ -166,6 +179,7 @@ export default function AdminDashboard() {
   const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
   const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRewriting, setIsRewriting] = useState(false);
   const [newKeyword, setNewKeyword] = useState("");
   const [newTag, setNewTag] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -1321,13 +1335,7 @@ export default function AdminDashboard() {
 
     setIsGenerating(true);
     try {
-      // Strip HTML tags and base64-embedded images before sending.
-      // Rich-text content can contain large base64 images that bloat the
-      // request payload and cause aborted connections on mobile networks.
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = formData.content;
-      tempDiv.querySelectorAll('img').forEach(img => img.remove());
-      const plainText = (tempDiv.textContent || tempDiv.innerText || '').trim();
+      const plainText = extractNewsPlainText(formData.content);
 
       if (plainText.length < 50) {
         setIsGenerating(false);
@@ -1367,13 +1375,68 @@ export default function AdminDashboard() {
         });
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : "حدث خطأ أثناء التوليد الذكي";
       toast({
         title: "خطأ في التوليد",
-        description: "حدث خطأ أثناء التوليد الذكي",
+        description: message,
         variant: "destructive",
       });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleRewriteAI = async () => {
+    const plainText = extractNewsPlainText(formData.content);
+    if (plainText.length < 100) {
+      toast({
+        title: "محتوى غير كافٍ للتحرير",
+        description: "أدخل مادة خبرية من 100 حرف على الأقل قبل التحرير الذكي",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const approved = window.confirm(
+      "سيُعاد تحرير نص الخبر الحالي وتحديث العنوان والموجز وSEO والكلمات المفتاحية. هل تريد المتابعة؟",
+    );
+    if (!approved) return;
+
+    setIsRewriting(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/edit-news-content", {
+        content: plainText,
+        title: formData.title,
+        subtitle: formData.subtitle,
+        summary: formData.summary,
+        category: formData.category,
+        source: formData.source,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "فشل تحرير المادة");
+
+      setFormData(prev => ({
+        ...prev,
+        title: data.title || prev.title,
+        subtitle: data.subtitle || prev.subtitle,
+        content: data.content || prev.content,
+        summary: data.summary || prev.summary,
+        seoTitle: data.seoTitle || prev.seoTitle,
+        seoDescription: data.seoDescription || prev.seoDescription,
+        keywords: data.keywords?.length ? data.keywords : prev.keywords,
+      }));
+
+      toast({
+        title: "تم تحرير الخبر بأسلوب كبسولة",
+        description: data.warnings?.length
+          ? `تم تحديث المادة وملحقاتها مع ${data.warnings.length} ملاحظة للمراجعة`
+          : "تم تحديث النص والعناوين والموجز وSEO والكلمات المفتاحية؛ راجع الحقائق قبل النشر",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "حدث خطأ أثناء تحرير المادة";
+      toast({ title: "تعذر التحرير الذكي", description: message, variant: "destructive" });
+    } finally {
+      setIsRewriting(false);
     }
   };
 
@@ -1702,7 +1765,7 @@ export default function AdminDashboard() {
             variant="outline" 
             className="gap-2 flex-1 sm:flex-none"
             onClick={handleGenerateAI}
-            disabled={isGenerating}
+            disabled={isGenerating || isRewriting}
             data-testid="button-generate-ai"
           >
             {isGenerating ? (
@@ -1712,6 +1775,22 @@ export default function AdminDashboard() {
             )}
             <span className="hidden sm:inline">توليد ذكي</span>
             <span className="sm:hidden">ذكي</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2 flex-1 border-emerald-600/40 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 sm:flex-none dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+            onClick={handleRewriteAI}
+            disabled={isGenerating || isRewriting}
+            data-testid="button-rewrite-ai"
+            title="إعادة تحرير المادة الحالية بأسلوب كبسولة وتحديث ملحقاتها"
+          >
+            {isRewriting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Wand2 className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">تحرير ذكي</span>
+            <span className="sm:hidden">تحرير</span>
           </Button>
           <Button 
             variant="outline"
@@ -1770,6 +1849,12 @@ export default function AdminDashboard() {
                   placeholder="أدخل عنوان الخبر"
                   data-testid="input-news-title"
                 />
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className={formData.title.trim().split(/\s+/).filter(Boolean).length >= 10 && formData.title.trim().split(/\s+/).filter(Boolean).length <= 17 ? "text-emerald-600" : "text-amber-600"}>
+                    الموصى به: 10–17 كلمة بعنوان خبري متكامل
+                  </span>
+                  <span className="text-muted-foreground">{formData.title.length} حرفاً</span>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -1790,7 +1875,7 @@ export default function AdminDashboard() {
                   onChange={(content) => setFormData(prev => ({ ...prev, content }))}
                   placeholder="اكتب محتوى الخبر هنا... (50 حرف على الأقل للتوليد الذكي)"
                   onAIGenerate={handleGenerateAI}
-                  isGenerating={isGenerating}
+                  isGenerating={isGenerating || isRewriting}
                 />
               </div>
 
@@ -1804,6 +1889,12 @@ export default function AdminDashboard() {
                   className="min-h-[80px]"
                   data-testid="textarea-news-summary"
                 />
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className={formData.summary.length >= 220 && formData.summary.length <= 320 ? "text-emerald-600" : "text-amber-600"}>
+                    الموصى به: جملتان بين 220–320 حرفاً
+                  </span>
+                  <span className="text-muted-foreground">{formData.summary.length} حرفاً</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1847,8 +1938,8 @@ export default function AdminDashboard() {
                   data-testid="textarea-seo-description"
                 />
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className={formData.seoDescription.length >= 120 && formData.seoDescription.length <= 165 ? "text-emerald-600" : "text-amber-600"}>
-                    الموصى به: 120–165 حرفاً وجملة مكتملة
+                  <span className={formData.seoDescription.length >= 135 && formData.seoDescription.length <= 165 ? "text-emerald-600" : "text-amber-600"}>
+                    الموصى به: 135–165 حرفاً وجملة مكتملة
                   </span>
                   <span className="text-muted-foreground">{formData.seoDescription.length}/200</span>
                 </div>
@@ -1868,7 +1959,12 @@ export default function AdminDashboard() {
               )}
 
               <div className="space-y-2">
-                <Label>الكلمات المفتاحية</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label>الكلمات المفتاحية</Label>
+                  <span className={formData.keywords.length >= 6 && formData.keywords.length <= 10 ? "text-[11px] text-emerald-600" : "text-[11px] text-amber-600"}>
+                    6–10 عبارات بحثية دقيقة
+                  </span>
+                </div>
                 <div className="flex gap-2">
                   <Input
                     value={newKeyword}
