@@ -40,6 +40,7 @@ export function SEO({
   type = "website",
   publishedTime,
   author,
+  keywords = [],
   noIndex = false,
 }: SEOProps) {
   const fullTitle = title.includes("كبسولة") ? title : `${title} | كبسولة`;
@@ -50,6 +51,7 @@ export function SEO({
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
+      {keywords.length > 0 && <meta name="keywords" content={keywords.join(", ")} />}
       <meta name="robots" content={noIndex ? "noindex, follow" : "index, follow, max-image-preview:large"} />
       <link rel="canonical" href={currentUrl} />
       <meta property="og:type" content={type} />

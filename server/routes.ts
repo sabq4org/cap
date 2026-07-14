@@ -2947,6 +2947,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Edit an existing news draft in Capsulah's editorial style and
+  // regenerate its headline, summary, SEO metadata, and search phrases.
+  app.post('/api/admin/edit-news-content', requireAdminPermission('publish_news'), async (req, res) => {
+    try {
+      const { content, title, subtitle, summary, category, source } = req.body;
+      if (typeof content !== 'string' || content.trim().length < 100) {
+        return res.status(400).json({ message: "المحتوى قصير جداً للتحرير (100 حرف على الأقل)" });
+      }
+      if (content.length > 40000) {
+        return res.status(400).json({ message: "المحتوى طويل جداً للتحرير دفعة واحدة (الحد الأقصى 40 ألف حرف)" });
+      }
+
+      const { editNewsInCapsulahStyle } = await import('./openai');
+      const result = await editNewsInCapsulahStyle(content, {
+        title: typeof title === 'string' ? title : undefined,
+        subtitle: typeof subtitle === 'string' ? subtitle : undefined,
+        summary: typeof summary === 'string' ? summary : undefined,
+        category: typeof category === 'string' ? category : undefined,
+        source: typeof source === 'string' ? source : undefined,
+      });
+
+      if (!result.content || !result.title || !result.summary || !result.seoTitle || !result.seoDescription) {
+        return res.status(500).json({ message: "فشل تحرير المادة كاملة، حاول مرة أخرى" });
+      }
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error editing news content:", error?.message || error);
+      const errorMsg = error?.message?.includes("rate")
+        ? "تم تجاوز الحد المسموح، حاول بعد قليل"
+        : "فشل تحرير المادة بأسلوب كبسولة";
+      res.status(500).json({ message: errorMsg });
+    }
+  });
+
   // Symptom checker
   app.post('/api/symptoms/analyze', isAuthenticated, async (req: any, res) => {
     try {

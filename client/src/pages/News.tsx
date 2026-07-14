@@ -11,6 +11,7 @@ import {
   AlertTriangle, XCircle, CheckCircle, MessageCircle,
 } from "lucide-react";
 import { AIImageBadge } from "@/components/AIImageBadge";
+import NewsGridCard from "@/components/NewsGridCard";
 import type { News as NewsType } from "@shared/schema";
 import { getNewsImage } from "@/lib/newsImages";
 
@@ -151,13 +152,18 @@ export default function News() {
     return pages;
   };
 
-  const heroItem = filteredNews[0];
-  const sideItems = filteredNews.slice(1, 4);
-  const gridItems = filteredNews.slice(4);
+  const useFeaturedLayout = !selectedCategory && !searchQuery && currentPage === 1;
+  const heroItem = useFeaturedLayout ? filteredNews[0] : undefined;
+  const sideItems = useFeaturedLayout ? filteredNews.slice(1, 4) : [];
+  const gridItems = useFeaturedLayout ? filteredNews.slice(4) : filteredNews;
 
   const sectionTitle = selectedCategory
     ? getCategoryLabel(selectedCategory)
-    : "أبرز الأخبار";
+    : searchQuery
+      ? `نتائج البحث عن «${searchQuery}»`
+      : currentPage > 1
+        ? "كل الأخبار"
+        : "أبرز الأخبار";
 
   return (
     <div className="min-h-screen">
@@ -239,29 +245,30 @@ export default function News() {
         {/* ── Content ── */}
         {isLoading ? (
           <div className="space-y-8">
-            {/* Hero skeleton */}
-            <div>
-              <div className="flex items-center gap-3 mb-5">
-                <Skeleton className="h-7 w-1.5 rounded-full" />
-                <Skeleton className="h-5 w-40" />
-                <div className="flex-1 h-px bg-border/40" />
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3">
-                <Skeleton className="aspect-[16/10] rounded-2xl" />
-                <div className="flex flex-col gap-2.5">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex gap-3 p-2.5 rounded-xl border border-border/50">
-                      <Skeleton className="w-24 h-[72px] rounded-lg shrink-0" />
-                      <div className="flex-1 space-y-2 py-1">
-                        <Skeleton className="h-3 w-16" />
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-3 w-24" />
+            {useFeaturedLayout && (
+              <div>
+                <div className="flex items-center gap-3 mb-5">
+                  <Skeleton className="h-7 w-1.5 rounded-full" />
+                  <Skeleton className="h-5 w-40" />
+                  <div className="flex-1 h-px bg-border/40" />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3">
+                  <Skeleton className="aspect-[16/10] rounded-2xl" />
+                  <div className="flex flex-col gap-2.5">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex gap-3 p-2.5 rounded-xl border border-border/50">
+                        <Skeleton className="w-24 h-[72px] rounded-lg shrink-0" />
+                        <div className="flex-1 space-y-2 py-1">
+                          <Skeleton className="h-3 w-16" />
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
             {/* Grid skeleton */}
             <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -285,8 +292,9 @@ export default function News() {
               <div className="flex-1 h-px bg-border/60" />
             </div>
 
-            {/* ── Hero + Side layout ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3 mb-8" dir="rtl">
+            {/* ── Hero + Side layout (only on the main, unfiltered page) ── */}
+            {useFeaturedLayout && heroItem && (
+              <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3 mb-8" dir="rtl">
 
               {/* Big hero card */}
               <Link href={heroItem.shortCode ? `/n/${heroItem.shortCode}` : `/news/${heroItem.id}`}>
@@ -409,78 +417,22 @@ export default function News() {
                   })}
                 </div>
               )}
-            </div>
+              </div>
+            )}
 
             {/* ── Remaining grid ── */}
             {gridItems.length > 0 && (
               <>
-                <div className="flex items-center gap-3 mb-5" dir="rtl">
-                  <span className="block w-1.5 h-7 bg-primary/50 rounded-full shrink-0" />
-                  <h2 className="text-xl font-bold tracking-tight">المزيد من الأخبار</h2>
-                  <div className="flex-1 h-px bg-border/60" />
-                </div>
+                {useFeaturedLayout && (
+                  <div className="flex items-center gap-3 mb-5" dir="rtl">
+                    <span className="block w-1.5 h-7 bg-primary/50 rounded-full shrink-0" />
+                    <h2 className="text-xl font-bold tracking-tight">المزيد من الأخبار</h2>
+                    <div className="flex-1 h-px bg-border/60" />
+                  </div>
+                )}
 
                 <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
-                  {gridItems.map((item) => {
-                    const isDebunk = item.category === "debunk";
-                    const verdict = isDebunk ? getVerdictFromTitle(item.title) : null;
-                    const VerdictIcon = verdict?.icon;
-                    const displayTitle = isDebunk ? getCleanDebunkTitle(item.title) : item.title;
-                    return (
-                      <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
-                        <div
-                          className={`rounded-xl overflow-hidden border cursor-pointer group transition-all hover:-translate-y-0.5 hover:shadow-md bg-card h-full flex flex-col ${item.isBreaking ? "border-red-400/60 shadow-red-100 dark:shadow-red-950/20" : "border-border/60"}`}
-                          data-testid={`news-card-${item.id}`}
-                        >
-                          <div className="relative overflow-hidden">
-                            <img
-                              src={getNewsImage(item, "card")}
-                              alt={displayTitle}
-                              loading="lazy"
-                              decoding="async"
-                              className="w-full aspect-[4/3] object-cover group-hover:scale-[1.04] transition-transform duration-500"
-                            />
-                            <AIImageBadge imageUrl={item.imageUrl} size="sm" />
-                            {item.isBreaking && (
-                              <span className="absolute top-2 right-2 inline-flex items-center gap-1 bg-red-600 text-white px-2 py-0.5 rounded-full text-[11px] font-bold animate-pulse shadow-lg z-10">
-                                <AlertTriangle className="h-3 w-3" />
-                                عاجل
-                              </span>
-                            )}
-                            {isDebunk && verdict && !item.isBreaking && (
-                              <span
-                                className={`absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold shadow-lg z-10 ${verdict.color}`}
-                                data-testid={`badge-verdict-${item.id}`}
-                              >
-                                {VerdictIcon && <VerdictIcon className="h-3 w-3" />}
-                                {verdict.label}
-                              </span>
-                            )}
-                          </div>
-                          <div className="p-3 flex flex-col gap-1.5 flex-1" dir="rtl">
-                            <Badge
-                              className={`${item.isBreaking ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200" : categoryColors[item.category] || ""} text-[11px] w-fit`}
-                              data-testid={`badge-category-${item.category}`}
-                            >
-                              {item.isBreaking ? "عاجل" : getCategoryLabel(item.category)}
-                            </Badge>
-                            <h3 className={`font-semibold text-sm leading-snug line-clamp-2 flex-1 ${item.isBreaking ? "text-red-700 dark:text-red-400" : "group-hover:text-primary transition-colors"}`}>
-                              {displayTitle}
-                            </h3>
-                            <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground mt-auto pt-1 border-t border-border/40">
-                              <div className="flex items-center gap-1">
-                                <Clock className="w-3 h-3 shrink-0" />
-                                {formatDate(item.publishedAt)}
-                              </div>
-                              {item.sourceUrl && (
-                                <ExternalLink className="w-3 h-3 text-primary/60 shrink-0" data-testid={`link-source-${item.id}`} />
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
+                  {gridItems.map((item) => <NewsGridCard key={item.id} item={item} />)}
                 </div>
               </>
             )}

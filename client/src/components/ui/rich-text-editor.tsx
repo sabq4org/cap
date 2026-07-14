@@ -1,5 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
@@ -91,6 +91,11 @@ export function RichTextEditor({
       },
     },
   });
+
+  useEffect(() => {
+    if (!editor || editor.getHTML() === content) return;
+    editor.commands.setContent(content, { emitUpdate: false });
+  }, [content, editor]);
 
   if (!editor) {
     return null;
@@ -217,7 +222,7 @@ export function RichTextEditor({
               data-testid="button-ai-format"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              تنسيق ذكي
+              توليد الملحقات
             </Button>
             <Separator orientation="vertical" className="h-6 mx-1" />
           </>
