@@ -31,7 +31,8 @@ export function ThemeToggle() {
       size="icon"
       onClick={toggleTheme}
       data-testid="button-theme-toggle"
-      className="rounded-full"
+      className="h-11 w-11 rounded-full"
+      aria-label={theme === "light" ? "تفعيل الوضع الداكن" : "تفعيل الوضع الفاتح"}
     >
       {theme === "light" ? (
         <Moon className="h-5 w-5" />

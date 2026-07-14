@@ -142,7 +142,7 @@ export default function Header() {
               size="sm"
               className={cn(
                 "gap-1.5 px-2.5 text-sm font-medium",
-                !isDebunkActive && "text-violet-700 dark:text-violet-400",
+                !isDebunkActive && "text-primary",
               )}
               data-testid="link-debunk"
               onClick={() => trackDebunkCta()}
@@ -212,7 +212,7 @@ export default function Header() {
               <Link href="/ask-capsule">
                 <DropdownMenuItem
                   onClick={() => trackDebunkCta()}
-                  className="flex cursor-pointer items-center justify-center gap-2 py-2 font-medium text-violet-700 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/30"
+                  className="flex cursor-pointer items-center justify-center gap-2 py-2 font-medium text-primary hover:bg-primary/5"
                   data-testid="link-ask-capsule-dropdown"
                 >
                   <FlaskConical className="h-4 w-4" />
@@ -245,14 +245,15 @@ export default function Header() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="ابحث في الأخبار..."
-                className="h-9 w-36 rounded-md border border-input bg-background px-3 text-sm outline-none ring-primary transition-all focus:ring-2 sm:w-48 md:w-56"
+                className="h-11 w-36 rounded-md border border-input bg-background px-3 text-sm outline-none ring-primary transition-all focus:ring-2 sm:w-48 md:w-56"
                 data-testid="input-header-search"
               />
               <Button
                 type="submit"
                 size="icon"
                 variant="ghost"
-                className="h-9 w-9 shrink-0"
+                className="h-11 w-11 shrink-0"
+                aria-label="تنفيذ البحث"
                 data-testid="button-header-search-submit"
               >
                 <Search className="h-4 w-4" />
@@ -261,7 +262,8 @@ export default function Header() {
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-9 w-9 shrink-0"
+                className="h-11 w-11 shrink-0"
+                aria-label="إغلاق البحث"
                 onClick={() => {
                   setSearchOpen(false);
                   setSearchTerm("");
@@ -275,7 +277,8 @@ export default function Header() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9"
+              className="h-11 w-11"
+              aria-label="فتح البحث"
               onClick={() => setSearchOpen(true)}
               data-testid="button-header-search"
             >
@@ -314,7 +317,8 @@ export default function Header() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9"
+                className="h-11 w-11"
+                aria-label="تسجيل الخروج"
                 onClick={() => (window.location.href = "/api/logout")}
                 data-testid="button-logout"
               >
@@ -351,7 +355,8 @@ export default function Header() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9"
+                className="h-11 w-11"
+                aria-label="فتح القائمة"
                 data-testid="button-menu"
               >
                 <Menu className="h-5 w-5" />
@@ -385,7 +390,7 @@ export default function Header() {
                 <Link href="/ask-capsule">
                   <Button
                     variant={isDebunkActive ? "secondary" : "ghost"}
-                    className="w-full justify-start gap-3 text-violet-700 dark:text-violet-400"
+                    className="w-full justify-start gap-3 text-primary"
                     onClick={() => {
                       trackDebunkCta();
                       setMobileOpen(false);
@@ -432,7 +437,7 @@ export default function Header() {
                         trackDebunkCta();
                         setMobileOpen(false);
                       }}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/30"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
                       data-testid="link-mobile-ask-capsule"
                     >
                       <FlaskConical className="h-4 w-4" />
