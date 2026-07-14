@@ -76,7 +76,7 @@
   --chart-4: 190 55% 42%;
   --chart-5: 110 62% 38%;
 
-  --font-sans: 'IBM Plex Sans Arabic', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: .5rem; /* 8px */

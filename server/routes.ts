@@ -1214,6 +1214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const includeAll = req.query.includeAll === 'true';
       const articles = await storage.getArticles(category, limit, includeAll);
+      res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
       res.json(articles);
     } catch (error) {
       console.error("Error fetching articles:", error);
@@ -1357,6 +1358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const limit = Math.min(parseInt(req.query.limit as string) || 10, 20);
       const items = await storage.getTrendingNews(limit);
+      res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
       res.json(items);
     } catch (error) {
       console.error("Error fetching trending news:", error);
@@ -1370,14 +1372,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const search = req.query.search as string | undefined;
       const page = req.query.page ? parseInt(req.query.page as string) : undefined;
       const perPage = req.query.perPage ? parseInt(req.query.perPage as string) : undefined;
+      const omitContent =
+        req.query.fields === "list" || req.query.omitContent === "1";
 
       if (page) {
         const result = await storage.getNewsPaginated(category, page, perPage || 20, search);
+        res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
         return res.json(result);
       }
 
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-      const newsItems = await storage.getNews(category, limit);
+      const newsItems = await storage.getNews(category, limit, { omitContent });
+      res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
       res.json(newsItems);
     } catch (error) {
       console.error("Error fetching news:", error);

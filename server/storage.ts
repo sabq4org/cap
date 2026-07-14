@@ -137,7 +137,7 @@ export interface IStorage {
   deleteArticle(id: string): Promise<boolean>;
 
   // News operations
-  getNews(category?: string, limit?: number): Promise<News[]>;
+  getNews(category?: string, limit?: number, options?: { omitContent?: boolean }): Promise<News[]>;
   getNewsForSitemap(limit?: number): Promise<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt'>[]>;
   getRelatedNews(newsId: string, category: string, limit?: number): Promise<News[]>;
   getNewsPaginated(category?: string, page?: number, perPage?: number, search?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }>;
@@ -594,8 +594,9 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getNews(category?: string, limit: number = 50): Promise<News[]> {
-    const cacheKey = `news:${category || ''}:${limit}`;
+  async getNews(category?: string, limit: number = 50, options?: { omitContent?: boolean }): Promise<News[]> {
+    const omitContent = options?.omitContent === true;
+    const cacheKey = `news:${category || ''}:${limit}:${omitContent ? 'list' : 'full'}`;
     const cached = newsCache.get<News[]>(cacheKey);
     if (cached) return cached;
 
@@ -610,16 +611,35 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`${news.category} = ${category}`);
     }
 
-    const results = await db
-      .select()
-      .from(news)
-      .where(sql`${sql.join(conditions, sql` AND `)}`)
-      .orderBy(desc(news.publishedAt), desc(news.createdAt))
-      .limit(limit);
+    const results = omitContent
+      ? await db
+          .select({
+            id: news.id, shortCode: news.shortCode, title: news.title, subtitle: news.subtitle,
+            summary: news.summary, category: news.category, source: news.source,
+            imageUrl: news.imageUrl, imageAlt: news.imageAlt, viewCount: news.viewCount,
+            isFeatured: news.isFeatured, isBreaking: news.isBreaking, isTranslated: news.isTranslated,
+            status: news.status, publishedAt: news.publishedAt, createdAt: news.createdAt,
+            updatedAt: news.updatedAt, keywords: news.keywords,
+            content: sql<string>`''`,
+            todayViews: news.todayViews, todayViewsDate: news.todayViewsDate,
+            seoTitle: news.seoTitle, seoDescription: news.seoDescription,
+            sourceUrl: news.sourceUrl, scheduledAt: news.scheduledAt,
+            deletedAt: news.deletedAt,
+          })
+          .from(news)
+          .where(sql`${sql.join(conditions, sql` AND `)}`)
+          .orderBy(desc(news.publishedAt), desc(news.createdAt))
+          .limit(limit)
+      : await db
+          .select()
+          .from(news)
+          .where(sql`${sql.join(conditions, sql` AND `)}`)
+          .orderBy(desc(news.publishedAt), desc(news.createdAt))
+          .limit(limit);
 
-    await this.autoPromoteScheduledItems(results);
-    newsCache.set(cacheKey, results, 60_000); // 60 seconds TTL
-    return results;
+    await this.autoPromoteScheduledItems(results as News[]);
+    newsCache.set(cacheKey, results as News[], 60_000); // 60 seconds TTL
+    return results as News[];
   }
 
   async getNewsForSitemap(limit: number = 50000): Promise<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt'>[]> {

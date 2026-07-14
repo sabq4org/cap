@@ -118,15 +118,17 @@ const healthTips = [
 export default function Landing() {
   const { isAuthenticated } = useAuth();
   const { data: news, isLoading: newsLoading } = useQuery<News[]>({
-    queryKey: ["/api/news"],
+    queryKey: ["/api/news?limit=30&fields=list"],
   });
 
   const { data: articles, isLoading: articlesLoading } = useQuery<Article[]>({
-    queryKey: ["/api/articles"],
+    queryKey: ["/api/articles?limit=3"],
+    enabled: !!news,
   });
 
   const { data: trendingNews } = useQuery<News[]>({
-    queryKey: ["/api/news/trending"],
+    queryKey: ["/api/news/trending?limit=8"],
+    enabled: !!news,
   });
 
   const { data: debunksData, isLoading: debunksLoading } = useQuery<PaginatedResponse>({

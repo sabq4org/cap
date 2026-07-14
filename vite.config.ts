@@ -30,6 +30,19 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("@tiptap") || id.includes("prosemirror")) return "editor";
+          if (id.includes("recharts") || id.includes("d3-")) return "charts";
+          if (id.includes("@tanstack/react-query")) return "query";
+          if (id.includes("react-dom") || id.includes("/react/") || id.endsWith("/react")) {
+            return "react-vendor";
+          }
+        },
+      },
+    },
   },
   server: {
     fs: {
