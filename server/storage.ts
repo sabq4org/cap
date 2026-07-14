@@ -667,7 +667,9 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(news.publishedAt), desc(news.createdAt))
       .limit(limit);
 
-    newsCache.set(cacheKey, results, 1_800_000); // 30 min TTL
+    // News discovery must stay fresh: publishing already invalidates this key,
+    // and the short TTL also protects against stale data across app instances.
+    newsCache.set(cacheKey, results, 60_000); // 60 seconds TTL
     return results;
   }
 
