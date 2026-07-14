@@ -287,7 +287,7 @@ export default function NewsDetail() {
   }
 
   const seoDescription = news.summary || news.seoDescription || `${news.title} - اقرأ المزيد على كبسولة`;
-  const seoImage = getNewsImage(news);
+  const seoImage = news.imageUrl || getNewsFallbackImage(news.id);
 
   return (
     <>
@@ -387,7 +387,7 @@ export default function NewsDetail() {
 
               <figure className="relative mb-6 rounded-xl overflow-hidden shadow-lg bg-muted/30">
                 <img 
-                  src={getNewsImage(news)} 
+                  src={getNewsImage(news, "hero")} 
                   alt={news.imageAlt || news.title}
                   loading="eager"
                   decoding="async"
@@ -597,7 +597,7 @@ export default function NewsDetail() {
                     <Link key={item.id} href={`/news/${item.id}`}>
                       <div className="flex gap-3 p-2 rounded-lg hover-elevate cursor-pointer" data-testid={`card-related-${item.id}`}>
                         <img 
-                          src={getNewsImage(item)} 
+                          src={getNewsImage(item, "thumb")} 
                           alt={item.title}
                           loading="lazy"
                           decoding="async"

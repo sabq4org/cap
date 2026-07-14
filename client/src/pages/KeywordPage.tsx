@@ -101,7 +101,7 @@ export default function KeywordPage() {
                   data-testid={`card-keyword-news-${item.id}`}
                 >
                   <img 
-                    src={getNewsImage(item)} 
+                    src={getNewsImage(item, "card")} 
                     alt={item.title}
                     loading="lazy"
                     decoding="async"

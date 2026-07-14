@@ -174,7 +174,7 @@ export default function Home() {
                     data-testid={`home-hero-${heroNews.id}`}
                   >
                     <img
-                      src={getNewsImage(heroNews)}
+                      src={getNewsImage(heroNews, "hero")}
                       alt={heroNews.title}
                       className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-in-out"
                     />
@@ -217,7 +217,7 @@ export default function Home() {
                             data-testid={`home-side-${item.id}`}
                           >
                             <img
-                              src={getNewsImage(item)}
+                              src={getNewsImage(item, "card")}
                               alt={cleanTitle}
                               loading="lazy"
                               className="w-24 h-[76px] object-cover rounded-lg shrink-0 group-hover:opacity-90 transition-opacity"
@@ -257,7 +257,7 @@ export default function Home() {
                           data-testid={`home-extra-${item.id}`}
                         >
                           <img
-                            src={getNewsImage(item)}
+                            src={getNewsImage(item, "card")}
                             alt={cleanTitle}
                             loading="lazy"
                             className="w-16 h-12 object-cover rounded-lg shrink-0"

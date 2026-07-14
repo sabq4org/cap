@@ -155,7 +155,7 @@ function NewsCard({
       >
         <div className="relative">
           <img
-            src={getNewsImage(item)}
+            src={getNewsImage(item, "card")}
             alt={item.title}
             loading="lazy"
             decoding="async"

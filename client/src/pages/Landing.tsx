@@ -235,12 +235,13 @@ export default function Landing() {
                 data-testid={`hero-card-${heroItem.id}`}
               >
                 <img
-                  src={getNewsImage(heroItem)}
+                  src={getNewsImage(heroItem, "hero")}
                   alt={heroItem.category === "debunk" ? getCleanDebunkTitle(heroItem.title) : heroItem.title}
                   loading="eager"
                   fetchPriority="high"
                   decoding="async"
                   className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-in-out"
+                  onError={(e) => { (e.target as HTMLImageElement).src = getNewsFallbackImage(heroItem.category || heroItem.id); }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/10" />
 
@@ -317,11 +318,12 @@ export default function Landing() {
                       >
                         <div className="relative shrink-0">
                           <img
-                            src={getNewsImage(item)}
+                            src={getNewsImage(item, "thumb")}
                             alt={displayTitle}
                             className="w-28 h-[84px] lg:w-24 lg:h-[76px] object-cover rounded-lg group-hover:opacity-90 transition-opacity"
                             loading="eager"
                             decoding="async"
+                            onError={(e) => { (e.target as HTMLImageElement).src = getNewsFallbackImage(item.category || item.id); }}
                           />
                           {item.isBreaking && (
                             <span className="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1 py-0.5 rounded">
@@ -621,7 +623,7 @@ export default function Landing() {
                   >
                     <div className="relative aspect-[16/10] overflow-hidden bg-muted">
                       <img
-                        src={getNewsImage(item)}
+                        src={getNewsImage(item, "card")}
                         alt={displayTitle}
                         loading={index < 4 ? "eager" : "lazy"}
                         decoding="async"
@@ -731,7 +733,7 @@ export default function Landing() {
                     {/* Image */}
                     <div className="relative aspect-video overflow-hidden">
                       <img
-                        src={getNewsImage(item)}
+                        src={getNewsImage(item, "card")}
                         alt={item.title}
                         loading="lazy"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -810,7 +812,7 @@ export default function Landing() {
                   <Card className="hover-elevate overflow-hidden cursor-pointer min-w-[220px] w-[220px] md:min-w-[240px] md:w-[240px] shrink-0 group" data-testid={`card-trending-${item.id}`}>
                     <div className="relative">
                       <img
-                        src={getNewsImage(item)}
+                        src={getNewsImage(item, "card")}
                         alt={item.title}
                         loading="lazy"
                         decoding="async"

@@ -10,6 +10,16 @@ const newsImages = [newsImage1, newsImage2, newsImage3, newsImage4, newsImage5, 
 
 export { defaultNewsImage, newsImages };
 
+export type NewsImageSize = "thumb" | "card" | "hero" | "full";
+
+/** Display widths for /objects/?w=&fm=webp — keeps mobile from downloading 2MB PNGs. */
+const SIZE_WIDTH: Record<NewsImageSize, number | null> = {
+  thumb: 320,
+  card: 720,
+  hero: 1200,
+  full: null,
+};
+
 export function getNewsFallbackImage(id: string): string {
   let hash = 0;
   for (let i = 0; i < id.length; i++) {
@@ -18,6 +28,18 @@ export function getNewsFallbackImage(id: string): string {
   return newsImages[Math.abs(hash) % newsImages.length];
 }
 
-export function getNewsImage(item: { id: string; imageUrl?: string | null }): string {
-  return item.imageUrl || getNewsFallbackImage(item.id);
+function withObjectTransform(url: string, size: NewsImageSize): string {
+  if (!url.startsWith("/objects/")) return url;
+  const width = SIZE_WIDTH[size];
+  if (!width) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}w=${width}&fm=webp`;
+}
+
+export function getNewsImage(
+  item: { id: string; imageUrl?: string | null },
+  size: NewsImageSize = "card",
+): string {
+  const raw = item.imageUrl || getNewsFallbackImage(item.id);
+  return withObjectTransform(raw, size);
 }

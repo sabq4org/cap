@@ -296,7 +296,7 @@ export default function News() {
                   data-testid={`hero-card-${heroItem.id}`}
                 >
                   <img
-                    src={getNewsImage(heroItem)}
+                    src={getNewsImage(heroItem, "hero")}
                     alt={heroItem.category === "debunk" ? getCleanDebunkTitle(heroItem.title) : heroItem.title}
                     className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-in-out"
                   />
@@ -367,7 +367,7 @@ export default function News() {
                         >
                           <div className="relative shrink-0">
                             <img
-                              src={getNewsImage(item)}
+                              src={getNewsImage(item, "thumb")}
                               alt={displayTitle}
                               className="w-24 h-[76px] object-cover rounded-lg group-hover:opacity-90 transition-opacity"
                               loading="lazy"
@@ -434,7 +434,7 @@ export default function News() {
                         >
                           <div className="relative overflow-hidden">
                             <img
-                              src={getNewsImage(item)}
+                              src={getNewsImage(item, "card")}
                               alt={displayTitle}
                               loading="lazy"
                               decoding="async"

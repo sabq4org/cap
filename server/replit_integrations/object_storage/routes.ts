@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import sharp from "sharp";
 import { ObjectStorageService, ObjectNotFoundError, objectStorageClient } from "./objectStorage";
 import { isAuthenticated } from "../../replitAuth";
 import { isS3Configured, verifyUploadTicket } from "./s3Client";
@@ -21,6 +22,33 @@ const IMAGE_MIME_TYPES = new Set([
   "image/webp",
   "image/avif",
 ]);
+
+/** In-memory cache for resized WebP variants (mobile-friendly). */
+const variantCache = new Map<string, { body: Buffer; contentType: string; expiresAt: number }>();
+const VARIANT_TTL_MS = 15 * 60 * 1000;
+const VARIANT_MAX_ENTRIES = 120;
+
+function getVariant(key: string) {
+  const hit = variantCache.get(key);
+  if (!hit) return null;
+  if (hit.expiresAt < Date.now()) {
+    variantCache.delete(key);
+    return null;
+  }
+  return hit;
+}
+
+function setVariant(key: string, body: Buffer, contentType: string) {
+  if (variantCache.size >= VARIANT_MAX_ENTRIES) {
+    const oldest = variantCache.keys().next().value;
+    if (oldest) variantCache.delete(oldest);
+  }
+  variantCache.set(key, {
+    body,
+    contentType,
+    expiresAt: Date.now() + VARIANT_TTL_MS,
+  });
+}
 
 export function registerObjectStorageRoutes(app: Express): void {
   const objectStorageService = new ObjectStorageService();
@@ -165,9 +193,11 @@ export function registerObjectStorageRoutes(app: Express): void {
    *
    * GET /objects/:objectPath(*)
    *
+   * Optional transforms for mobile bandwidth:
+   *   ?w=640&fm=webp  → resized WebP (clamped 64–1600)
+   *
    * Images are served inline so browsers can render them directly in <img> tags.
    * Non-image files (PDFs, etc.) are served as attachments (download).
-   * X-Content-Type-Options: nosniff prevents MIME-type sniffing on all files.
    */
   app.get(
     "/objects/:objectPath(*)",
@@ -186,12 +216,49 @@ export function registerObjectStorageRoutes(app: Express): void {
         const isUploadEntity = path.startsWith("/objects/uploads/");
         const treatAsImage = isImageExt || isUploadEntity;
 
+        const widthRaw = parseInt(String(req.query.w || ""), 10);
+        const width = Number.isFinite(widthRaw)
+          ? Math.min(Math.max(widthRaw, 64), 1600)
+          : 0;
+        const wantWebp = String(req.query.fm || "") === "webp" || width > 0;
+
         res.set({
           "Content-Disposition": treatAsImage ? "inline" : "attachment",
           "X-Content-Type-Options": "nosniff",
           "Content-Security-Policy": "default-src 'none'",
           "X-Frame-Options": "DENY",
         });
+
+        if (treatAsImage && (width > 0 || String(req.query.fm || "") === "webp")) {
+          const variantKey = `${req.path}?w=${width || "full"}&fm=${wantWebp ? "webp" : "orig"}`;
+          let variant = getVariant(variantKey);
+          if (!variant) {
+            const [original] = await objectFile.download();
+            let pipeline = sharp(original, { failOn: "none" }).rotate();
+            if (width > 0) {
+              pipeline = pipeline.resize({
+                width,
+                withoutEnlargement: true,
+              });
+            }
+            const body = wantWebp
+              ? await pipeline.webp({ quality: 72 }).toBuffer()
+              : await pipeline.jpeg({ quality: 78, mozjpeg: true }).toBuffer();
+            variant = {
+              body,
+              contentType: wantWebp ? "image/webp" : "image/jpeg",
+              expiresAt: Date.now() + VARIANT_TTL_MS,
+            };
+            setVariant(variantKey, variant.body, variant.contentType);
+          }
+
+          res.set({
+            "Content-Type": variant.contentType,
+            "Content-Length": String(variant.body.length),
+            "Cache-Control": "public, max-age=31536000, immutable",
+          });
+          return res.send(variant.body);
+        }
 
         // Public long-lived cache so Cloudflare (and browsers) keep images
         // instead of proxying every refresh through Railway → S3.
