@@ -297,7 +297,7 @@ export default function NewsDetail() {
   return (
     <>
       <SEO
-        title={news.title}
+        title={news.seoTitle || news.title}
         description={seoDescription}
         image={seoImage}
         url={news.shortCode ? `${window.location.origin}/n/${news.shortCode}` : `${window.location.origin}/news/${news.id}`}

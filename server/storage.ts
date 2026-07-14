@@ -792,7 +792,7 @@ export class DatabaseStorage implements IStorage {
     return result[0]?.count ?? 0;
   }
 
-  async promoteOverdueScheduledNews(): Promise<number> {
+  async promoteOverdueScheduledNews(): Promise<News[]> {
     const now = new Date();
     const overdueItems = await db
       .select()
@@ -801,16 +801,22 @@ export class DatabaseStorage implements IStorage {
         sql`${news.status} = 'scheduled' AND ${news.scheduledAt} IS NOT NULL AND ${news.scheduledAt} <= ${now}`
       );
 
-    if (overdueItems.length === 0) return 0;
+    if (overdueItems.length === 0) return [];
 
+    const promoted: News[] = [];
     for (const item of overdueItems) {
-      await db
+      const [updated] = await db
         .update(news)
         .set({ status: 'published', publishedAt: item.scheduledAt ?? now })
-        .where(eq(news.id, item.id));
+        .where(eq(news.id, item.id))
+        .returning();
+      if (updated) promoted.push(updated);
     }
 
-    return overdueItems.length;
+    newsCache.delPrefix('news:');
+    newsCache.delPrefix('trending:');
+    newsCache.delPrefix('sitemap-news:');
+    return promoted;
   }
 
   async getAdminNewsPaginated(
@@ -949,6 +955,7 @@ export class DatabaseStorage implements IStorage {
       .returning();
     newsCache.delPrefix('news:');
     newsCache.delPrefix('trending:');
+    newsCache.delPrefix('sitemap-news:');
     return newsItem;
   }
 
@@ -960,6 +967,7 @@ export class DatabaseStorage implements IStorage {
       .returning();
     newsCache.delPrefix('news:');
     newsCache.delPrefix('trending:');
+    newsCache.delPrefix('sitemap-news:');
     return updated;
   }
 
@@ -1064,6 +1072,7 @@ export class DatabaseStorage implements IStorage {
       .returning();
     newsCache.delPrefix('news:');
     newsCache.delPrefix('trending:');
+    newsCache.delPrefix('sitemap-news:');
     return result.length > 0;
   }
 
@@ -1075,6 +1084,7 @@ export class DatabaseStorage implements IStorage {
       .returning();
     newsCache.delPrefix('news:');
     newsCache.delPrefix('trending:');
+    newsCache.delPrefix('sitemap-news:');
     return !!result;
   }
 
@@ -1084,6 +1094,11 @@ export class DatabaseStorage implements IStorage {
       .set({ status: 'published', deletedAt: null })
       .where(eq(news.id, id))
       .returning();
+    if (result) {
+      newsCache.delPrefix('news:');
+      newsCache.delPrefix('trending:');
+      newsCache.delPrefix('sitemap-news:');
+    }
     return !!result;
   }
 

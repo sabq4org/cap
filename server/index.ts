@@ -6,6 +6,7 @@ import { storage } from "./storage";
 import { pool } from "./db";
 import { seedDefaultSources, seedDefaultKeywords } from "./radarService";
 import { startTrendRefreshScheduler } from "./trendService";
+import { notifySearchEnginesOfNews } from "./services/indexingPing";
 
 // Keep the process alive on uncaught exceptions.
 // Crashing on every unexpected error causes deployment outages.
@@ -323,8 +324,9 @@ async function fixCategoriesArabic() {
     const runScheduler = async () => {
       try {
         const promoted = await storage.promoteOverdueScheduledNews();
-        if (promoted > 0) {
-          log(`[Scheduler] نُشر ${promoted} خبر مجدول تلقائياً`);
+        if (promoted.length > 0) {
+          log(`[Scheduler] نُشر ${promoted.length} خبر مجدول تلقائياً`);
+          notifySearchEnginesOfNews(promoted);
         }
       } catch (err) {
         console.error("[Scheduler] خطأ في نشر الأخبار المجدولة:", err);

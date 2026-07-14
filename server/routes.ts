@@ -34,6 +34,7 @@ import { objectStorageClient } from "./replit_integrations/object_storage";
 import { randomUUID, createHmac, timingSafeEqual } from "crypto";
 import sharp from "sharp";
 import rateLimit from "express-rate-limit";
+import { notifySearchEnginesOfNews } from "./services/indexingPing";
 
 const rumorSubmissionLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -387,7 +388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const isCrawlerRequest = (req: { get: (h: string) => string | undefined }): boolean => {
     const userAgent = req.get('User-Agent') || '';
-    return /Googlebot|bingbot|WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
+    return /Googlebot|Google-InspectionTool|GoogleOther|Storebot-Google|bingbot|WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
   };
 
   const isPublicNews = (item: { status?: string | null; scheduledAt?: Date | string | null; deletedAt?: Date | string | null }): boolean => {
@@ -609,6 +610,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/og-image/:id', serveOGImage);
 
   // robots.txt
+  // IndexNow ownership key (optional — set INDEXNOW_KEY on Railway)
+  const indexNowKey = (process.env.INDEXNOW_KEY || '').trim();
+  if (indexNowKey && /^[a-zA-Z0-9_-]+$/.test(indexNowKey)) {
+    app.get(`/${indexNowKey}.txt`, (_req, res) => {
+      res.type('text/plain').send(indexNowKey);
+    });
+  }
+
   app.get('/robots.txt', (_req, res) => {
     const baseUrl = getSiteBaseUrl();
     res.type('text/plain').send(
@@ -808,7 +817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
       const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
       
-      const html = buildCrawlerHtml({ title: newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl });
+      const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl });
       
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
@@ -836,7 +845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode}`;
           const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
           const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
-          const html = buildCrawlerHtml({ title: newsItem.title, description: rawDescription, ogImageUrl, pageUrl: canonicalUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
+          const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl: canonicalUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
           return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
         }
         return res.redirect(301, `/n/${newsItem.shortCode}`);
@@ -848,7 +857,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const ogImageUrl = `${baseUrl}/og/${newsItem.id}`;
         const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
         const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
-        const html = buildCrawlerHtml({ title: newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
+        const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
         return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
       }
 
@@ -879,7 +888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
       const rawDescription = newsItem.summary || newsItem.seoDescription || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
 
-      const html = buildCrawlerHtml({ title: newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
+      const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
 
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
@@ -2392,6 +2401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shortCode,
         createdBy: createdByName,
       });
+      notifySearchEnginesOfNews(newsItem);
       res.status(201).json(newsItem);
     } catch (error) {
       console.error("Error creating news:", error);
@@ -2430,6 +2440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!updated) {
         return res.status(404).json({ message: "News not found" });
       }
+      notifySearchEnginesOfNews(updated);
       res.json(updated);
     } catch (error) {
       console.error("Error updating news:", error);
