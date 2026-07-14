@@ -13,7 +13,6 @@ import {
   TrendingUp,
   Heart,
   Apple,
-  Lightbulb,
   ArrowLeft,
   Clock,
   ChevronLeft,
@@ -67,15 +66,15 @@ const categoryLabels: Record<string, string> = {
 };
 
 const categoryColors: Record<string, string> = {
-  "health": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
-  "health-news": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
-  "saudi-health": "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200",
-  "health-community": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
-  "health-reports": "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200",
-  "health-events": "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200",
-  "quality-life": "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200",
-  "nutrition": "bg-lime-100 dark:bg-lime-900/30 text-lime-800 dark:text-lime-200",
-  "misc": "bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-200"
+  "health": "border border-primary/15 bg-primary/10 text-primary",
+  "health-news": "border border-primary/15 bg-primary/10 text-primary",
+  "saudi-health": "border border-primary/15 bg-primary/10 text-primary",
+  "health-community": "border border-primary/15 bg-primary/10 text-primary",
+  "health-reports": "border border-primary/15 bg-primary/10 text-primary",
+  "health-events": "border border-primary/15 bg-primary/10 text-primary",
+  "quality-life": "border border-primary/15 bg-primary/10 text-primary",
+  "nutrition": "border border-primary/15 bg-primary/10 text-primary",
+  "misc": "border border-border bg-muted text-foreground"
 };
 
 const quickCategories = [
@@ -108,12 +107,6 @@ const formatRelativeTime = (date: Date | string) => {
     calendar: "gregory",
   });
 };
-
-const healthTips = [
-  { icon: Heart, title: "صحة القلب", tip: "المشي 30 دقيقة يومياً يقلل خطر أمراض القلب بنسبة 30%" },
-  { icon: Apple, title: "التغذية السليمة", tip: "تناول 5 حصص من الفواكه والخضروات يومياً لصحة أفضل" },
-  { icon: TrendingUp, title: "النشاط البدني", tip: "التمارين المنتظمة تحسن المزاج وتقوي المناعة" }
-];
 
 export default function Landing() {
   const { isAuthenticated } = useAuth();
@@ -206,7 +199,7 @@ export default function Landing() {
   const heroSideItems = heroCombined.slice(1, 5);
 
   // Show all news in latest section (featured + non-featured)
-  const latestNews = allNewsList.slice(0, 28);
+  const latestNews = allNewsList.slice(0, 12);
   const latestArticles = articles?.slice(0, 3) || [];
 
   const siteOrigin = typeof window !== "undefined" ? window.location.origin : "https://capsulah.com";
@@ -221,6 +214,18 @@ export default function Landing() {
       />
       <div className="px-4 md:px-6 pt-5 md:pt-6">
       <div className="container mx-auto max-w-7xl">
+        <div className="mb-5 max-w-3xl md:mb-6">
+          <p className="mb-2 inline-flex items-center gap-2 text-xs font-bold text-primary">
+            <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
+            المعرفة الصحية تبدأ من مصدر موثوق
+          </p>
+          <h1 className="text-2xl font-bold leading-tight tracking-tight text-foreground md:text-4xl">
+            أخبار صحية موثوقة تهمك اليوم
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+            مستجدات صحية، تفنيد للشائعات، ومحتوى طبي عربي مراجع بعناية.
+          </p>
+        </div>
         <AdBanner position="above_featured" className="mb-4" />
         {newsLoading ? (
           <Skeleton className="h-[200px] md:h-[300px] w-full rounded-lg" />
@@ -304,62 +309,74 @@ export default function Landing() {
 
             {/* Side cards — scroll on mobile, stack on desktop */}
             {heroSideItems.length > 0 && (
-              <div className="flex lg:flex-col gap-2.5 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0 -mx-1 px-1 snap-x snap-mandatory lg:snap-none scrollbar-thin">
-                {heroSideItems.map((item) => {
-                  const isDebunk = item.category === "debunk";
-                  const verdict = isDebunk ? getVerdictFromTitle(item.title) : null;
-                  const VerdictIcon = verdict?.icon;
-                  const displayTitle = isDebunk ? getCleanDebunkTitle(item.title) : item.title;
-                  return (
-                    <Link key={item.id} href={newsHref(item)} className="min-w-[85%] sm:min-w-[70%] lg:min-w-0 snap-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
-                      <div
-                        className="flex gap-3 p-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 hover:border-primary/25 hover:shadow-sm transition-all cursor-pointer group h-full"
-                        data-testid={`side-card-${item.id}`}
-                      >
-                        <div className="relative shrink-0">
-                          <img
-                            src={getNewsImage(item, "thumb")}
-                            alt={displayTitle}
-                            className="w-28 h-[84px] lg:w-24 lg:h-[76px] object-cover rounded-lg group-hover:opacity-90 transition-opacity"
-                            loading="eager"
-                            decoding="async"
-                            onError={(e) => { (e.target as HTMLImageElement).src = getNewsFallbackImage(item.category || item.id); }}
-                          />
-                          {item.isBreaking && (
-                            <span className="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1 py-0.5 rounded">
-                              عاجل
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0 py-0.5 flex flex-col" dir="rtl">
-                          {isDebunk && verdict ? (
-                            <span
-                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold mb-1 w-fit ${verdict.chipClass}`}
-                              data-testid={`side-verdict-${item.id}`}
-                            >
-                              {VerdictIcon && <VerdictIcon className="h-2.5 w-2.5" />}
-                              {verdict.label}
-                            </span>
-                          ) : (
-                            <Badge
-                              className={`${item.isBreaking ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200" : categoryColors[item.category] || ""} text-[10px] py-0 h-4 mb-1 w-fit`}
-                              data-testid={`side-badge-${item.id}`}
-                            >
-                              {item.isBreaking ? "عاجل" : (categoryLabels[item.category] || item.category)}
-                            </Badge>
-                          )}
-                          <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors flex-1">
-                            {displayTitle}
-                          </h3>
-                          <div className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground">
-                            <Clock className="h-2.5 w-2.5 shrink-0" />
-                            {formatRelativeTime(item.publishedAt) || formatDate(item.publishedAt)}
+              <div className="min-w-0">
+                <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground lg:hidden">
+                  <span>أخبار إضافية</span>
+                  <span className="inline-flex items-center gap-1">
+                    اسحب لعرض المزيد
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </span>
+                </div>
+                <div
+                  className="flex gap-2.5 overflow-x-auto -mx-1 px-1 pb-1 snap-x snap-mandatory scrollbar-thin lg:flex-col lg:overflow-visible lg:pb-0 lg:snap-none"
+                  aria-label="أخبار إضافية"
+                >
+                  {heroSideItems.map((item) => {
+                    const isDebunk = item.category === "debunk";
+                    const verdict = isDebunk ? getVerdictFromTitle(item.title) : null;
+                    const VerdictIcon = verdict?.icon;
+                    const displayTitle = isDebunk ? getCleanDebunkTitle(item.title) : item.title;
+                    return (
+                      <Link key={item.id} href={newsHref(item)} className="min-w-[85%] sm:min-w-[70%] lg:min-w-0 snap-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
+                        <div
+                          className="flex gap-3 p-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 hover:border-primary/25 hover:shadow-sm transition-all cursor-pointer group h-full"
+                          data-testid={`side-card-${item.id}`}
+                        >
+                          <div className="relative shrink-0">
+                            <img
+                              src={getNewsImage(item, "thumb")}
+                              alt={displayTitle}
+                              className="w-28 h-[84px] lg:w-24 lg:h-[76px] object-cover rounded-lg group-hover:opacity-90 transition-opacity"
+                              loading="eager"
+                              decoding="async"
+                              onError={(e) => { (e.target as HTMLImageElement).src = getNewsFallbackImage(item.category || item.id); }}
+                            />
+                            {item.isBreaking && (
+                              <span className="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1 py-0.5 rounded">
+                                عاجل
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 py-0.5 flex flex-col" dir="rtl">
+                            {isDebunk && verdict ? (
+                              <span
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold mb-1 w-fit ${verdict.chipClass}`}
+                                data-testid={`side-verdict-${item.id}`}
+                              >
+                                {VerdictIcon && <VerdictIcon className="h-2.5 w-2.5" />}
+                                {verdict.label}
+                              </span>
+                            ) : (
+                              <Badge
+                                className={`${item.isBreaking ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200" : categoryColors[item.category] || ""} text-[10px] py-0 h-4 mb-1 w-fit`}
+                                data-testid={`side-badge-${item.id}`}
+                              >
+                                {item.isBreaking ? "عاجل" : (categoryLabels[item.category] || item.category)}
+                              </Badge>
+                            )}
+                            <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors flex-1">
+                              {displayTitle}
+                            </h3>
+                            <div className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground">
+                              <Clock className="h-2.5 w-2.5 shrink-0" />
+                              {formatRelativeTime(item.publishedAt) || formatDate(item.publishedAt)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  );
-                })}
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -384,7 +401,7 @@ export default function Landing() {
               </Link>
             ))}
             <Link href="/ask-capsule">
-              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300 px-3.5 py-1.5 text-xs font-semibold hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-primary/25 bg-primary/5 px-3.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10">
                 <Send className="h-3.5 w-3.5" />
                 أرسل شائعة
               </span>
@@ -551,10 +568,22 @@ export default function Landing() {
                 );
               })
             ) : (
-              <div className="col-span-full py-12 text-center" data-testid="debunks-empty">
-                <ShieldAlert className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
-                <p className="text-sm font-medium text-foreground">لا توجد شائعات مُفنَّدة بعد</p>
-                <p className="mt-1 text-xs text-muted-foreground">كن أول من يرسل شائعة للتحليل</p>
+              <div className="col-span-full flex flex-col items-center justify-between gap-4 rounded-xl border border-dashed border-border bg-background px-5 py-6 text-center sm:flex-row sm:text-right" data-testid="debunks-empty">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <ShieldAlert className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-foreground">هل وصلتك معلومة صحية مشكوك فيها؟</p>
+                    <p className="mt-1 text-xs text-muted-foreground">أرسلها لفريق كبسولة للتحقق منها.</p>
+                  </div>
+                </div>
+                <Link href="/ask-capsule">
+                  <Button size="sm" className="min-h-11 shrink-0 gap-1.5 px-4" onClick={() => trackDebunkCta()}>
+                    <Send className="h-3.5 w-3.5" />
+                    أرسل شائعة
+                  </Button>
+                </Link>
               </div>
             )}
           </div>
@@ -571,9 +600,13 @@ export default function Landing() {
                       setVisible(true);
                     }, 350);
                   }}
-                  className={`rounded-full transition-all ${i === currentSet ? "h-2 w-5 bg-primary" : "h-2 w-2 bg-border"}`}
+                  className="flex h-11 min-w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`عرض مجموعة الشائعات ${i + 1}`}
+                  aria-current={i === currentSet ? "true" : undefined}
                   data-testid={`debunk-dot-${i}`}
-                />
+                >
+                  <span className={`rounded-full transition-all ${i === currentSet ? "h-2 w-5 bg-primary" : "h-2 w-2 bg-border"}`} />
+                </button>
               ))}
             </div>
           )}
@@ -596,7 +629,7 @@ export default function Landing() {
             </div>
             <Link href="/news">
               <Button variant="outline" size="sm" className="shrink-0 gap-1 rounded-full" data-testid="button-all-news">
-                المزيد <ArrowLeft className="h-4 w-4" />
+                عرض جميع الأخبار <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
           </div>
@@ -843,37 +876,6 @@ export default function Landing() {
         )}
 
         <div className="my-8 md:my-12">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2 tracking-tight">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Lightbulb className="h-5 w-5" />
-                </span>
-                نصائح صحية
-              </h2>
-              <p className="text-xs text-muted-foreground mt-1 me-11">عادات بسيطة ليوم أصح</p>
-            </div>
-          </div>
-          <div className="grid md:grid-cols-3 gap-4">
-            {healthTips.map((tip, index) => (
-              <Card key={index} className="bg-primary/5 dark:bg-primary/10 border-primary/20 hover:border-primary/40 hover:shadow-sm transition-all">
-                <CardContent className="p-4 md:p-6">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                      <tip.icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold mb-1">{tip.title}</h4>
-                      <p className="text-sm text-muted-foreground">{tip.tip}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        <div className="my-8 md:my-12">
           <div className="flex items-end justify-between gap-3 mb-5 md:mb-6">
             <div>
               <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2 tracking-tight">
@@ -886,7 +888,7 @@ export default function Landing() {
             </div>
             <Link href="/articles">
               <Button variant="outline" size="sm" className="shrink-0 gap-1 rounded-full" data-testid="button-more-articles">
-                المزيد <ArrowLeft className="h-4 w-4" />
+                عرض جميع المقالات <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
           </div>
