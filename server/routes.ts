@@ -516,6 +516,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
 </html>`;
   }
 
+  function buildCrawlerListingHtml(opts: {
+    pageTitle: string;
+    description: string;
+    pageUrl: string;
+    newsItems: Awaited<ReturnType<typeof storage.getNews>>;
+    categoryLinks: Array<{ name: string; url: string }>;
+  }): string {
+    const { pageTitle, description, pageUrl, newsItems, categoryLinks } = opts;
+    const baseUrl = getSiteBaseUrl();
+    const escTitle = escapeHtml(pageTitle);
+    const escDescription = escapeHtml(description);
+
+    const categoryNav = categoryLinks.map(category =>
+      `<li><a href="${escapeHtml(category.url)}">${escapeHtml(category.name)}</a></li>`
+    ).join('\n');
+
+    const articles = newsItems.map(item => {
+      const newsUrl = item.shortCode
+        ? `${baseUrl}/n/${item.shortCode}`
+        : `${baseUrl}/news/${item.id}`;
+      const publishedAt = item.publishedAt ? new Date(item.publishedAt).toISOString() : '';
+      const summary = item.summary || item.subtitle || item.seoDescription || '';
+      const imageUrl = item.imageUrl
+        ? (item.imageUrl.startsWith('/') ? `${baseUrl}${item.imageUrl}` : item.imageUrl)
+        : '';
+
+      return [
+        '<article>',
+        `  <h2><a href="${escapeHtml(newsUrl)}">${escapeHtml(item.title)}</a></h2>`,
+        publishedAt ? `  <time datetime="${publishedAt}">${escapeHtml(new Date(item.publishedAt!).toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' }))}</time>` : '',
+        imageUrl ? `  <a href="${escapeHtml(newsUrl)}"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.imageAlt || item.title)}" loading="lazy"></a>` : '',
+        summary ? `  <p>${escapeHtml(stripHtml(summary).slice(0, 240))}</p>` : '',
+        '</article>',
+      ].filter(Boolean).join('\n');
+    }).join('\n');
+
+    const itemListJsonLd = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: pageTitle,
+      description,
+      url: pageUrl,
+      mainEntity: {
+        '@type': 'ItemList',
+        itemListElement: newsItems.map((item, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: item.title,
+          url: item.shortCode
+            ? `${baseUrl}/n/${item.shortCode}`
+            : `${baseUrl}/news/${item.id}`,
+        })),
+      },
+    }).replace(/</g, '\\u003c');
+
+    return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escTitle}</title>
+  <meta name="description" content="${escDescription}">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="${escapeHtml(pageUrl)}">
+  <script type="application/ld+json">${itemListJsonLd}</script>
+</head>
+<body>
+  <header>
+    <a href="${baseUrl}/">كبسولة</a>
+    <nav aria-label="أقسام كبسولة"><ul>${categoryNav}</ul></nav>
+  </header>
+  <main>
+    <h1>${escTitle}</h1>
+    <p>${escDescription}</p>
+    <section aria-label="أحدث الأخبار">
+      ${articles || '<p>لا توجد أخبار منشورة حاليًا.</p>'}
+    </section>
+  </main>
+</body>
+</html>`;
+  }
+
+  // Give crawlers fresh, server-rendered links from the main discovery pages.
+  // The public app contains the same stories, while this avoids waiting for the
+  // JavaScript rendering queue before Google can discover newly published URLs.
+  app.get(['/', '/news'], async (req, res, next) => {
+    if (!isCrawlerRequest(req)) return next();
+
+    try {
+      const baseUrl = getRequestBaseUrl(req);
+      const categories = await storage.getCategories(true);
+      const requestedCategory = req.path === '/news' && typeof req.query.category === 'string'
+        ? req.query.category.trim()
+        : '';
+      const activeCategory = requestedCategory
+        ? categories.find(category => category.slug === requestedCategory)
+        : undefined;
+
+      if (requestedCategory && !activeCategory) {
+        return res.status(404)
+          .set({ 'Content-Type': 'text/html', 'Cache-Control': 'private, no-store' })
+          .send(notFoundHtml('القسم غير موجود'));
+      }
+
+      const newsItems = await storage.getNews(activeCategory?.slug, 50, { omitContent: true });
+      const pageTitle = activeCategory
+        ? `${activeCategory.nameAr} | كبسولة`
+        : req.path === '/news' ? 'أحدث الأخبار الصحية | كبسولة' : 'كبسولة | صحيفة صحية رقمية';
+      const description = activeCategory?.description
+        || (activeCategory
+          ? `أحدث أخبار ${activeCategory.nameAr} والتغطيات الصحية الموثوقة على كبسولة.`
+          : 'أحدث الأخبار والتقارير الصحية الموثوقة من السعودية والعالم على كبسولة.');
+      const pageUrl = activeCategory
+        ? `${baseUrl}/news?category=${encodeURIComponent(activeCategory.slug)}`
+        : req.path === '/news' ? `${baseUrl}/news` : `${baseUrl}/`;
+      const categoryLinks = [
+        { name: 'كل الأخبار', url: `${baseUrl}/news` },
+        ...categories.map(category => ({
+          name: category.nameAr,
+          url: `${baseUrl}/news?category=${encodeURIComponent(category.slug)}`,
+        })),
+      ];
+
+      return res.status(200).set({
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'public, max-age=60, must-revalidate',
+        'X-Robots-Tag': 'index, follow, max-image-preview:large',
+      }).send(buildCrawlerListingHtml({
+        pageTitle,
+        description,
+        pageUrl,
+        newsItems,
+        categoryLinks,
+      }));
+    } catch (error) {
+      console.error('Error rendering crawler news listing:', error);
+      return next();
+    }
+  });
+
   // Optimized OG image endpoint - serves resized 1200x630 JPEG for WhatsApp/Facebook
   // Maximum allowed size for OG images (strict enforcement)
   const OG_MAX_SIZE = 300 * 1024; // 300KB
@@ -662,7 +802,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasArticles ? `  <sitemap><loc>${baseUrl}/sitemap-articles.xml</loc></sitemap>` : '',
         '</sitemapindex>',
       ].filter(Boolean).join('\n');
-      res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+      res.type('application/xml').set('Cache-Control', 'public, max-age=60, must-revalidate').send(xml);
     } catch (error) {
       console.error('Error generating sitemap index:', error);
       res.status(500).send('Error generating sitemap');
@@ -754,7 +894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         '</urlset>',
       ].join('\n');
 
-      res.type('application/xml').set('Cache-Control', 'public, max-age=1800').send(xml);
+      res.type('application/xml').set('Cache-Control', 'public, max-age=60, must-revalidate').send(xml);
     } catch (error) {
       console.error('Error generating news sitemap:', error);
       res.status(500).send('Error generating sitemap');
@@ -778,7 +918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).join('\n');
 
       const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
-      res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+      res.type('application/xml').set('Cache-Control', 'public, max-age=60, must-revalidate').send(xml);
     } catch (error) {
       console.error('Error generating general sitemap:', error);
       res.status(500).send('Error generating sitemap');
