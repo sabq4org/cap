@@ -236,6 +236,8 @@ export default function Landing() {
                   src={getNewsImage(heroItem)}
                   alt={heroItem.category === "debunk" ? getCleanDebunkTitle(heroItem.title) : heroItem.title}
                   loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                   className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-in-out"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/10" />
@@ -316,7 +318,8 @@ export default function Landing() {
                             src={getNewsImage(item)}
                             alt={displayTitle}
                             className="w-28 h-[84px] lg:w-24 lg:h-[76px] object-cover rounded-lg group-hover:opacity-90 transition-opacity"
-                            loading="lazy"
+                            loading="eager"
+                            decoding="async"
                           />
                           {item.isBreaking && (
                             <span className="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1 py-0.5 rounded">
@@ -606,7 +609,7 @@ export default function Landing() {
             </div>
           ) : latestNews.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {latestNews.map((item) => {
+              {latestNews.map((item, index) => {
                 const displayTitle = item.category === "debunk" ? getCleanDebunkTitle(item.title) : item.title;
                 return (
                 <Link key={item.id} href={newsHref(item)} className="group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
@@ -618,8 +621,9 @@ export default function Landing() {
                       <img
                         src={getNewsImage(item)}
                         alt={displayTitle}
-                        loading="lazy"
+                        loading={index < 4 ? "eager" : "lazy"}
                         decoding="async"
+                        fetchPriority={index < 2 ? "high" : "auto"}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                         onError={(e) => { (e.target as HTMLImageElement).src = getNewsFallbackImage(item.category); }}
                       />

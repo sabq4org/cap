@@ -177,23 +177,27 @@ export function registerObjectStorageRoutes(app: Express): void {
           req.path
         );
 
-        // Determine content type from file extension to set appropriate headers
         const path = req.path.toLowerCase();
-        const isImage =
+        const isImageExt =
           path.endsWith(".jpg") || path.endsWith(".jpeg") ||
           path.endsWith(".png") || path.endsWith(".gif") ||
           path.endsWith(".webp") || path.endsWith(".avif");
+        // Many legacy uploads have no extension but live under /objects/uploads/
+        const isUploadEntity = path.startsWith("/objects/uploads/");
+        const treatAsImage = isImageExt || isUploadEntity;
 
         res.set({
-          "Content-Disposition": isImage ? "inline" : "attachment",
+          "Content-Disposition": treatAsImage ? "inline" : "attachment",
           "X-Content-Type-Options": "nosniff",
           "Content-Security-Policy": "default-src 'none'",
           "X-Frame-Options": "DENY",
-          // Cache images aggressively since they don't change after upload
-          "Cache-Control": isImage ? "public, max-age=31536000, immutable" : "no-store",
         });
 
-        await objectStorageService.downloadObject(objectFile, res);
+        // Public long-lived cache so Cloudflare (and browsers) keep images
+        // instead of proxying every refresh through Railway → S3.
+        await objectStorageService.downloadObject(objectFile, res, 31536000, {
+          forcePublic: true,
+        });
       } catch (error: any) {
         if (error instanceof ObjectNotFoundError) {
           return res.status(404).json({ error: "Object not found" });

@@ -113,20 +113,45 @@ export class ObjectStorageService {
   }
 
   // Downloads an object to the response.
-  async downloadObject(file: File, res: Response, cacheTtlSec: number = 3600) {
+  // forcePublic: news/media under /objects/uploads are meant for public <img>
+  // tags — skip ACL metadata round-trip and emit CDN-friendly cache headers.
+  async downloadObject(
+    file: File,
+    res: Response,
+    cacheTtlSec: number = 3600,
+    options?: { forcePublic?: boolean },
+  ) {
     try {
-      // Get file metadata
-      const [metadata] = await file.getMetadata();
-      // Get the ACL policy for the object.
-      const aclPolicy = await getObjectAclPolicy(file);
-      const isPublic = aclPolicy?.visibility === "public";
-      // Set appropriate headers
+      let metadata: any;
+      try {
+        [metadata] = await file.getMetadata();
+      } catch (error: any) {
+        const status = error?.$metadata?.httpStatusCode;
+        if (
+          error?.name === "NotFound" ||
+          error?.name === "NoSuchKey" ||
+          status === 404
+        ) {
+          throw new ObjectNotFoundError();
+        }
+        throw error;
+      }
+
+      const forcePublic = options?.forcePublic === true;
+      let isPublic = forcePublic;
+      if (!forcePublic) {
+        const aclPolicy = await getObjectAclPolicy(file);
+        isPublic = aclPolicy?.visibility === "public";
+      }
+
+      const cacheControl = forcePublic
+        ? `public, max-age=${cacheTtlSec}, immutable`
+        : `${isPublic ? "public" : "private"}, max-age=${cacheTtlSec}`;
+
       res.set({
         "Content-Type": metadata.contentType || "application/octet-stream",
         "Content-Length": metadata.size,
-        "Cache-Control": `${
-          isPublic ? "public" : "private"
-        }, max-age=${cacheTtlSec}`,
+        "Cache-Control": cacheControl,
       });
 
       // Stream the file to the response
@@ -141,6 +166,9 @@ export class ObjectStorageService {
 
       stream.pipe(res);
     } catch (error) {
+      if (error instanceof ObjectNotFoundError) {
+        throw error;
+      }
       console.error("Error downloading file:", error);
       if (!res.headersSent) {
         res.status(500).json({ error: "Error downloading file" });
@@ -199,10 +227,8 @@ export class ObjectStorageService {
     const { bucketName, objectName } = parseObjectPath(objectEntityPath);
     const bucket = objectStorageClient.bucket(bucketName);
     const objectFile = bucket.file(objectName);
-    const [exists] = await objectFile.exists();
-    if (!exists) {
-      throw new ObjectNotFoundError();
-    }
+    // Skip HeadObject exists() — downloadObject's getMetadata does one Head
+    // and maps NotFound → ObjectNotFoundError (saves a full S3 round-trip).
     return objectFile;
   }
 
