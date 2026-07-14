@@ -34,7 +34,7 @@ export default function ArticleDetail() {
   if (error || !article) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <SEO title="المقال غير متوفر" description="المقال المطلوب غير متوفر." />
+        <SEO title="المقال غير متوفر" description="المقال المطلوب غير متوفر." noIndex />
         <Helmet>
           <meta name="robots" content="noindex, follow" />
         </Helmet>

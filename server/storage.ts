@@ -144,7 +144,7 @@ export interface IStorage {
 
   // News operations
   getNews(category?: string, limit?: number, options?: { omitContent?: boolean }): Promise<News[]>;
-  getNewsForSitemap(limit?: number): Promise<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt'>[]>;
+  getNewsForSitemap(limit?: number): Promise<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt' | 'updatedAt'>[]>;
   getRelatedNews(newsId: string, category: string, limit?: number): Promise<News[]>;
   getNewsPaginated(category?: string, page?: number, perPage?: number, search?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }>;
   getNewsById(id: string): Promise<News | undefined>;
@@ -493,7 +493,7 @@ export class DatabaseStorage implements IStorage {
 
   // Article operations
   async getArticles(category?: string, limit: number = 50, includeAll: boolean = false): Promise<Article[]> {
-    const publicCondition = sql`(${articles.status} = 'published' OR (${articles.status} = 'scheduled' AND ${articles.scheduledAt} IS NOT NULL AND ${articles.scheduledAt} <= ${sqlUtcNow}))`;
+    const publicCondition = sql`((${articles.status} = 'published' AND ${articles.publishedAt} <= ${sqlUtcNow}) OR (${articles.status} = 'scheduled' AND ${articles.scheduledAt} IS NOT NULL AND ${articles.scheduledAt} <= ${sqlUtcNow}))`;
 
     if (category) {
       if (includeAll) {
@@ -609,6 +609,7 @@ export class DatabaseStorage implements IStorage {
       sql`${news.status} != 'deleted'`,
       sql`${news.status} != 'draft'`,
       sql`(${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${sqlUtcNow})`,
+      sql`${news.publishedAt} <= ${sqlUtcNow}`,
     ];
 
     if (category) {
@@ -646,9 +647,9 @@ export class DatabaseStorage implements IStorage {
     return results as News[];
   }
 
-  async getNewsForSitemap(limit: number = 50000): Promise<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt'>[]> {
+  async getNewsForSitemap(limit: number = 50000): Promise<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt' | 'updatedAt'>[]> {
     const cacheKey = `sitemap-news:${limit}`;
-    const cached = newsCache.get<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt'>[]>(cacheKey);
+    const cached = newsCache.get<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt' | 'updatedAt'>[]>(cacheKey);
     if (cached) return cached;
 
     const results = await db
@@ -659,9 +660,10 @@ export class DatabaseStorage implements IStorage {
         imageUrl: news.imageUrl,
         keywords: news.keywords,
         publishedAt: news.publishedAt,
+        updatedAt: news.updatedAt,
       })
       .from(news)
-      .where(sql`${news.status} != 'deleted' AND ${news.status} != 'draft' AND (${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${sqlUtcNow})`)
+      .where(sql`${news.status} != 'deleted' AND ${news.status} != 'draft' AND ${news.publishedAt} <= ${sqlUtcNow} AND (${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${sqlUtcNow})`)
       .orderBy(desc(news.publishedAt), desc(news.createdAt))
       .limit(limit);
 
@@ -694,6 +696,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(news.status, 'published'),
+          sql`${news.publishedAt} <= ${sqlUtcNow}`,
           eq(news.category, category),
           sql`${news.id} != ${newsId}`,
         )
@@ -710,6 +713,7 @@ export class DatabaseStorage implements IStorage {
       sql`${news.status} != 'deleted'`,
       sql`${news.status} != 'draft'`,
       sql`(${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${sqlUtcNow})`,
+      sql`${news.publishedAt} <= ${sqlUtcNow}`,
     ];
 
     if (category) {
@@ -941,6 +945,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(news.status, 'published'),
+          sql`${news.publishedAt} <= ${sqlUtcNow}`,
           sql`(${news.title} ILIKE ${pattern} OR ${news.summary} ILIKE ${pattern} OR ${news.content} ILIKE ${pattern} OR ${news.keywords}::text ILIKE ${pattern})`
         )
       )
@@ -995,7 +1000,8 @@ export class DatabaseStorage implements IStorage {
     const results = await db.select().from(news)
       .where(and(
         eq(news.status, 'published'),
-        gte(news.publishedAt, weekAgo)
+        gte(news.publishedAt, weekAgo),
+        sql`${news.publishedAt} <= ${sqlUtcNow}`
       ))
       .orderBy(desc(news.viewCount))
       .limit(limit);
@@ -2009,7 +2015,7 @@ export class DatabaseStorage implements IStorage {
           relevanceScore: sql<number>`(${buildScoreExpr('news')})`,
         })
         .from(news)
-        .where(and(eq(news.status, 'published'), buildTokenFilter('news')))
+        .where(and(eq(news.status, 'published'), sql`${news.publishedAt} <= ${sqlUtcNow}`, buildTokenFilter('news')))
         .orderBy(sql`(${buildScoreExpr('news')}) DESC`, desc(news.publishedAt))
         .limit(limit),
 
@@ -2025,7 +2031,7 @@ export class DatabaseStorage implements IStorage {
           relevanceScore: sql<number>`(${buildScoreExpr('articles')})`,
         })
         .from(articles)
-        .where(and(eq(articles.status, 'published'), buildTokenFilter('articles')))
+        .where(and(eq(articles.status, 'published'), sql`${articles.publishedAt} <= ${sqlUtcNow}`, buildTokenFilter('articles')))
         .orderBy(sql`(${buildScoreExpr('articles')}) DESC`, desc(articles.publishedAt))
         .limit(limit),
     ]);
@@ -2590,6 +2596,7 @@ export class DatabaseStorage implements IStorage {
       sql`${news.status} != 'deleted'`,
       sql`${news.status} != 'draft'`,
       sql`(${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${sqlUtcNow})`,
+      sql`${news.publishedAt} <= ${sqlUtcNow}`,
       sql`(${sql.join(interests.map(cat => sql`${news.category} = ${cat}`), sql` OR `)})`,
     ];
     const newsResults = await db.select().from(news)
@@ -2602,6 +2609,7 @@ export class DatabaseStorage implements IStorage {
     const articlesResults = await db.select().from(articles)
       .where(and(
         eq(articles.status, "published"),
+        sql`${articles.publishedAt} <= ${sqlUtcNow}`,
         sql`(${sql.join(interests.map(cat => sql`${articles.category} = ${cat}`), sql` OR `)})`,
       ))
       .orderBy(desc(articles.publishedAt));

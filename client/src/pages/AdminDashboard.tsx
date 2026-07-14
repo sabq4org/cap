@@ -32,6 +32,12 @@ import { AdminDashboardOverview } from "@/components/admin/AdminDashboardOvervie
 import { SocialContentModal } from "@/components/SocialContentModal";
 import AIImageGenerator from "@/components/AIImageGenerator";
 import type { SocialContent } from "@shared/schema";
+import {
+  SAUDI_TIME_ZONE as SAUDI_TZ,
+  getSaudiNowInput as getSaudiNow,
+  saudiInputToUtcIso as saudiInputToISO,
+  utcIsoToSaudiInput as isoToSaudiInput,
+} from "@shared/saudiTime";
 
 interface ArticleFormPayload {
   title: string;
@@ -88,29 +94,6 @@ interface Category {
   description: string | null;
   sortOrder: number;
   isActive: boolean;
-}
-
-// ─── Saudi Timezone Helpers (UTC+3, Asia/Riyadh) ─────────────────────────────
-const SAUDI_TZ = 'Asia/Riyadh';
-
-/** Current time as a datetime-local string in Saudi timezone (for min/value) */
-function getSaudiNow(): string {
-  const now = new Date();
-  const saudi = new Date(now.getTime() + 3 * 60 * 60 * 1000);
-  return saudi.toISOString().slice(0, 16);
-}
-
-/** Convert datetime-local value (Saudi time) to UTC ISO string for the server */
-function saudiInputToISO(localStr: string): string {
-  if (!localStr) return '';
-  return new Date(localStr + ':00+03:00').toISOString();
-}
-
-/** Convert UTC ISO string from DB to datetime-local value in Saudi timezone */
-function isoToSaudiInput(isoStr: string): string {
-  if (!isoStr) return '';
-  const saudi = new Date(new Date(isoStr).getTime() + 3 * 60 * 60 * 1000);
-  return saudi.toISOString().slice(0, 16);
 }
 
 /** Format a UTC date string for display in Saudi timezone */
@@ -1368,17 +1351,19 @@ export default function AdminDashboard() {
       if (data) {
         setFormData(prev => ({
           ...prev,
-          title: data.title || "",
-          subtitle: data.subtitle || "",
-          summary: data.summary || "",
-          seoTitle: data.seoTitle || "",
-          seoDescription: data.seoDescription || "",
-          keywords: data.keywords || [],
+          title: data.title || prev.title,
+          subtitle: data.subtitle || prev.subtitle,
+          summary: data.summary || prev.summary,
+          seoTitle: data.seoTitle || prev.seoTitle,
+          seoDescription: data.seoDescription || prev.seoDescription,
+          keywords: data.keywords?.length ? data.keywords : prev.keywords,
         }));
         
         toast({
           title: "تم التوليد بنجاح",
-          description: "تم توليد البيانات الوصفية من المحتوى",
+          description: data.warnings?.length
+            ? `تم التوليد مع ${data.warnings.length} ملاحظة؛ راجع مؤشرات SEO قبل النشر`
+            : "تم توليد البيانات الوصفية من المحتوى؛ راجعها قبل النشر",
         });
       }
     } catch (error) {
@@ -1839,8 +1824,15 @@ export default function AdminDashboard() {
                   value={formData.seoTitle}
                   onChange={(e) => setFormData(prev => ({ ...prev, seoTitle: e.target.value }))}
                   placeholder="عنوان محسن لمحركات البحث"
+                  maxLength={70}
                   data-testid="input-seo-title"
                 />
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className={formData.seoTitle.length >= 45 && formData.seoTitle.length <= 65 ? "text-emerald-600" : "text-amber-600"}>
+                    الموصى به: 45–65 حرفاً
+                  </span>
+                  <span className="text-muted-foreground">{formData.seoTitle.length}/70</span>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -1851,9 +1843,29 @@ export default function AdminDashboard() {
                   onChange={(e) => setFormData(prev => ({ ...prev, seoDescription: e.target.value }))}
                   placeholder="وصف مختصر للظهور في نتائج البحث"
                   className="min-h-[60px]"
+                  maxLength={200}
                   data-testid="textarea-seo-description"
                 />
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className={formData.seoDescription.length >= 120 && formData.seoDescription.length <= 165 ? "text-emerald-600" : "text-amber-600"}>
+                    الموصى به: 120–165 حرفاً وجملة مكتملة
+                  </span>
+                  <span className="text-muted-foreground">{formData.seoDescription.length}/200</span>
+                </div>
               </div>
+
+              {(formData.seoTitle || formData.seoDescription) && (
+                <div className="rounded-lg border bg-background p-3" dir="rtl">
+                  <p className="mb-2 text-[11px] font-medium text-muted-foreground">معاينة تقريبية لنتيجة البحث</p>
+                  <p className="truncate text-xs text-emerald-700" dir="ltr">https://capsulah.com/n/...</p>
+                  <p className="mt-1 line-clamp-1 text-base font-medium text-blue-700">
+                    {formData.seoTitle || formData.title || "عنوان الخبر"}
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                    {formData.seoDescription || formData.summary || "سيظهر وصف الخبر هنا بعد كتابته أو توليده."}
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>الكلمات المفتاحية</Label>
