@@ -2,21 +2,25 @@ import SwiftUI
 
 struct HomeView: View {
     @State private var model = HomeViewModel()
+    @State private var didAppear = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onAskCapsule: () -> Void = {}
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 14) {
+            LazyVStack(spacing: 16) {
                 AppBar()
-                    .padding(.top, 6)
+                    .padding(.top, 8)
 
                 if model.phase == .loading {
                     loadingPlaceholder
                 } else {
                     MorningCapsuleCard(digest: model.digest)
+                        .homeEntrance(didAppear: didAppear, delay: 0, reduceMotion: reduceMotion)
 
                     if let breaking = model.breaking {
                         BreakingStrip(item: breaking)
+                            .homeEntrance(didAppear: didAppear, delay: 0.04, reduceMotion: reduceMotion)
                     }
 
                     CategoryChipsRow(
@@ -26,9 +30,11 @@ struct HomeView: View {
                         Task { await model.select(category: slug) }
                     }
                     .padding(.top, 2)
+                    .homeEntrance(didAppear: didAppear, delay: 0.08, reduceMotion: reduceMotion)
 
-                    SectionHeader(title: "أبرز الأخبار")
-                        .padding(.top, 4)
+                    SectionHeader(title: "أبرز الأخبار", subtitle: model.selectedCategory == nil ? "مختارة لك اليوم" : "أحدث أخبار القسم")
+                        .padding(.top, 6)
+                        .homeEntrance(didAppear: didAppear, delay: 0.12, reduceMotion: reduceMotion)
 
                     if model.isFilterLoading {
                         ProgressView()
@@ -39,9 +45,10 @@ struct HomeView: View {
                                 item: featured,
                                 categoryName: model.categoryName(for: featured.category)
                             )
+                            .homeEntrance(didAppear: didAppear, delay: 0.16, reduceMotion: reduceMotion)
                         }
 
-                        VStack(spacing: 10) {
+                        LazyVStack(spacing: 12) {
                             ForEach(model.feed) { item in
                                 NewsRowCard(
                                     item: item,
@@ -52,7 +59,7 @@ struct HomeView: View {
                     }
 
                     RumorCTACard(onTap: onAskCapsule)
-                        .padding(.top, 4)
+                        .padding(.top, 6)
 
                     if model.phase == .offline {
                         Label("تعذر الاتصال — تعرض الآن محتويات تجريبية", systemImage: "wifi.slash")
@@ -64,9 +71,14 @@ struct HomeView: View {
             }
             .padding(.bottom, 84) // مساحة لشريط التبويبات العائم
         }
-        .background(CapTheme.paper)
+        .background(HomeBackdrop())
         .scrollIndicators(.hidden)
-        .task { await model.load() }
+        .task {
+            await model.load()
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.55)) {
+                didAppear = true
+            }
+        }
         .refreshable { await model.load() }
     }
 
@@ -89,6 +101,31 @@ struct HomeView: View {
         }
         .redacted(reason: .placeholder)
         .accessibilityLabel("جارٍ التحميل")
+    }
+}
+
+private struct HomeBackdrop: View {
+    var body: some View {
+        ZStack(alignment: .top) {
+            CapTheme.paper
+            RadialGradient(
+                colors: [CapTheme.greenBright.opacity(0.09), .clear],
+                center: .init(x: 0.92, y: 0.02),
+                startRadius: 10,
+                endRadius: 290
+            )
+            .frame(height: 420)
+            .allowsHitTesting(false)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private extension View {
+    func homeEntrance(didAppear: Bool, delay: Double, reduceMotion: Bool) -> some View {
+        opacity(didAppear ? 1 : 0)
+            .offset(y: didAppear || reduceMotion ? 0 : 10)
+            .animation(reduceMotion ? nil : .smooth(duration: 0.45).delay(delay), value: didAppear)
     }
 }
 
