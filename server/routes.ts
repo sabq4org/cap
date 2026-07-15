@@ -896,6 +896,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Shared handler for OG image serving (used by both /og/:id and /api/og-image/:id)
   const serveOGImage = async (req: any, res: any) => {
+    const ogStart = Date.now();
+    const logOg = (outcome: string) => {
+      console.log(`[OG] ${(req.get('user-agent') || '?').slice(0, 60)} GET /og/${req.params.id} -> ${outcome} ${Date.now() - ogStart}ms`);
+    };
     const sendSafeImage = async (buffer: Buffer | null, cacheTime: number): Promise<void> => {
       let safeBuffer = buffer;
       let isFallback = !safeBuffer || safeBuffer.length > OG_MAX_SIZE;
@@ -917,6 +921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Access-Control-Allow-Origin': '*',
         'X-OG-Image-Source': isFallback ? 'fallback' : 'article'
       });
+      logOg(`200 ${isFallback ? 'FALLBACK' : 'article'} ${safeBuffer.length}b cache=${res.get('X-OG-Cache') || 'n/a'}`);
       res.send(safeBuffer);
     };
 
@@ -1234,11 +1239,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/n/:shortCode', async (req, res, next) => {
     const isCrawler = isCrawlerRequest(req);
+    const scrapeStart = Date.now();
+    // Forensic log for social-card debugging: X scrapes exactly once per
+    // tweet, so when a card comes out empty we need a record of what the
+    // crawler was actually served at that moment (status + latency).
+    const logScrape = (outcome: string) => {
+      if (!isCrawler) return;
+      console.log(`[Crawler] ${(req.get('user-agent') || '?').slice(0, 60)} GET /n/${req.params.shortCode} -> ${outcome} ${Date.now() - scrapeStart}ms`);
+    };
 
     try {
       const newsItem = await storage.getNewsByShortCode(req.params.shortCode);
 
       if (!newsItem || !isPublicNews(newsItem)) {
+        logScrape(`404 (${!newsItem ? 'not-found' : `non-public status=${newsItem.status} publishedAt=${newsItem.publishedAt?.toISOString?.() ?? newsItem.publishedAt}`})`);
         return res.status(404).set({ 'Content-Type': 'text/html', 'Cache-Control': 'private, no-store' }).send(notFoundHtml('الخبر غير موجود'));
       }
 
@@ -1254,8 +1268,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
 
+      logScrape('200');
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
+      logScrape(`ERROR ${(error as Error)?.message ?? error}`);
       console.error('Error in /n/:shortCode handler:', error);
       next();
     }
@@ -2868,10 +2884,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (isPublishingNow) updateData.publishedAt = now;
       }
 
+      // Stamp every editorial edit: updatedAt has no $onUpdate, so without
+      // this an edit is invisible in article:modified_time (blinding forensics)
+      // and never rotates the OG cache key (a changed image could serve stale
+      // for 24h). Content-version consumers (?v=, og cache) key off this.
+      if (Object.keys(updateData).length > 0) updateData.updatedAt = new Date();
+
       const updated = await storage.updateNews(id, updateData);
       if (!updated) {
         return res.status(404).json({ message: "News not found" });
       }
+      console.log(`[News] edit ${id} status=${updated.status} fields=[${Object.keys(updateData).join(',')}]`);
       notifySearchEnginesOfNews(updated);
       // Bounded block — see the create handler; same tweet-race applies after
       // an edit that changes the image.
