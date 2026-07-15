@@ -198,7 +198,7 @@ export default function Landing() {
   const heroSideItems = heroCombined.slice(1, 5);
 
   // Show all news in latest section (featured + non-featured)
-  const latestNews = allNewsList.slice(0, 12);
+  const latestNews = allNewsList.slice(0, 24);
   const latestArticles = articles?.slice(0, 3) || [];
 
   const siteOrigin = typeof window !== "undefined" ? window.location.origin : "https://capsulah.com";
