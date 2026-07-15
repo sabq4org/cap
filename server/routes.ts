@@ -360,7 +360,14 @@ export async function warmOgImageForNews(item: {
   publishedAt?: Date | string | null;
 }): Promise<void> {
   try {
-    if (!item?.id || !item.imageUrl || item.status !== 'published') return;
+    // Warm scheduled articles too, not just published ones: the newsroom
+    // workflow is schedule → tweet the moment it goes live, and the promoter
+    // job flips scheduled→published only once a minute. Warming at save time
+    // means the card image has been sitting ready for hours before the first
+    // crawler ever asks for it. (Cache key uses max(updatedAt, publishedAt),
+    // which promotion does not change — publishedAt stays = scheduledAt.)
+    const warmable = item?.status === 'published' || item?.status === 'scheduled';
+    if (!item?.id || !item.imageUrl || !warmable) return;
     const key = ogCacheKey(item.id, ogVersionMs(item));
     if (getCachedOgImage(key)) return;
     // Already persisted by a previous process/replica? Load it into memory.
