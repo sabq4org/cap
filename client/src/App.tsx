@@ -95,6 +95,7 @@ function Router() {
         <Route path="/articles/:slug" component={ArticleDetail} />
         <Route path="/news" component={News} />
         <Route path="/news/:id" component={NewsDetail} />
+        <Route path="/n/:shortCode/:slug" component={NewsDetail} />
         <Route path="/n/:shortCode" component={NewsDetail} />
         <Route path="/keyword/:keyword" component={KeywordPage} />
         <Route path="/ask-capsule" component={AskCapsule} />

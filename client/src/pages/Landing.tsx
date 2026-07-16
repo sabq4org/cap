@@ -32,6 +32,7 @@ import { getNewsImage, getNewsFallbackImage } from "@/lib/newsImages";
 import AdBanner from "@/components/AdBanner";
 import { SEO } from "@/components/SEO";
 import type { News, Article } from "@shared/schema";
+import { newsCanonicalPath } from "@shared/seoSignals";
 
 interface PaginatedResponse {
   news: News[];
@@ -86,7 +87,7 @@ const quickCategories = [
 ];
 
 const newsHref = (item: { id: string; shortCode?: string | null }) =>
-  item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
+  newsCanonicalPath(item);
 
 const formatRelativeTime = (date: Date | string) => {
   const d = new Date(date);
@@ -502,7 +503,7 @@ export default function Landing() {
                     data-testid={`debunk-card-${item.id}`}
                   >
                     <Link
-                      href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}
+                      href={newsCanonicalPath(item)}
                       className="flex flex-1 flex-col gap-3 p-4 md:p-5"
                     >
                       {verdict && VerdictIcon && (
@@ -757,7 +758,7 @@ export default function Landing() {
               {hajjNews.map((item) => (
                 <Link
                   key={item.id}
-                  href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}
+                  href={newsCanonicalPath(item)}
                   data-testid={`card-hajj-${item.id}`}
                 >
                   <div className="group rounded-xl overflow-hidden border border-yellow-500/20 bg-white/5 hover:bg-white/10 hover:border-yellow-400/40 transition-all duration-300 cursor-pointer h-full flex flex-col"

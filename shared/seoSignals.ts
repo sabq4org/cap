@@ -12,6 +12,38 @@ export function displayTitle(seoTitle?: string | null, title?: string | null): s
   return (title || "").trim();
 }
 
+/**
+ * Build a readable, Unicode-safe URL segment from an Arabic or Latin title.
+ * The stable shortCode remains in the URL, so editorial title changes can be
+ * redirected safely without losing the article identity.
+ */
+export function seoTitleSlug(value?: string | null, maxLength = 80): string {
+  const normalized = (value || "")
+    .normalize("NFKC")
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
+    .toLocaleLowerCase("ar")
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "");
+
+  const chars = Array.from(normalized);
+  if (chars.length <= maxLength) return normalized;
+  return chars.slice(0, maxLength).join("").replace(/-+$/g, "");
+}
+
+export type NewsCanonicalLink = {
+  id: string;
+  shortCode?: string | null;
+  title?: string | null;
+  seoTitle?: string | null;
+};
+
+/** Canonical news path: stable code + readable SEO-title segment. */
+export function newsCanonicalPath(item: NewsCanonicalLink): string {
+  if (!item.shortCode) return `/news/${item.id}`;
+  const slug = seoTitleSlug(displayTitle(item.seoTitle, item.title));
+  return slug ? `/n/${item.shortCode}/${slug}` : `/n/${item.shortCode}`;
+}
+
 /** Truncate at a word boundary (default 220 chars) and append ellipsis when cut. */
 export function truncateMetaDescription(raw: string, maxLen = 220): string {
   const text = (raw || "").replace(/\s+/g, " ").trim();

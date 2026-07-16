@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { renderSeoShell, resolveSpaSeo } from "../server/vite";
 import {
   computeContentRobots,
+  newsCanonicalPath,
+  seoTitleSlug,
   truncateMetaDescription,
 } from "../shared/seoSignals";
 
@@ -42,6 +44,24 @@ assert.equal(
 
 const deepPage = resolveSpaSeo({ originalUrl: "/news?page=6" });
 assert.equal(deepPage.noIndex, true);
+
+assert.equal(
+  seoTitleSlug("تأثير المكياج على صحة البشرة"),
+  "تأثير-المكياج-على-صحة-البشرة",
+);
+const readableNewsPath = newsCanonicalPath({
+  id: "news-id",
+  shortCode: "FelRlGE",
+  title: "عنوان تحريري أطول",
+  seoTitle: "تأثير المكياج على صحة البشرة",
+});
+assert.equal(
+  readableNewsPath,
+  "/n/FelRlGE/تأثير-المكياج-على-صحة-البشرة",
+);
+const readableNewsShell = resolveSpaSeo({ originalUrl: readableNewsPath });
+assert.equal(readableNewsShell.status, 200);
+assert.equal(readableNewsShell.noIndex, false);
 
 const missing = resolveSpaSeo({ originalUrl: "/definitely-not-a-route" });
 assert.equal(missing.status, 404);

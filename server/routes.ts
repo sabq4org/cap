@@ -45,6 +45,8 @@ import {
   hasDirtySeoQuery,
   sitemapPriorityForAge,
   wordCountFromPlain,
+  newsCanonicalPath,
+  seoTitleSlug,
 } from "@shared/seoSignals";
 
 const rumorSubmissionLimiter = rateLimit({
@@ -562,6 +564,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       : 'index, follow, max-image-preview:large',
   });
 
+  const categoryDisplayName = (slug?: string | null): string | null => {
+    if (!slug) return null;
+    return ({
+      health: 'صحة عامة',
+      'health-news': 'أخبار صحية',
+      'saudi-health': 'الصحة في السعودية',
+      'health-community': 'مجتمع صحي',
+      'health-reports': 'تقارير صحية',
+      'health-events': 'فعاليات صحية',
+      'quality-life': 'جودة الحياة',
+      nutrition: 'التغذية',
+      debunk: 'تفنيد الشائعات',
+      misc: 'منوعات',
+    } as Record<string, string>)[slug] || slug;
+  };
+
   const isCrawlerRequest = (req: { get: (h: string) => string | undefined }): boolean => {
     const userAgent = req.get('User-Agent') || '';
     return /Googlebot|Google-InspectionTool|GoogleOther|Storebot-Google|bingbot|WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
@@ -683,6 +701,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   function buildCrawlerHtml(opts: {
     title: string;
+    headline?: string;
     description: string;
     ogImageUrl: string;
     pageUrl: string;
@@ -702,6 +721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }) {
     const {
       title,
+      headline,
       description,
       ogImageUrl,
       pageUrl,
@@ -720,6 +740,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       noindexOverride = false,
     } = opts;
     const escTitle = escapeHtml(title);
+    const pageHeadline = (headline || title).trim();
+    const escHeadline = escapeHtml(pageHeadline);
     const escDesc = escapeHtml(description);
     const pub = publishedAt ? new Date(publishedAt).toISOString() : undefined;
     const mod = clampModifiedTime(publishedAt, updatedAt) || pub;
@@ -758,7 +780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       '@context': 'https://schema.org',
       '@type': schemaType,
       mainEntityOfPage: { '@type': 'WebPage', '@id': pageUrl },
-      headline: title.slice(0, 110),
+      headline: pageHeadline.slice(0, 110),
       description,
       image: imageVariants,
       inLanguage: 'ar',
@@ -796,7 +818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: categoryName || 'الأخبار',
           item: categoryUrl || `${getSiteBaseUrl()}/news`,
         },
-        { '@type': 'ListItem', position: 3, name: title, item: pageUrl },
+        { '@type': 'ListItem', position: 3, name: pageHeadline, item: pageUrl },
       ];
       graphs.push({
         '@context': 'https://schema.org',
@@ -847,8 +869,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 </head>
 <body>
   <article>
-    <h1>${escTitle}</h1>
-    <img src="${escSocialImageUrl}" alt="${escTitle}" width="1200" height="630">
+    <h1>${escHeadline}</h1>
+    <img src="${escSocialImageUrl}" alt="${escHeadline}" width="1200" height="630">
     ${contentHtml ? sanitizeContentHtml(contentHtml) : `<p>${escDesc}</p>`}
   </article>
   ${redirect ? `<p><a href="${pageUrl}">اقرأ الخبر كاملاً على كبسولة</a></p>` : ''}
@@ -874,11 +896,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ).join('\n');
 
     const articles = newsItems.map(item => {
-      const newsUrl = item.shortCode
-        ? `${baseUrl}/n/${item.shortCode}`
-        : `${baseUrl}/news/${item.id}`;
+      const newsUrl = `${baseUrl}${newsCanonicalPath(item)}`;
       const publishedAt = item.publishedAt ? new Date(item.publishedAt).toISOString() : '';
-      const itemTitle = displayTitle(item.seoTitle, item.title);
+      const itemTitle = item.title;
       const summary = item.summary || item.subtitle || item.seoDescription || '';
       const imageUrl = item.imageUrl
         ? (item.imageUrl.startsWith('/') ? `${baseUrl}${item.imageUrl}` : item.imageUrl)
@@ -917,10 +937,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         itemListElement: newsItems.map((item, index) => ({
           '@type': 'ListItem',
           position: index + 1,
-          name: displayTitle(item.seoTitle, item.title),
-          url: item.shortCode
-            ? `${baseUrl}/n/${item.shortCode}`
-            : `${baseUrl}/news/${item.id}`,
+          name: item.title,
+          url: `${baseUrl}${newsCanonicalPath(item)}`,
         })),
       },
     };
@@ -1264,8 +1282,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const recent = published.filter(withinWindow).slice(0, 1000);
 
       const urls = recent.map(item => {
-        const loc = item.shortCode ? `${baseUrl}/n/${item.shortCode}` : `${baseUrl}/news/${item.id}`;
-        const display = displayTitle(item.seoTitle, item.title);
+        const loc = `${baseUrl}${newsCanonicalPath(item)}`;
+        const display = item.title;
         const lastModifiedAt = clampModifiedTime(item.publishedAt, item.updatedAt)
           || new Date(item.publishedAt || now).toISOString();
         const lastmod = lastModifiedAt.split('T')[0];
@@ -1319,7 +1337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const published = await storage.getNewsForSitemap();
 
       const urls = published.map(item => {
-        const loc = item.shortCode ? `${baseUrl}/n/${item.shortCode}` : `${baseUrl}/news/${item.id}`;
+        const loc = `${baseUrl}${newsCanonicalPath(item)}`;
         const lastModifiedAt = clampModifiedTime(item.publishedAt, item.updatedAt)
           || new Date(item.publishedAt || Date.now()).toISOString();
         const lastmod = lastModifiedAt.split('T')[0];
@@ -1363,9 +1381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const baseUrl = getRequestBaseUrl(req);
-      const pageUrl = newsItem.shortCode
-        ? `${baseUrl}/n/${newsItem.shortCode}`
-        : `${baseUrl}/news/${newsItem.id}`;
+      const pageUrl = `${baseUrl}${newsCanonicalPath(newsItem)}`;
 
       const imageId = newsItem.shortCode || newsItem.id;
       const ogImageUrl = `${baseUrl}/og/${imageId}.jpg`;
@@ -1377,6 +1393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const html = buildCrawlerHtml({
         title: seo.title,
+        headline: newsItem.title,
         description: seo.description,
         ogImageUrl,
         pageUrl,
@@ -1388,7 +1405,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         articleImageUrl,
         robots: seo.robots.robots,
         googlebotNews: seo.robots.googlebotNews,
-        categoryName: newsItem.category,
+        categoryName: categoryDisplayName(newsItem.category),
         categoryUrl,
         noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
       });
@@ -1400,7 +1417,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Social media crawler detection and short URL redirect for news URLs with UUID
+  // UUID links are legacy URLs. Always collapse them to the readable canonical
+  // URL when a stable shortCode exists, including for crawlers.
   app.get('/news/:id', async (req, res, next) => {
     const isCrawler = isCrawlerRequest(req);
 
@@ -1412,40 +1430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (newsItem.shortCode) {
-        if (isCrawler) {
-          const baseUrl = getRequestBaseUrl(req);
-          const canonicalUrl = `${baseUrl}/n/${newsItem.shortCode}`;
-          const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode}.jpg`;
-          const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
-          const seo = newsSeoFields(newsItem);
-          const categoryUrl = newsItem.category
-            ? `${baseUrl}/news?category=${encodeURIComponent(newsItem.category)}`
-            : `${baseUrl}/news`;
-          const html = buildCrawlerHtml({
-            title: seo.title,
-            description: seo.description,
-            ogImageUrl,
-            pageUrl: canonicalUrl,
-            publishedAt: newsItem.publishedAt,
-            updatedAt: newsItem.updatedAt,
-            contentHtml: newsItem.content,
-            keywords: newsItem.keywords,
-            author: newsItem.createdBy,
-            articleImageUrl,
-            redirect: false,
-            robots: seo.robots.robots,
-            googlebotNews: seo.robots.googlebotNews,
-            categoryName: newsItem.category,
-            categoryUrl,
-            noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
-          });
-          const noindex = hasDirtySeoQuery(req.query as Record<string, unknown>);
-          return res.status(200).set({
-            'Content-Type': 'text/html',
-            ...crawlerHtmlCacheHeaders(noindex),
-          }).send(html);
-        }
-        return res.redirect(301, `/n/${newsItem.shortCode}`);
+        return res.redirect(301, newsCanonicalPath(newsItem));
       }
 
       if (isCrawler) {
@@ -1459,6 +1444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : `${baseUrl}/news`;
         const html = buildCrawlerHtml({
           title: seo.title,
+          headline: newsItem.title,
           description: seo.description,
           ogImageUrl,
           pageUrl,
@@ -1471,7 +1457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           redirect: false,
           robots: seo.robots.robots,
           googlebotNews: seo.robots.googlebotNews,
-          categoryName: newsItem.category,
+          categoryName: categoryDisplayName(newsItem.category),
           categoryUrl,
           noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
         });
@@ -1489,12 +1475,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/n/:shortCode', async (req, res, next) => {
+  // Canonical readable news route: stable short code + title segment.
+  app.get('/n/:shortCode/:slug', async (req, res, next) => {
     const isCrawler = isCrawlerRequest(req);
     const scrapeStart = Date.now();
     const logScrape = (outcome: string) => {
       if (!isCrawler) return;
-      console.log(`[Crawler] ${(req.get('user-agent') || '?').slice(0, 60)} GET /n/${req.params.shortCode} -> ${outcome} ${Date.now() - scrapeStart}ms`);
+      console.log(`[Crawler] ${(req.get('user-agent') || '?').slice(0, 60)} GET ${req.path} -> ${outcome} ${Date.now() - scrapeStart}ms`);
     };
 
     try {
@@ -1505,12 +1492,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return respondMissingNews(res, newsItem, 'الخبر غير موجود');
       }
 
+      const expectedSlug = seoTitleSlug(displayTitle(newsItem.seoTitle, newsItem.title));
+      if (req.params.slug !== expectedSlug) {
+        logScrape('301 canonical-slug');
+        return res.redirect(301, newsCanonicalPath(newsItem));
+      }
+
       if (!isCrawler) {
         return next();
       }
 
       const baseUrl = getRequestBaseUrl(req);
-      const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
+      const pageUrl = `${baseUrl}${newsCanonicalPath(newsItem)}`;
       const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode || newsItem.id}.jpg`;
       const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
       const seo = newsSeoFields(newsItem);
@@ -1520,6 +1513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const html = buildCrawlerHtml({
         title: seo.title,
+        headline: newsItem.title,
         description: seo.description,
         ogImageUrl,
         pageUrl,
@@ -1532,7 +1526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         redirect: false,
         robots: seo.robots.robots,
         googlebotNews: seo.robots.googlebotNews,
-        categoryName: newsItem.category,
+        categoryName: categoryDisplayName(newsItem.category),
         categoryUrl,
         noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
       });
@@ -1547,6 +1541,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       logScrape(`ERROR ${(error as Error)?.message ?? error}`);
       console.error('Error in /n/:shortCode handler:', error);
       next();
+    }
+  });
+
+  // Preserve every previously shared/indexed short URL and migrate it with a
+  // permanent redirect to the readable canonical form.
+  app.get('/n/:shortCode', async (req, res) => {
+    try {
+      const newsItem = await storage.getNewsByShortCode(req.params.shortCode);
+      if (!newsItem || !isPublicNews(newsItem)) {
+        return respondMissingNews(res, newsItem, 'الخبر غير موجود');
+      }
+      return res.redirect(301, newsCanonicalPath(newsItem));
+    } catch (error) {
+      console.error('Error redirecting /n/:shortCode:', error);
+      return res.status(500).send('Internal Server Error');
     }
   });
 
@@ -1590,6 +1599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const keywords = (article.keywords && article.keywords.length > 0) ? article.keywords : (article.tags || []);
       const html = buildCrawlerHtml({
         title,
+        headline: article.title,
         description,
         ogImageUrl,
         pageUrl,
@@ -5491,7 +5501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: "news" as const,
         title: n.title,
         excerpt: n.summary || n.content.substring(0, 300),
-        url: n.shortCode ? `${baseUrl}/n/${n.shortCode}` : `${baseUrl}/news/${n.id}`,
+        url: `${baseUrl}${newsCanonicalPath(n)}`,
         category: n.category,
         publishedAt: n.publishedAt,
         relevanceScore: n.relevanceScore,
@@ -5589,7 +5599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: "news" as const,
           title: n.title,
           excerpt: (n.summary || n.content.substring(0, 500)).replace(/<[^>]*>/g, ''),
-          url: n.shortCode ? `${baseUrl}/n/${n.shortCode}` : `${baseUrl}/news/${n.id}`,
+          url: `${baseUrl}${newsCanonicalPath(n)}`,
           category: n.category,
           publishedAt: n.publishedAt,
         })),
@@ -6231,7 +6241,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
   // The old capsulah.com ran WordPress with numeric permalinks (/20538/) plus
   // category archives (/health-community/page/3/). Google's index still holds
   // thousands of those URLs (including Japanese-hack spam pages). Policy:
-  //   • known wp_id            → 301 to the imported article's /n/ short URL
+  //   • known wp_id            → 301 to the imported article's canonical URL
   //   • unknown numeric/WP path → 410 Gone (drops from the index faster than 404)
   //   • category archives       → 301 to the matching /news?category= page
   const EXCLUDED_PREFIXES = [
@@ -6253,8 +6263,9 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
       if (!Number.isSafeInteger(wpId)) return next();
       const newsItem = await storage.getNewsByWpId(wpId);
       if (newsItem && newsItem.shortCode) {
-        console.log(`[Redirect] /${wpId} → /n/${newsItem.shortCode}`);
-        return res.redirect(301, `/n/${newsItem.shortCode}`);
+        const canonicalPath = newsCanonicalPath(newsItem);
+        console.log(`[Redirect] /${wpId} → ${canonicalPath}`);
+        return res.redirect(301, canonicalPath);
       }
       // Unmapped numeric permalink — dead WP page or hack spam. Gone.
       return sendGone(res);
@@ -6292,7 +6303,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
       const urlPath = req.path;
       const newsItem = await storage.getNewsByLegacyUrl(urlPath);
       if (newsItem) {
-        const newUrl = newsItem.shortCode ? `/n/${newsItem.shortCode}` : `/news/${newsItem.id}`;
+        const newUrl = newsCanonicalPath(newsItem);
         console.log(`[Redirect] ${urlPath} → ${newUrl}`);
         return res.redirect(301, newUrl);
       }
@@ -6455,7 +6466,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
 
       const newsItem = await storage.getNewsByLegacyUrl(fullPath);
       if (newsItem) {
-        const newUrl = newsItem.shortCode ? `/n/${newsItem.shortCode}` : `/news/${newsItem.id}`;
+        const newUrl = newsCanonicalPath(newsItem);
         console.log(`[Redirect] ${fullPath} → ${newUrl}`);
         return res.redirect(301, newUrl);
       }

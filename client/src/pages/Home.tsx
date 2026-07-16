@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import type { News as NewsType } from "@shared/schema";
+import { newsCanonicalPath } from "@shared/seoSignals";
 
 interface PaginatedResponse {
   news: NewsType[];
@@ -167,7 +168,7 @@ export default function Home() {
               <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3 mb-3">
 
                 {/* Big hero card */}
-                <Link href={heroNews.shortCode ? `/n/${heroNews.shortCode}` : `/news/${heroNews.id}`}>
+                <Link href={newsCanonicalPath(heroNews)}>
                   <div
                     className="relative rounded-2xl overflow-hidden cursor-pointer group"
                     style={{ aspectRatio: "16/9" }}
@@ -211,7 +212,7 @@ export default function Home() {
                     {sideNews.map((item) => {
                       const cleanTitle = item.title.replace(/^تفنيد\s*\|\s*[❌✅⚠️]\s*/, "").trim();
                       return (
-                        <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
+                        <Link key={item.id} href={newsCanonicalPath(item)}>
                           <div
                             className="flex gap-3 p-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/30 transition-all cursor-pointer group h-full"
                             data-testid={`home-side-${item.id}`}
@@ -251,7 +252,7 @@ export default function Home() {
                   {extraNews.map((item) => {
                     const cleanTitle = item.title.replace(/^تفنيد\s*\|\s*[❌✅⚠️]\s*/, "").trim();
                     return (
-                      <Link key={item.id} href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
+                      <Link key={item.id} href={newsCanonicalPath(item)}>
                         <div
                           className="flex gap-2.5 p-2 rounded-xl border border-border/50 bg-card hover:bg-muted/50 hover:border-primary/30 transition-all cursor-pointer group"
                           data-testid={`home-extra-${item.id}`}
@@ -377,7 +378,7 @@ export default function Home() {
                   {latestDebunks.map((item) => {
                     const verdict = getVerdictFromTitle(item.title);
                     const cleanTitle = getCleanDebunkTitle(item.title);
-                    const href = item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
+                    const href = newsCanonicalPath(item);
                     const VerdictIcon = verdict?.icon;
                     return (
                       <Link key={item.id} href={href}>
