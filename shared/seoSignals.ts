@@ -123,9 +123,22 @@ export function computeContentRobots(
   return { robots: base };
 }
 
+/**
+ * Query strings left by the historical WordPress/Japanese-hack URLs.
+ *
+ * Those URLs look like `/?items/A274011723`. Express parses the whole
+ * `items/...` fragment as a query-key, so checking for a normal `items`
+ * parameter is not sufficient.
+ */
+export function hasLegacySpamQuery(query: Record<string, unknown> | undefined | null): boolean {
+  if (!query) return false;
+  return Object.keys(query).some((key) => /^(?:items?|products?)\//i.test(key.trim()));
+}
+
 /** Tracking / deep pagination / sort params that must not create indexed variants. */
 export function hasDirtySeoQuery(query: Record<string, unknown> | undefined | null): boolean {
   if (!query) return false;
+  if (hasLegacySpamQuery(query)) return true;
   const dirtyKeys = [
     "utm_source",
     "utm_medium",
