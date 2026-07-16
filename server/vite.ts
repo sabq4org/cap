@@ -128,7 +128,10 @@ export function resolveSpaSeo(req: Pick<Request, "originalUrl">): SpaSeo {
   } else if (pathname.startsWith("/authors/") && pathname !== "/authors/register") {
     title = "ملف الكاتب | كبسولة";
     description = "اقرأ أحدث المواد الصحية المنشورة للكاتب في صحيفة كبسولة.";
-  } else if (/^\/(?:n|news|articles)\/[^/]+$/.test(pathname)) {
+  } else if (
+    /^\/(?:news|articles)\/[^/]+$/.test(pathname) ||
+    /^\/n\/[^/]+(?:\/[^/]+)?$/.test(pathname)
+  ) {
     // Existing detail pages are rendered with authoritative server metadata by
     // their routes before this SPA fallback. This branch serves human clients.
   } else if (isNoindexPath(pathname)) {

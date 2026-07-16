@@ -13,6 +13,7 @@ import {
 import { AIImageBadge } from "@/components/AIImageBadge";
 import NewsGridCard from "@/components/NewsGridCard";
 import type { News as NewsType } from "@shared/schema";
+import { newsCanonicalPath } from "@shared/seoSignals";
 import { getNewsImage } from "@/lib/newsImages";
 
 const categories = [
@@ -297,7 +298,7 @@ export default function News() {
               <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3 mb-8" dir="rtl">
 
               {/* Big hero card */}
-              <Link href={heroItem.shortCode ? `/n/${heroItem.shortCode}` : `/news/${heroItem.id}`}>
+              <Link href={newsCanonicalPath(heroItem)}>
                 <div
                   className="relative rounded-2xl overflow-hidden cursor-pointer group"
                   style={{ aspectRatio: "16/10" }}
@@ -366,7 +367,7 @@ export default function News() {
                     const verdict = isDebunk ? getVerdictFromTitle(item.title) : null;
                     const VerdictIcon = verdict?.icon;
                     const displayTitle = isDebunk ? getCleanDebunkTitle(item.title) : item.title;
-                    const href = item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
+                    const href = newsCanonicalPath(item);
                     return (
                       <Link key={item.id} href={href}>
                         <div

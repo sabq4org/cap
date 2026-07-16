@@ -25,7 +25,7 @@ import {
 import AdBanner from "@/components/AdBanner";
 import { AIImageBadge } from "@/components/AIImageBadge";
 import { SEO } from "@/components/SEO";
-import { buildMetaDescription, displayTitle } from "@shared/seoSignals";
+import { buildMetaDescription, displayTitle, newsCanonicalPath } from "@shared/seoSignals";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,14 +69,15 @@ function getReadTime(content: string): number {
 }
 
 function getNewsHref(item: News): string {
-  return item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
+  return newsCanonicalPath(item);
 }
 
 export default function NewsDetail() {
   const [, idParams] = useRoute("/news/:id");
+  const [, canonicalParams] = useRoute("/n/:shortCode/:slug");
   const [, shortCodeParams] = useRoute("/n/:shortCode");
   const newsId = idParams?.id || null;
-  const shortCode = shortCodeParams?.shortCode || null;
+  const shortCode = canonicalParams?.shortCode || shortCodeParams?.shortCode || null;
   const { toast } = useToast();
   const articleRef = useRef<HTMLElement | null>(null);
   const viewedRef = useRef<string | null>(null);
@@ -153,9 +154,9 @@ export default function NewsDetail() {
     const origin = window.location.hostname === "localhost"
       ? window.location.origin
       : "https://capsulah.com";
-    return news?.shortCode
-      ? `${origin}/n/${news.shortCode}`
-      : `${origin}/news/${news?.id || newsId}`;
+    return news
+      ? `${origin}${newsCanonicalPath(news)}`
+      : `${origin}/news/${newsId}`;
   };
 
   const copyShareLink = async () => {

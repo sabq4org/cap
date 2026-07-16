@@ -5,17 +5,20 @@
  *   called because it only supports JobPosting and livestream BroadcastEvent
  *   pages, not NewsArticle/Article content.
  *
- * Always submit the canonical public URL (/n/{shortCode} for news,
+ * Always submit the canonical public URL (/n/{shortCode}/{titleSlug} for news,
  * /articles/{slug} for medical articles). Never submit a URL that 301s.
  *
  * Never throws to callers — failures are logged only.
  */
 
 import { getCanonicalOrigin } from "../seo";
+import { newsCanonicalPath } from "../../shared/seoSignals";
 
 export type IndexableNews = {
   id: string;
   shortCode?: string | null;
+  title?: string | null;
+  seoTitle?: string | null;
   status?: string | null;
   publishedAt?: Date | string | null;
 };
@@ -31,12 +34,9 @@ function siteBaseUrl(): string {
   return getCanonicalOrigin();
 }
 
-/** Canonical news URL — prefers /n/{shortCode}; falls back only when missing. */
+/** Canonical news URL — stable short code plus a readable title segment. */
 export function newsPublicUrl(item: IndexableNews): string {
-  const base = siteBaseUrl();
-  if (item.shortCode) return `${base}/n/${item.shortCode}`;
-  // Fallback: still notify, but prefer ensuring shortCode exists at publish time.
-  return `${base}/news/${item.id}`;
+  return `${siteBaseUrl()}${newsCanonicalPath(item)}`;
 }
 
 export function articlePublicUrl(item: IndexableArticle): string {

@@ -16,6 +16,7 @@ import { getNewsImage } from "@/lib/newsImages";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Category, News as NewsType, Article as ArticleType } from "@shared/schema";
+import { newsCanonicalPath } from "@shared/seoSignals";
 
 const categoryColors: Record<string, string> = {
   "health-news":      "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
@@ -148,7 +149,7 @@ function NewsCard({
       : "";
 
   return (
-    <Link href={item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`}>
+    <Link href={newsCanonicalPath(item)}>
       <Card
         className={`hover-elevate cursor-pointer transition-all overflow-hidden h-full ${item.isBreaking ? "ring-2 ring-red-500" : ""}`}
         data-testid={`capsule-card-news-${item.id}`}
