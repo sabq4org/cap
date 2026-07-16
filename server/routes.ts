@@ -102,6 +102,16 @@ function escapeXml(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
+// مواصفة sitemap تشترط روابط RFC-3986 — نرمّز الأحرف العربية في المسار
+// (new URL يحافظ على %xx الموجودة أصلاً فلا يحدث ترميز مزدوج)
+function sitemapLoc(url: string): string {
+  try {
+    return new URL(url).href;
+  } catch {
+    return encodeURI(url);
+  }
+}
+
 // Helper function to download image and upload to object storage
 async function downloadAndUploadImage(imageUrl: string): Promise<string | null> {
   try {
@@ -1300,7 +1310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const recent = published.filter(withinWindow).slice(0, 1000);
 
       const urls = recent.map(item => {
-        const loc = `${baseUrl}${newsCanonicalPath(item)}`;
+        const loc = sitemapLoc(`${baseUrl}${newsCanonicalPath(item)}`);
         const display = item.title;
         const lastModifiedAt = clampModifiedTime(item.publishedAt, item.updatedAt)
           || new Date(item.publishedAt || now).toISOString();
@@ -1355,7 +1365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const published = await storage.getNewsForSitemap();
 
       const urls = published.map(item => {
-        const loc = `${baseUrl}${newsCanonicalPath(item)}`;
+        const loc = sitemapLoc(`${baseUrl}${newsCanonicalPath(item)}`);
         const lastModifiedAt = clampModifiedTime(item.publishedAt, item.updatedAt)
           || new Date(item.publishedAt || Date.now()).toISOString();
         const lastmod = lastModifiedAt.split('T')[0];
@@ -1377,7 +1387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const articlesList = await storage.getArticles(undefined, 50_000);
 
       const urls = articlesList.map(article => {
-        const loc = `${baseUrl}/articles/${article.slug}`;
+        const loc = sitemapLoc(`${baseUrl}/articles/${article.slug}`);
         const lastmod = article.updatedAt ? new Date(article.updatedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
         return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </url>`;
       }).join('\n');
