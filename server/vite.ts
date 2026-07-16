@@ -6,6 +6,8 @@ import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 import { getCanonicalOrigin } from "./seo";
+import { isNoindexPath } from "./utils/noindexPaths";
+import { hasDirtySeoQuery } from "@shared/seoSignals";
 
 const viteLogger = createLogger();
 
@@ -66,19 +68,6 @@ const PUBLIC_PAGE_SEO: Record<string, { title: string; description: string }> = 
   },
 };
 
-const PRIVATE_PATHS = [
-  "/admin",
-  "/portal",
-  "/assistant",
-  "/ask",
-  "/nutrition",
-  "/profile",
-  "/capsule",
-  "/login",
-  "/register",
-  "/authors/register",
-];
-
 function escapeAttribute(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -101,6 +90,10 @@ export function resolveSpaSeo(req: Pick<Request, "originalUrl">): SpaSeo {
   let status = 200;
   let title = "كبسولة | صحيفة صحية رقمية";
   let description = DEFAULT_DESCRIPTION;
+
+  if (hasDirtySeoQuery(Object.fromEntries(requested.searchParams.entries()))) {
+    noIndex = true;
+  }
 
   const staticSeo = PUBLIC_PAGE_SEO[pathname];
   if (staticSeo) {
@@ -138,8 +131,7 @@ export function resolveSpaSeo(req: Pick<Request, "originalUrl">): SpaSeo {
   } else if (/^\/(?:n|news|articles)\/[^/]+$/.test(pathname)) {
     // Existing detail pages are rendered with authoritative server metadata by
     // their routes before this SPA fallback. This branch serves human clients.
-  } else if (PRIVATE_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
-    || pathname.startsWith("/ask-capsule/status/")) {
+  } else if (isNoindexPath(pathname)) {
     noIndex = true;
     title = "كبسولة";
     description = DEFAULT_DESCRIPTION;
@@ -163,23 +155,40 @@ export function renderSeoShell(template: string, req: Pick<Request, "originalUrl
     ? "noindex, follow"
     : "index, follow, max-image-preview:large";
 
-  let html = template
-    .replace(/<title>[^<]*<\/title>/i, `<title>${title}</title>`)
-    .replace(/<meta\s+name="description"\s+content="[^"]*"\s*\/>/i, `<meta name="description" content="${description}" />`)
-    .replace(/<meta\s+name="robots"\s+content="[^"]*"\s*\/>/i, `<meta name="robots" content="${robots}" />`)
-    .replace(/<meta\s+property="og:title"\s+content="[^"]*"\s*\/>/i, `<meta property="og:title" content="${title}" />`)
-    .replace(/<meta\s+property="og:description"\s+content="[^"]*"\s*\/>/i, `<meta property="og:description" content="${description}" />`)
-    .replace(/<meta\s+property="og:url"\s+content="[^"]*"\s*\/>/i, `<meta property="og:url" content="${canonical}" />`)
-    .replace(/<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/>/i, `<meta name="twitter:title" content="${title}" />`)
-    .replace(/<meta\s+name="twitter:description"\s+content="[^"]*"\s*\/>/i, `<meta name="twitter:description" content="${description}" />`)
-    .replace(/<link\s+rel="canonical"\s+href="[^"]*"\s*\/>/i, `<link rel="canonical" href="${canonical}" />`);
+  // Remove the template's route-dependent tags regardless of attribute order
+  // or react-helmet's data-rh marker, then inject one authoritative set. The
+  // old exact-string replacements silently failed against data-rh="true",
+  // leaving every SPA route canonicalized to the home page.
+  const dynamicTagPatterns = [
+    /<title\b[^>]*>[\s\S]*?<\/title>\s*/gi,
+    /<meta\b(?=[^>]*\bname=["']description["'])[^>]*>\s*/gi,
+    /<meta\b(?=[^>]*\bname=["']robots["'])[^>]*>\s*/gi,
+    /<meta\b(?=[^>]*\bproperty=["']og:title["'])[^>]*>\s*/gi,
+    /<meta\b(?=[^>]*\bproperty=["']og:description["'])[^>]*>\s*/gi,
+    /<meta\b(?=[^>]*\bproperty=["']og:url["'])[^>]*>\s*/gi,
+    /<meta\b(?=[^>]*\bname=["']twitter:url["'])[^>]*>\s*/gi,
+    /<meta\b(?=[^>]*\bname=["']twitter:title["'])[^>]*>\s*/gi,
+    /<meta\b(?=[^>]*\bname=["']twitter:description["'])[^>]*>\s*/gi,
+    /<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>\s*/gi,
+  ];
 
-  if (!/<link\s+rel="canonical"/i.test(html)) {
-    html = html.replace("</head>", `  <link rel="canonical" href="${canonical}" />\n  </head>`);
-  }
-  if (!/<meta\s+name="robots"/i.test(html)) {
-    html = html.replace("</head>", `  <meta name="robots" content="${robots}" />\n  </head>`);
-  }
+  let html = dynamicTagPatterns.reduce(
+    (current, pattern) => current.replace(pattern, ""),
+    template,
+  );
+  const dynamicHead = [
+    `<title data-rh="true">${title}</title>`,
+    `<meta name="description" content="${description}" data-rh="true" />`,
+    `<meta name="robots" content="${robots}" data-rh="true" />`,
+    `<link rel="canonical" href="${canonical}" data-rh="true" />`,
+    `<meta property="og:title" content="${title}" data-rh="true" />`,
+    `<meta property="og:description" content="${description}" data-rh="true" />`,
+    `<meta property="og:url" content="${canonical}" data-rh="true" />`,
+    `<meta name="twitter:url" content="${canonical}" data-rh="true" />`,
+    `<meta name="twitter:title" content="${title}" data-rh="true" />`,
+    `<meta name="twitter:description" content="${description}" data-rh="true" />`,
+  ].map((tag) => `    ${tag}`).join("\n");
+  html = html.replace("</head>", `${dynamicHead}\n  </head>`);
 
   return { html, status: seo.status };
 }

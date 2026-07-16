@@ -46,7 +46,6 @@ import {
   sitemapPriorityForAge,
   wordCountFromPlain,
 } from "@shared/seoSignals";
-import { getIndexingDiagnostics } from "./services/googleIndexingService";
 
 const rumorSubmissionLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -554,6 +553,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return getCanonicalOrigin();
   };
 
+  const crawlerHtmlCacheHeaders = (noindex: boolean) => ({
+    'Cache-Control': noindex
+      ? 'private, no-store'
+      : 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+    'X-Robots-Tag': noindex
+      ? 'noindex, follow'
+      : 'index, follow, max-image-preview:large',
+  });
+
   const isCrawlerRequest = (req: { get: (h: string) => string | undefined }): boolean => {
     const userAgent = req.get('User-Agent') || '';
     return /Googlebot|Google-InspectionTool|GoogleOther|Storebot-Google|bingbot|WhatsApp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|TelegramBot|Slackbot|Discordbot|Pinterest|Slack|Telegram|bot|crawler|spider/i.test(userAgent);
@@ -989,19 +997,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
       ];
 
+      const noindex = hasDirtySeoQuery(req.query as Record<string, unknown>);
       return res.status(200).set({
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
-        'X-Robots-Tag': hasDirtySeoQuery(req.query as Record<string, unknown>)
-          ? 'noindex, follow'
-          : 'index, follow, max-image-preview:large',
+        ...crawlerHtmlCacheHeaders(noindex),
       }).send(buildCrawlerListingHtml({
         pageTitle,
         description,
         pageUrl,
         newsItems,
         categoryLinks,
-        noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
+        noindexOverride: noindex,
       }));
     } catch (error) {
       console.error('Error rendering crawler news listing:', error);
@@ -1170,7 +1176,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       [
         'User-agent: *',
         'Allow: /',
-        'Disallow: /admin',
         'Disallow: /api/',
         '',
         `Sitemap: ${baseUrl}/sitemap.xml`,
@@ -1210,7 +1215,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/sitemap-static.xml', async (_req, res) => {
     try {
       const baseUrl = getSiteBaseUrl();
-      const cats = await storage.getCategories(true);
+      const [cats, published] = await Promise.all([
+        storage.getCategories(true),
+        storage.getNewsForSitemap(),
+      ]);
+      const populatedCategorySlugs = new Set(published.map(item => item.category));
 
       const staticPages = [
         { loc: baseUrl },
@@ -1218,9 +1227,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { loc: `${baseUrl}/articles` },
       ];
 
-      const catPages = cats.map(c => ({
-        loc: `${baseUrl}/news?category=${encodeURIComponent(c.slug)}`,
-      }));
+      const catPages = cats
+        .filter(c => populatedCategorySlugs.has(c.slug))
+        .map(c => ({
+          loc: `${baseUrl}/news?category=${encodeURIComponent(c.slug)}`,
+        }));
 
       const allPages = [...staticPages, ...catPages];
 
@@ -1327,7 +1338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/sitemap-articles.xml', async (_req, res) => {
     try {
       const baseUrl = getSiteBaseUrl();
-      const articlesList = await storage.getArticles(undefined, 500);
+      const articlesList = await storage.getArticles(undefined, 50_000);
 
       const urls = articlesList.map(article => {
         const loc = `${baseUrl}/articles/${article.slug}`;
@@ -1428,9 +1439,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             categoryUrl,
             noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
           });
+          const noindex = hasDirtySeoQuery(req.query as Record<string, unknown>);
           return res.status(200).set({
             'Content-Type': 'text/html',
-            'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+            ...crawlerHtmlCacheHeaders(noindex),
           }).send(html);
         }
         return res.redirect(301, `/n/${newsItem.shortCode}`);
@@ -1463,9 +1475,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           categoryUrl,
           noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
         });
+        const noindex = hasDirtySeoQuery(req.query as Record<string, unknown>);
         return res.status(200).set({
           'Content-Type': 'text/html',
-          'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+          ...crawlerHtmlCacheHeaders(noindex),
         }).send(html);
       }
 
@@ -1525,9 +1538,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       logScrape('200');
+      const noindex = hasDirtySeoQuery(req.query as Record<string, unknown>);
       res.status(200).set({
         'Content-Type': 'text/html',
-        'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+        ...crawlerHtmlCacheHeaders(noindex),
       }).send(html);
     } catch (error) {
       logScrape(`ERROR ${(error as Error)?.message ?? error}`);
@@ -1593,9 +1607,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         categoryUrl: `${baseUrl}/articles`,
         noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
       });
+      const noindex = hasDirtySeoQuery(req.query as Record<string, unknown>);
       return res.status(200).set({
         'Content-Type': 'text/html',
-        'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+        ...crawlerHtmlCacheHeaders(noindex),
       }).send(html);
     } catch (error) {
       console.error('Error in /articles/:slug crawler handler:', error);
@@ -1603,19 +1618,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // No-secret indexing diagnostics (IndexNow + Google Indexing API)
-  app.get('/api/seo/indexing-status', async (_req, res) => {
-    try {
-      res.set('Cache-Control', 'private, no-store');
-      res.json({
-        ok: true,
-        ...getIndexingDiagnostics(),
-        indexNowKeyPresent: !!(process.env.INDEXNOW_KEY || '').trim(),
-      });
-    } catch (err) {
-      console.error('[seo/indexing-status] error:', err);
-      res.status(500).json({ ok: false, error: 'diagnostics_failed' });
-    }
+  // No-secret indexing diagnostics. Google discovery uses sitemaps because
+  // its Indexing API does not support NewsArticle/Article pages.
+  app.get('/api/seo/indexing-status', (_req, res) => {
+    res.set('Cache-Control', 'private, no-store');
+    res.json({
+      ok: true,
+      baseUrl: getCanonicalOrigin(),
+      indexNowKeyPresent: !!(process.env.INDEXNOW_KEY || '').trim(),
+      googleIndexingApi: {
+        enabled: false,
+        reason: 'unsupported_content_type',
+        discovery: 'sitemaps',
+      },
+    });
   });
 
   // Auth routes
