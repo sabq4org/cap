@@ -43,6 +43,7 @@ import {
   clampModifiedTime,
   computeContentRobots,
   hasDirtySeoQuery,
+  hasLegacySpamQuery,
   sitemapPriorityForAge,
   wordCountFromPlain,
   newsCanonicalPath,
@@ -644,6 +645,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 </html>`;
   };
 
+  const respondLegacyGone = (res: import('express').Response) =>
+    res.status(410).set({
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=86400',
+      'X-Robots-Tag': 'noindex, follow',
+    }).send(goneHtml('هذه الصفحة القديمة أُزيلت نهائياً'));
+
   /** Deleted / withdrawn content → 410 for crawlers; missing → 404. */
   const respondMissingNews = (
     res: import('express').Response,
@@ -977,6 +985,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Give crawlers fresh, server-rendered links from the main discovery pages.
   // The public app contains the same stories, while this avoids waiting for the
   // JavaScript rendering queue before Google can discover newly published URLs.
+  // Remove historical Japanese-hack URLs before the homepage/crawler listing
+  // can accidentally answer them with 200. Google otherwise classifies tens
+  // of thousands of these homepage lookalikes as Soft 404 pages.
+  app.get(['/', '/items', '/items/*', '/tag', '/tag/*'], (req, res, next) => {
+    if (req.path === '/' && !hasLegacySpamQuery(req.query as Record<string, unknown>)) {
+      return next();
+    }
+    return respondLegacyGone(res);
+  });
+
   app.get(['/', '/news'], async (req, res, next) => {
     if (!isCrawlerRequest(req)) return next();
 
@@ -6249,12 +6267,7 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     '/profile', '/login', '/register', '/objects/', '/assets/',
   ];
 
-  const sendGone = (res: any) =>
-    res.status(410).set({
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'public, max-age=86400',
-      'X-Robots-Tag': 'noindex, follow',
-    }).send(goneHtml('هذه الصفحة أُزيلت نهائياً'));
+  const sendGone = respondLegacyGone;
 
   // Numeric WordPress permalinks: /20538, /20538/ (IDs ranged roughly 100–99999)
   app.get(/^\/(\d{1,7})\/?$/, async (req, res, next) => {

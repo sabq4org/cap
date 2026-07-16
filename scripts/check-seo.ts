@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { renderSeoShell, resolveSpaSeo } from "../server/vite";
 import {
   computeContentRobots,
+  hasLegacySpamQuery,
   newsCanonicalPath,
   seoTitleSlug,
   truncateMetaDescription,
@@ -44,6 +45,12 @@ assert.equal(
 
 const deepPage = resolveSpaSeo({ originalUrl: "/news?page=6" });
 assert.equal(deepPage.noIndex, true);
+
+assert.equal(hasLegacySpamQuery({ "items/A274011723": "" }), true);
+assert.equal(hasLegacySpamQuery({ "products/detail/60316046": "" }), true);
+assert.equal(hasLegacySpamQuery({ utm_source: "nabdapp.com" }), false);
+const legacySpamShell = resolveSpaSeo({ originalUrl: "/?items/A274011723" });
+assert.equal(legacySpamShell.noIndex, true);
 
 assert.equal(
   seoTitleSlug("تأثير المكياج على صحة البشرة"),
