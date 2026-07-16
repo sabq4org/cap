@@ -5,6 +5,8 @@ import SwiftUI
 // MARK: - ترويسة التطبيق
 
 struct AppBar: View {
+    var onProfile: () -> Void = {}
+
     var body: some View {
         HStack(spacing: 12) {
             HStack(spacing: 9) {
@@ -41,21 +43,24 @@ struct AppBar: View {
             }
             .accessibilityLabel("الإشعارات")
 
-            Circle()
-                .fill(LinearGradient(
-                    colors: [CapTheme.greenBright, CapTheme.greenDeep],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
-                .frame(width: 42, height: 42)
-                .overlay {
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-                .overlay(Circle().stroke(.white.opacity(0.65), lineWidth: 2))
-                .shadow(color: CapTheme.green.opacity(0.18), radius: 9, y: 4)
-                .accessibilityLabel("حسابي")
+            Button(action: onProfile) {
+                Circle()
+                    .fill(LinearGradient(
+                        colors: [CapTheme.greenBright, CapTheme.greenDeep],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 42, height: 42)
+                    .overlay {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                    .overlay(Circle().stroke(.white.opacity(0.65), lineWidth: 2))
+                    .shadow(color: CapTheme.green.opacity(0.18), radius: 9, y: 4)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("حسابي")
         }
         .padding(.horizontal, 20)
     }
@@ -65,6 +70,7 @@ struct AppBar: View {
 
 struct MorningCapsuleCard: View {
     let digest: [NewsItem]
+    var onListen: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -124,7 +130,7 @@ struct MorningCapsuleCard: View {
             .padding(.top, 13)
 
             HStack(spacing: 12) {
-                Link(destination: URL(string: "https://capsulah.com/podcast")!) {
+                Button(action: onListen) {
                     HStack(spacing: 9) {
                         ZStack {
                             Circle()

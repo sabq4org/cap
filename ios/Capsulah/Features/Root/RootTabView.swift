@@ -43,6 +43,12 @@ struct RootTabView: View {
             .navigationDestination(for: NewsItem.self) { item in
                 NewsDetailView(item: item)
             }
+            .navigationDestination(for: Article.self) { article in
+                ArticleDetailView(article: article)
+            }
+            .navigationDestination(for: Drug.self) { drug in
+                DrugDetailView(drug: drug)
+            }
         }
         .tint(CapTheme.green)
         .task {
@@ -52,6 +58,14 @@ struct RootTabView: View {
                let first = try? await CapAPI.fetchNews(limit: 1).first {
                 path.append(first)
             }
+            // AUTO_TAB=news|ask|drugs|profile يفتح التبويب مباشرة للقطات الآلية
+            switch ProcessInfo.processInfo.environment["AUTO_TAB"] {
+            case "news": selection = .news
+            case "ask": selection = .ask
+            case "drugs": selection = .drugs
+            case "profile": selection = .profile
+            default: break
+            }
             #endif
         }
     }
@@ -60,27 +74,18 @@ struct RootTabView: View {
     private var content: some View {
         switch selection {
         case .home:
-            HomeView(onAskCapsule: { selection = .ask })
+            HomeView(
+                onAskCapsule: { selection = .ask },
+                onProfile: { selection = .profile }
+            )
         case .news:
-            PlaceholderScreen(
-                title: "الأخبار",
-                subtitle: "تصفح كامل الأرشيف بالتصنيفات والبحث",
-                icon: "newspaper"
-            )
+            NewsListView()
         case .ask:
-            AskCapsulePlaceholder()
+            AskCapsuleView()
         case .drugs:
-            PlaceholderScreen(
-                title: "دليل الأدوية",
-                subtitle: "موسوعة الأدوية: الاستخدام، الجرعات، والتداخلات",
-                icon: "pills"
-            )
+            DrugsView()
         case .profile:
-            PlaceholderScreen(
-                title: "حسابي",
-                subtitle: "تسجيل الدخول، الاهتمامات، والكبسولة المخصصة",
-                icon: "person"
-            )
+            ProfileView()
         }
     }
 }

@@ -3,19 +3,21 @@ import SwiftUI
 struct HomeView: View {
     @State private var model = HomeViewModel()
     @State private var didAppear = false
+    @State private var showPodcast = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onAskCapsule: () -> Void = {}
+    var onProfile: () -> Void = {}
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 16) {
-                AppBar()
+                AppBar(onProfile: onProfile)
                     .padding(.top, 8)
 
                 if model.phase == .loading {
                     loadingPlaceholder
                 } else {
-                    MorningCapsuleCard(digest: model.digest)
+                    MorningCapsuleCard(digest: model.digest, onListen: { showPodcast = true })
                         .homeEntrance(didAppear: didAppear, delay: 0, reduceMotion: reduceMotion)
 
                     if let breaking = model.breaking {
@@ -80,6 +82,11 @@ struct HomeView: View {
             }
         }
         .refreshable { await model.load() }
+        .sheet(isPresented: $showPodcast) {
+            PodcastSheet()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
+        }
     }
 
     private var loadingPlaceholder: some View {
