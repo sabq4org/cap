@@ -25,6 +25,7 @@ import {
 import AdBanner from "@/components/AdBanner";
 import { AIImageBadge } from "@/components/AIImageBadge";
 import { SEO } from "@/components/SEO";
+import { buildMetaDescription, displayTitle } from "@shared/seoSignals";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -259,7 +260,12 @@ export default function NewsDetail() {
   const related = (relatedNews || []).slice(0, 5);
   const categoryLabel = categoryLabels[news.category] || news.category;
   const readTime = getReadTime(news.content);
-  const seoDescription = news.seoDescription || news.summary || `${news.title} - اقرأ المزيد على كبسولة`;
+  const seoTitle = displayTitle(news.seoTitle, news.title);
+  const seoDescription = buildMetaDescription({
+    seoDescription: news.seoDescription,
+    summary: news.summary,
+    title: news.title,
+  });
   const seoImage = news.imageUrl || getNewsFallbackImage(news.id);
   const keywords = news.keywords || [];
   const updatedAt = news.updatedAt ? new Date(news.updatedAt).getTime() : 0;
@@ -269,7 +275,7 @@ export default function NewsDetail() {
   return (
     <>
       <SEO
-        title={news.seoTitle || news.title}
+        title={seoTitle}
         description={seoDescription}
         image={seoImage}
         url={getShareUrl()}

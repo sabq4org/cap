@@ -8,6 +8,8 @@ import { seedDefaultSources, seedDefaultKeywords } from "./radarService";
 import { startTrendRefreshScheduler } from "./trendService";
 import { notifySearchEnginesOfNews } from "./services/indexingPing";
 import { getCanonicalHostname, getCanonicalOrigin, isCapsulahAliasHost } from "./seo";
+import { isNoindexPath } from "./utils/noindexPaths";
+import { hasDirtySeoQuery } from "@shared/seoSignals";
 
 // Keep the process alive on uncaught exceptions.
 // Crashing on every unexpected error causes deployment outages.
@@ -53,6 +55,51 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// Private/admin SPA surfaces: never index, never store on shared CDN.
+app.use((req, res, next) => {
+  const pathOnly = req.path.split("?")[0] || "/";
+  if (isNoindexPath(pathOnly) || hasDirtySeoQuery(req.query as Record<string, unknown>)) {
+    res.setHeader("X-Robots-Tag", "noindex, follow");
+    if (isNoindexPath(pathOnly)) {
+      res.setHeader("Cache-Control", "private, no-store");
+    }
+  }
+  next();
+});
+
+// Dev/test guard: noindex or 404/410 HTML must never ship public/s-maxage/SWR.
+if (process.env.NODE_ENV !== "production") {
+  app.use((req, res, next) => {
+    const pathOnly = req.path.split("?")[0] || "/";
+    res.on("finish", () => {
+      const cc = String(res.getHeader("Cache-Control") || "");
+      const robots = String(res.getHeader("X-Robots-Tag") || "");
+      const isNoindex =
+        isNoindexPath(pathOnly) ||
+        /noindex/i.test(robots) ||
+        res.statusCode === 404 ||
+        res.statusCode === 410;
+      if (!isNoindex) return;
+      if (
+        /\bpublic\b/i.test(cc) ||
+        /s-maxage=/i.test(cc) ||
+        /stale-while-revalidate=/i.test(cc)
+      ) {
+        // 410 Gone for withdrawn public content may use public max-age=86400 by design.
+        if (res.statusCode === 410 && /public,\s*max-age=86400/i.test(cc) && !/s-maxage=/i.test(cc)) {
+          return;
+        }
+        throw new Error(
+          `[SEO cache guard] ${req.method} ${pathOnly} status=${res.statusCode} ` +
+            `leaked Cache-Control="${cc}". noindex/404/410 must be private, no-store ` +
+            `(except intentional 410 public max-age=86400).`,
+        );
+      }
+    });
+    next();
+  });
+}
 
 declare module 'http' {
   interface IncomingMessage {

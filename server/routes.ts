@@ -34,9 +34,19 @@ import { objectStorageClient } from "./replit_integrations/object_storage";
 import { randomUUID, createHmac, timingSafeEqual } from "crypto";
 import sharp from "sharp";
 import rateLimit from "express-rate-limit";
-import { notifySearchEnginesOfNews } from "./services/indexingPing";
+import { notifySearchEnginesOfNews, notifySearchEnginesOfArticle } from "./services/indexingPing";
 import { getCanonicalOrigin } from "./seo";
 import { parseSaudiDateTime } from "@shared/saudiTime";
+import {
+  displayTitle,
+  buildMetaDescription,
+  clampModifiedTime,
+  computeContentRobots,
+  hasDirtySeoQuery,
+  sitemapPriorityForAge,
+  wordCountFromPlain,
+} from "@shared/seoSignals";
+import { getIndexingDiagnostics } from "./services/googleIndexingService";
 
 const rumorSubmissionLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -590,6 +600,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
 </html>`;
   };
 
+  const goneHtml = (title = 'المحتوى لم يعد متاحاً'): string => {
+    const escTitle = escapeHtml(title);
+    return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escTitle} | كبسولة</title>
+  <meta name="robots" content="noindex, follow">
+  <meta name="description" content="تم سحب هذا المحتوى من كبسولة.">
+</head>
+<body>
+  <h1>410 — ${escTitle}</h1>
+  <p><a href="/">العودة إلى كبسولة</a></p>
+</body>
+</html>`;
+  };
+
+  /** Deleted / withdrawn content → 410 for crawlers; missing → 404. */
+  const respondMissingNews = (
+    res: import('express').Response,
+    newsItem: { status?: string | null; deletedAt?: Date | string | null } | null | undefined,
+    label = 'الخبر غير موجود',
+  ) => {
+    const withdrawn =
+      !!newsItem &&
+      (!!newsItem.deletedAt ||
+        newsItem.status === 'deleted' ||
+        newsItem.status === 'archived' ||
+        newsItem.status === 'draft');
+    if (withdrawn) {
+      return res
+        .status(410)
+        .set({
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400',
+          'X-Robots-Tag': 'noindex, follow',
+        })
+        .send(goneHtml('تم سحب هذا الخبر'));
+    }
+    return res
+      .status(404)
+      .set({
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'private, no-store',
+        'X-Robots-Tag': 'noindex, follow',
+      })
+      .send(notFoundHtml(label));
+  };
+
+  const newsSeoFields = (item: {
+    title: string;
+    seoTitle?: string | null;
+    seoDescription?: string | null;
+    summary?: string | null;
+    content?: string | null;
+    status?: string | null;
+    publishedAt?: Date | string | null;
+    updatedAt?: Date | string | null;
+    category?: string | null;
+  }) => {
+    const title = displayTitle(item.seoTitle, item.title);
+    const description = buildMetaDescription({
+      seoDescription: item.seoDescription,
+      summary: item.summary,
+      contentPlain: item.content ? stripHtml(item.content) : null,
+      title: item.title,
+    });
+    const robots = computeContentRobots(item.publishedAt, item.status === 'scheduled' ? 'published' : item.status);
+    const modified = clampModifiedTime(item.publishedAt, item.updatedAt);
+    return { title, description, robots, modified, category: item.category || null };
+  };
+
   function buildCrawlerHtml(opts: {
     title: string;
     description: string;
@@ -603,22 +686,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     articleImageUrl?: string | null;
     schemaType?: 'NewsArticle' | 'Article';
     redirect?: boolean;
+    robots?: string;
+    googlebotNews?: string;
+    categoryName?: string | null;
+    categoryUrl?: string | null;
+    noindexOverride?: boolean;
   }) {
-    const { title, description, ogImageUrl, pageUrl, publishedAt, updatedAt, contentHtml, keywords, author, articleImageUrl, schemaType = 'NewsArticle', redirect = true } = opts;
+    const {
+      title,
+      description,
+      ogImageUrl,
+      pageUrl,
+      publishedAt,
+      updatedAt,
+      contentHtml,
+      keywords,
+      author,
+      articleImageUrl,
+      schemaType = 'NewsArticle',
+      redirect = true,
+      robots: robotsOpt,
+      googlebotNews,
+      categoryName,
+      categoryUrl,
+      noindexOverride = false,
+    } = opts;
     const escTitle = escapeHtml(title);
     const escDesc = escapeHtml(description);
     const pub = publishedAt ? new Date(publishedAt).toISOString() : undefined;
-    const updatedMs = updatedAt ? new Date(updatedAt).getTime() : NaN;
-    const publishedMs = publishedAt ? new Date(publishedAt).getTime() : NaN;
-    const modifiedMs = Number.isFinite(updatedMs) && Number.isFinite(publishedMs)
-      ? Math.max(updatedMs, publishedMs)
-      : Number.isFinite(updatedMs) ? updatedMs : publishedMs;
-    const mod = Number.isFinite(modifiedMs) ? new Date(modifiedMs).toISOString() : pub;
+    const mod = clampModifiedTime(publishedAt, updatedAt) || pub;
+    const modifiedMs = mod ? new Date(mod).getTime() : NaN;
     const plainBody = contentHtml ? stripHtml(contentHtml) : '';
+    const words = wordCountFromPlain(plainBody);
     const isOptimizedOgImage = /\/og\/[^/?#]+\.jpg(?:[?#]|$)/i.test(ogImageUrl);
-    // Social networks cache image URLs aggressively. Version our generated OG
-    // image whenever the article changes so a transient/old fallback never
-    // remains attached to future shares of the same article.
     const imageVersionMs = Number.isFinite(modifiedMs)
       ? modifiedMs
       : publishedAt ? new Date(publishedAt).getTime() : NaN;
@@ -626,6 +726,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ? `${ogImageUrl}${ogImageUrl.includes('?') ? '&' : '?'}v=${Math.floor(imageVersionMs)}`
       : ogImageUrl;
     const escSocialImageUrl = escapeHtml(socialImageUrl);
+    const primaryImage = articleImageUrl || socialImageUrl;
+    // Three aspect ratios for NewsArticle image (Google preference). Reuse the
+    // same URL when we lack a resizer — better than omitting the signal.
+    const imageVariants = [primaryImage, primaryImage, primaryImage];
     const ogImageType = isOptimizedOgImage
       ? 'image/jpeg'
       : /\.png(?:[?#]|$)/i.test(ogImageUrl) ? 'image/png'
@@ -634,27 +738,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       : /\.jpe?g(?:[?#]|$)/i.test(ogImageUrl) ? 'image/jpeg'
       : undefined;
 
+    const ageRobots = computeContentRobots(publishedAt, 'published');
+    const robotsContent = noindexOverride
+      ? 'noindex, follow'
+      : (robotsOpt || ageRobots.robots);
+    const googlebotNewsTag = noindexOverride
+      ? undefined
+      : (googlebotNews || ageRobots.googlebotNews);
+
     const jsonLd: Record<string, any> = {
       '@context': 'https://schema.org',
       '@type': schemaType,
       mainEntityOfPage: { '@type': 'WebPage', '@id': pageUrl },
       headline: title.slice(0, 110),
       description,
-      image: [articleImageUrl || ogImageUrl],
+      image: imageVariants,
       inLanguage: 'ar',
-      author: { '@type': author ? 'Person' : 'Organization', name: author || 'كبسولة' },
+      author: {
+        '@type': author ? 'Person' : 'Organization',
+        name: author || 'كبسولة',
+      },
       publisher: {
-        '@type': 'Organization',
+        '@type': 'NewsMediaOrganization',
         name: 'كبسولة',
-        logo: { '@type': 'ImageObject', url: `${getSiteBaseUrl()}/favicon.png` },
+        logo: {
+          '@type': 'ImageObject',
+          url: `${getSiteBaseUrl()}/favicon.png`,
+        },
+      },
+      speakable: {
+        '@type': 'SpeakableSpecification',
+        cssSelector: ['h1', 'article p'],
       },
     };
     if (pub) jsonLd.datePublished = pub;
     if (mod) jsonLd.dateModified = mod;
     if (plainBody) jsonLd.articleBody = plainBody;
+    if (words > 0) jsonLd.wordCount = words;
     if (keywords && keywords.length) jsonLd.keywords = keywords.join(', ');
-    // Escape "<" so the article body can never break out of the <script> tag.
-    const jsonLdStr = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
+    if (categoryName) jsonLd.articleSection = categoryName;
+
+    const graphs: Record<string, any>[] = [jsonLd];
+    if (categoryName || categoryUrl) {
+      const crumbs: Array<{ '@type': string; position: number; name: string; item: string }> = [
+        { '@type': 'ListItem', position: 1, name: 'الرئيسية', item: `${getSiteBaseUrl()}/` },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: categoryName || 'الأخبار',
+          item: categoryUrl || `${getSiteBaseUrl()}/news`,
+        },
+        { '@type': 'ListItem', position: 3, name: title, item: pageUrl },
+      ];
+      graphs.push({
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: crumbs,
+      });
+    }
+
+    const jsonLdStr = JSON.stringify(graphs.length === 1 ? graphs[0] : graphs).replace(/</g, '\\u003c');
 
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -663,6 +806,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escTitle} | كبسولة</title>
   <meta name="description" content="${escDesc}">
+  <meta name="robots" content="${escapeHtml(robotsContent)}">
+  ${googlebotNewsTag ? `<meta name="googlebot-news" content="${escapeHtml(googlebotNewsTag)}">` : ''}
   ${keywords && keywords.length ? `<meta name="keywords" content="${escapeHtml(keywords.join(', '))}">` : ''}
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="كبسولة">
@@ -678,6 +823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta property="og:locale" content="ar_SA">
   ${pub ? `<meta property="article:published_time" content="${pub}">` : ''}
   ${mod ? `<meta property="article:modified_time" content="${mod}">` : ''}
+  ${categoryName ? `<meta property="article:section" content="${escapeHtml(categoryName)}">` : ''}
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@capsulah_sa">
   <meta name="twitter:domain" content="capsulah.com">
@@ -687,13 +833,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta name="twitter:image" content="${escSocialImageUrl}">
   <meta name="twitter:image:alt" content="${escTitle}">
   <link rel="canonical" href="${pageUrl}">
+  <link rel="preload" as="image" href="${escSocialImageUrl}" fetchpriority="high">
   <script type="application/ld+json">${jsonLdStr}</script>
   ${redirect ? `<meta http-equiv="refresh" content="2;url=${pageUrl}">` : ''}
 </head>
 <body>
   <article>
     <h1>${escTitle}</h1>
-    <img src="${escSocialImageUrl}" alt="${escTitle}">
+    <img src="${escSocialImageUrl}" alt="${escTitle}" width="1200" height="630">
     ${contentHtml ? sanitizeContentHtml(contentHtml) : `<p>${escDesc}</p>`}
   </article>
   ${redirect ? `<p><a href="${pageUrl}">اقرأ الخبر كاملاً على كبسولة</a></p>` : ''}
@@ -707,8 +854,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     pageUrl: string;
     newsItems: Awaited<ReturnType<typeof storage.getNews>>;
     categoryLinks: Array<{ name: string; url: string }>;
+    noindexOverride?: boolean;
   }): string {
-    const { pageTitle, description, pageUrl, newsItems, categoryLinks } = opts;
+    const { pageTitle, description, pageUrl, newsItems, categoryLinks, noindexOverride = false } = opts;
     const baseUrl = getSiteBaseUrl();
     const escTitle = escapeHtml(pageTitle);
     const escDescription = escapeHtml(description);
@@ -722,6 +870,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? `${baseUrl}/n/${item.shortCode}`
         : `${baseUrl}/news/${item.id}`;
       const publishedAt = item.publishedAt ? new Date(item.publishedAt).toISOString() : '';
+      const itemTitle = displayTitle(item.seoTitle, item.title);
       const summary = item.summary || item.subtitle || item.seoDescription || '';
       const imageUrl = item.imageUrl
         ? (item.imageUrl.startsWith('/') ? `${baseUrl}${item.imageUrl}` : item.imageUrl)
@@ -729,15 +878,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return [
         '<article>',
-        `  <h2><a href="${escapeHtml(newsUrl)}">${escapeHtml(item.title)}</a></h2>`,
+        `  <h2><a href="${escapeHtml(newsUrl)}">${escapeHtml(itemTitle)}</a></h2>`,
         publishedAt ? `  <time datetime="${publishedAt}">${escapeHtml(new Date(item.publishedAt!).toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' }))}</time>` : '',
-        imageUrl ? `  <a href="${escapeHtml(newsUrl)}"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.imageAlt || item.title)}" loading="lazy"></a>` : '',
+        imageUrl ? `  <a href="${escapeHtml(newsUrl)}"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.imageAlt || itemTitle)}" loading="lazy"></a>` : '',
         summary ? `  <p>${escapeHtml(stripHtml(summary).slice(0, 240))}</p>` : '',
         '</article>',
       ].filter(Boolean).join('\n');
     }).join('\n');
 
-    const itemListJsonLd = JSON.stringify({
+    const websiteJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'كبسولة',
+      url: baseUrl,
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: `${baseUrl}/news?q={search_term_string}`,
+        'query-input': 'required name=search_term_string',
+      },
+    };
+
+    const itemListJsonLd = {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
       name: pageTitle,
@@ -748,13 +909,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         itemListElement: newsItems.map((item, index) => ({
           '@type': 'ListItem',
           position: index + 1,
-          name: item.title,
+          name: displayTitle(item.seoTitle, item.title),
           url: item.shortCode
             ? `${baseUrl}/n/${item.shortCode}`
             : `${baseUrl}/news/${item.id}`,
         })),
       },
-    }).replace(/</g, '\\u003c');
+    };
+    const graphsStr = JSON.stringify([websiteJsonLd, itemListJsonLd]).replace(/</g, '\\u003c');
+    const robotsMeta = opts.noindexOverride
+      ? 'noindex, follow'
+      : 'index, follow, max-image-preview:large';
 
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -763,9 +928,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escTitle}</title>
   <meta name="description" content="${escDescription}">
-  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="robots" content="${robotsMeta}">
   <link rel="canonical" href="${escapeHtml(pageUrl)}">
-  <script type="application/ld+json">${itemListJsonLd}</script>
+  <script type="application/ld+json">${graphsStr}</script>
 </head>
 <body>
   <header>
@@ -826,14 +991,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.status(200).set({
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'public, max-age=60, must-revalidate',
-        'X-Robots-Tag': 'index, follow, max-image-preview:large',
+        'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+        'X-Robots-Tag': hasDirtySeoQuery(req.query as Record<string, unknown>)
+          ? 'noindex, follow'
+          : 'index, follow, max-image-preview:large',
       }).send(buildCrawlerListingHtml({
         pageTitle,
         description,
         pageUrl,
         newsItems,
         categoryLinks,
+        noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
       }));
     } catch (error) {
       console.error('Error rendering crawler news listing:', error);
@@ -1086,16 +1254,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const urls = recent.map(item => {
         const loc = item.shortCode ? `${baseUrl}/n/${item.shortCode}` : `${baseUrl}/news/${item.id}`;
-        const lastModifiedAt = item.updatedAt && item.publishedAt
-          ? new Date(Math.max(new Date(item.updatedAt).getTime(), new Date(item.publishedAt).getTime()))
-          : new Date(item.updatedAt || item.publishedAt || now);
-        const lastmod = lastModifiedAt.toISOString().split('T')[0];
+        const display = displayTitle(item.seoTitle, item.title);
+        const lastModifiedAt = clampModifiedTime(item.publishedAt, item.updatedAt)
+          || new Date(item.publishedAt || now).toISOString();
+        const lastmod = lastModifiedAt.split('T')[0];
         const pubDate = item.publishedAt ? new Date(item.publishedAt).toISOString() : new Date().toISOString();
 
         let imageTag = '';
         if (item.imageUrl) {
           const fullImageUrl = item.imageUrl.startsWith('/') ? `${baseUrl}${item.imageUrl}` : item.imageUrl;
-          imageTag = `\n    <image:image>\n      <image:loc>${escapeXml(fullImageUrl)}</image:loc>\n      <image:title>${escapeXml(item.title)}</image:title>\n    </image:image>`;
+          imageTag = `\n    <image:image>\n      <image:loc>${escapeXml(fullImageUrl)}</image:loc>\n      <image:title>${escapeXml(display)}</image:title>\n    </image:image>`;
         }
 
         const newsTag = '\n' + [
@@ -1105,7 +1273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           '        <news:language>ar</news:language>',
           '      </news:publication>',
           `      <news:publication_date>${pubDate}</news:publication_date>`,
-          `      <news:title>${escapeXml(item.title)}</news:title>`,
+          `      <news:title>${escapeXml(display)}</news:title>`,
           item.keywords && item.keywords.length > 0
             ? `      <news:keywords>${escapeXml(item.keywords.join(', '))}</news:keywords>`
             : '',
@@ -1124,7 +1292,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         '</urlset>',
       ].join('\n');
 
-      res.type('application/xml').set('Cache-Control', 'public, max-age=60, must-revalidate').send(xml);
+      // Freshness is the value — keep CDN TTL short (≈3 minutes).
+      res.type('application/xml').set('Cache-Control', 'public, max-age=180, must-revalidate').send(xml);
     } catch (error) {
       console.error('Error generating news sitemap:', error);
       res.status(500).send('Error generating sitemap');
@@ -1140,15 +1309,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const urls = published.map(item => {
         const loc = item.shortCode ? `${baseUrl}/n/${item.shortCode}` : `${baseUrl}/news/${item.id}`;
-        const lastModifiedAt = item.updatedAt && item.publishedAt
-          ? new Date(Math.max(new Date(item.updatedAt).getTime(), new Date(item.publishedAt).getTime()))
-          : new Date(item.updatedAt || item.publishedAt || Date.now());
-        const lastmod = lastModifiedAt.toISOString().split('T')[0];
-        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </url>`;
+        const lastModifiedAt = clampModifiedTime(item.publishedAt, item.updatedAt)
+          || new Date(item.publishedAt || Date.now()).toISOString();
+        const lastmod = lastModifiedAt.split('T')[0];
+        const { priority, changefreq } = sitemapPriorityForAge(item.publishedAt);
+        return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
       }).join('\n');
 
       const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
-      res.type('application/xml').set('Cache-Control', 'public, max-age=60, must-revalidate').send(xml);
+      res.type('application/xml').set('Cache-Control', 'public, max-age=1800, must-revalidate').send(xml);
     } catch (error) {
       console.error('Error generating general sitemap:', error);
       res.status(500).send('Error generating sitemap');
@@ -1179,22 +1348,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const newsItem = await storage.getNewsById(req.params.id);
       if (!newsItem || !isPublicNews(newsItem)) {
-        return res.status(404).set({ 'Content-Type': 'text/html', 'Cache-Control': 'private, no-store' }).send(notFoundHtml('الخبر غير موجود'));
+        return respondMissingNews(res, newsItem, 'الخبر غير موجود');
       }
 
       const baseUrl = getRequestBaseUrl(req);
-      // Prefer short URL if available
-      const pageUrl = newsItem.shortCode 
+      const pageUrl = newsItem.shortCode
         ? `${baseUrl}/n/${newsItem.shortCode}`
         : `${baseUrl}/news/${newsItem.id}`;
-      
+
       const imageId = newsItem.shortCode || newsItem.id;
       const ogImageUrl = `${baseUrl}/og/${imageId}.jpg`;
       const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
-      const rawDescription = newsItem.seoDescription || newsItem.summary || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
-      
-      const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl });
-      
+      const seo = newsSeoFields(newsItem);
+      const categoryUrl = newsItem.category
+        ? `${baseUrl}/news?category=${encodeURIComponent(newsItem.category)}`
+        : `${baseUrl}/news`;
+
+      const html = buildCrawlerHtml({
+        title: seo.title,
+        description: seo.description,
+        ogImageUrl,
+        pageUrl,
+        publishedAt: newsItem.publishedAt,
+        updatedAt: newsItem.updatedAt,
+        contentHtml: newsItem.content,
+        keywords: newsItem.keywords,
+        author: newsItem.createdBy,
+        articleImageUrl,
+        robots: seo.robots.robots,
+        googlebotNews: seo.robots.googlebotNews,
+        categoryName: newsItem.category,
+        categoryUrl,
+        noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
+      });
+
       res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
     } catch (error) {
       console.error('Error generating share page:', error);
@@ -1210,8 +1397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newsItem = await storage.getNewsById(req.params.id);
 
       if (!newsItem || !isPublicNews(newsItem)) {
-        // Hard 404 for everyone — avoid soft-404 SPA shells that hurt indexing.
-        return res.status(404).set({ 'Content-Type': 'text/html', 'Cache-Control': 'private, no-store' }).send(notFoundHtml('الخبر غير موجود'));
+        return respondMissingNews(res, newsItem, 'الخبر غير موجود');
       }
 
       if (newsItem.shortCode) {
@@ -1220,9 +1406,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const canonicalUrl = `${baseUrl}/n/${newsItem.shortCode}`;
           const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode}.jpg`;
           const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
-          const rawDescription = newsItem.seoDescription || newsItem.summary || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
-          const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl: canonicalUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
-          return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
+          const seo = newsSeoFields(newsItem);
+          const categoryUrl = newsItem.category
+            ? `${baseUrl}/news?category=${encodeURIComponent(newsItem.category)}`
+            : `${baseUrl}/news`;
+          const html = buildCrawlerHtml({
+            title: seo.title,
+            description: seo.description,
+            ogImageUrl,
+            pageUrl: canonicalUrl,
+            publishedAt: newsItem.publishedAt,
+            updatedAt: newsItem.updatedAt,
+            contentHtml: newsItem.content,
+            keywords: newsItem.keywords,
+            author: newsItem.createdBy,
+            articleImageUrl,
+            redirect: false,
+            robots: seo.robots.robots,
+            googlebotNews: seo.robots.googlebotNews,
+            categoryName: newsItem.category,
+            categoryUrl,
+            noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
+          });
+          return res.status(200).set({
+            'Content-Type': 'text/html',
+            'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+          }).send(html);
         }
         return res.redirect(301, `/n/${newsItem.shortCode}`);
       }
@@ -1232,9 +1441,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const pageUrl = `${baseUrl}/news/${newsItem.id}`;
         const ogImageUrl = `${baseUrl}/og/${newsItem.id}.jpg`;
         const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
-        const rawDescription = newsItem.seoDescription || newsItem.summary || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
-        const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
-        return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
+        const seo = newsSeoFields(newsItem);
+        const categoryUrl = newsItem.category
+          ? `${baseUrl}/news?category=${encodeURIComponent(newsItem.category)}`
+          : `${baseUrl}/news`;
+        const html = buildCrawlerHtml({
+          title: seo.title,
+          description: seo.description,
+          ogImageUrl,
+          pageUrl,
+          publishedAt: newsItem.publishedAt,
+          updatedAt: newsItem.updatedAt,
+          contentHtml: newsItem.content,
+          keywords: newsItem.keywords,
+          author: newsItem.createdBy,
+          articleImageUrl,
+          redirect: false,
+          robots: seo.robots.robots,
+          googlebotNews: seo.robots.googlebotNews,
+          categoryName: newsItem.category,
+          categoryUrl,
+          noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
+        });
+        return res.status(200).set({
+          'Content-Type': 'text/html',
+          'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+        }).send(html);
       }
 
       return next();
@@ -1247,9 +1479,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/n/:shortCode', async (req, res, next) => {
     const isCrawler = isCrawlerRequest(req);
     const scrapeStart = Date.now();
-    // Forensic log for social-card debugging: X scrapes exactly once per
-    // tweet, so when a card comes out empty we need a record of what the
-    // crawler was actually served at that moment (status + latency).
     const logScrape = (outcome: string) => {
       if (!isCrawler) return;
       console.log(`[Crawler] ${(req.get('user-agent') || '?').slice(0, 60)} GET /n/${req.params.shortCode} -> ${outcome} ${Date.now() - scrapeStart}ms`);
@@ -1259,8 +1488,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newsItem = await storage.getNewsByShortCode(req.params.shortCode);
 
       if (!newsItem || !isPublicNews(newsItem)) {
-        logScrape(`404 (${!newsItem ? 'not-found' : `non-public status=${newsItem.status} publishedAt=${newsItem.publishedAt?.toISOString?.() ?? newsItem.publishedAt}`})`);
-        return res.status(404).set({ 'Content-Type': 'text/html', 'Cache-Control': 'private, no-store' }).send(notFoundHtml('الخبر غير موجود'));
+        logScrape(`${!newsItem ? '404' : '410'} (${!newsItem ? 'not-found' : `non-public status=${newsItem.status}`})`);
+        return respondMissingNews(res, newsItem, 'الخبر غير موجود');
       }
 
       if (!isCrawler) {
@@ -1271,12 +1500,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pageUrl = `${baseUrl}/n/${newsItem.shortCode}`;
       const ogImageUrl = `${baseUrl}/og/${newsItem.shortCode || newsItem.id}.jpg`;
       const articleImageUrl = newsItem.imageUrl ? (newsItem.imageUrl.startsWith('/') ? `${baseUrl}${newsItem.imageUrl}` : newsItem.imageUrl) : null;
-      const rawDescription = newsItem.seoDescription || newsItem.summary || (newsItem.content ? stripHtml(newsItem.content).slice(0, 160) : `${newsItem.title} - اقرأ المزيد على كبسولة`);
+      const seo = newsSeoFields(newsItem);
+      const categoryUrl = newsItem.category
+        ? `${baseUrl}/news?category=${encodeURIComponent(newsItem.category)}`
+        : `${baseUrl}/news`;
 
-      const html = buildCrawlerHtml({ title: newsItem.seoTitle || newsItem.title, description: rawDescription, ogImageUrl, pageUrl, publishedAt: newsItem.publishedAt, updatedAt: newsItem.updatedAt, contentHtml: newsItem.content, keywords: newsItem.keywords, author: newsItem.createdBy, articleImageUrl, redirect: false });
+      const html = buildCrawlerHtml({
+        title: seo.title,
+        description: seo.description,
+        ogImageUrl,
+        pageUrl,
+        publishedAt: newsItem.publishedAt,
+        updatedAt: newsItem.updatedAt,
+        contentHtml: newsItem.content,
+        keywords: newsItem.keywords,
+        author: newsItem.createdBy,
+        articleImageUrl,
+        redirect: false,
+        robots: seo.robots.robots,
+        googlebotNews: seo.robots.googlebotNews,
+        categoryName: newsItem.category,
+        categoryUrl,
+        noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
+      });
 
       logScrape('200');
-      res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
+      res.status(200).set({
+        'Content-Type': 'text/html',
+        'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+      }).send(html);
     } catch (error) {
       logScrape(`ERROR ${(error as Error)?.message ?? error}`);
       console.error('Error in /n/:shortCode handler:', error);
@@ -1291,7 +1543,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const article = await storage.getArticleBySlug(req.params.slug);
       if (!article || !isPublicArticle(article)) {
-        return res.status(404).set({ 'Content-Type': 'text/html', 'Cache-Control': 'private, no-store' }).send(notFoundHtml('المقال غير موجود'));
+        const withdrawn = !!article && (article.status === 'draft' || article.status === 'archived' || article.status === 'deleted');
+        if (withdrawn) {
+          return res.status(410).set({
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'public, max-age=86400',
+            'X-Robots-Tag': 'noindex, follow',
+          }).send(goneHtml('تم سحب هذا المقال'));
+        }
+        return res.status(404).set({
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'private, no-store',
+          'X-Robots-Tag': 'noindex, follow',
+        }).send(notFoundHtml('المقال غير موجود'));
       }
       if (!isCrawler) return next();
 
@@ -1301,11 +1565,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? (article.imageUrl.startsWith('/') ? `${baseUrl}${article.imageUrl}` : article.imageUrl)
         : `${baseUrl}/og-image.png`;
       const ogImageUrl = articleImageUrl;
-      const rawDescription = article.seoDescription || article.excerpt || (article.content ? stripHtml(article.content).slice(0, 160) : article.title);
+      const title = displayTitle(article.seoTitle, article.title);
+      const description = buildMetaDescription({
+        seoDescription: article.seoDescription,
+        summary: article.excerpt,
+        contentPlain: article.content ? stripHtml(article.content) : null,
+        title: article.title,
+      });
+      const robots = computeContentRobots(article.publishedAt, article.status === 'scheduled' ? 'published' : article.status);
       const keywords = (article.keywords && article.keywords.length > 0) ? article.keywords : (article.tags || []);
       const html = buildCrawlerHtml({
-        title: article.seoTitle || article.title,
-        description: rawDescription,
+        title,
+        description,
         ogImageUrl,
         pageUrl,
         publishedAt: article.publishedAt,
@@ -1316,11 +1587,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         articleImageUrl,
         schemaType: 'Article',
         redirect: false,
+        robots: robots.robots,
+        googlebotNews: robots.googlebotNews,
+        categoryName: article.category || 'مقالات طبية',
+        categoryUrl: `${baseUrl}/articles`,
+        noindexOverride: hasDirtySeoQuery(req.query as Record<string, unknown>),
       });
-      return res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
+      return res.status(200).set({
+        'Content-Type': 'text/html',
+        'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+      }).send(html);
     } catch (error) {
       console.error('Error in /articles/:slug crawler handler:', error);
       next();
+    }
+  });
+
+  // No-secret indexing diagnostics (IndexNow + Google Indexing API)
+  app.get('/api/seo/indexing-status', async (_req, res) => {
+    try {
+      res.set('Cache-Control', 'private, no-store');
+      res.json({
+        ok: true,
+        ...getIndexingDiagnostics(),
+        indexNowKeyPresent: !!(process.env.INDEXNOW_KEY || '').trim(),
+      });
+    } catch (err) {
+      console.error('[seo/indexing-status] error:', err);
+      res.status(500).json({ ok: false, error: 'diagnostics_failed' });
     }
   });
 
@@ -1667,6 +1961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const articleData = insertArticleSchema.parse(body);
       const article = await storage.createArticle(articleData);
+      notifySearchEnginesOfArticle(article);
       res.status(201).json(article);
     } catch (error) {
       console.error("Error creating article:", error);
@@ -1717,6 +2012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!article) {
         return res.status(404).json({ message: "Article not found" });
       }
+      notifySearchEnginesOfArticle(article);
       res.json(article);
     } catch (error) {
       console.error("Error updating article:", error);
@@ -5927,13 +6223,12 @@ ${editorNotes ? `<p><em>ملاحظات تحريرية: ${editorNotes}</em></p>` 
     '/profile', '/login', '/register', '/objects/', '/assets/',
   ];
 
-  const goneHtml = (): string => notFoundHtml('هذه الصفحة أُزيلت نهائياً');
   const sendGone = (res: any) =>
     res.status(410).set({
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'public, max-age=86400',
-      'X-Robots-Tag': 'noindex',
-    }).send(goneHtml());
+      'X-Robots-Tag': 'noindex, follow',
+    }).send(goneHtml('هذه الصفحة أُزيلت نهائياً'));
 
   // Numeric WordPress permalinks: /20538, /20538/ (IDs ranged roughly 100–99999)
   app.get(/^\/(\d{1,7})\/?$/, async (req, res, next) => {

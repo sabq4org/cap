@@ -7,30 +7,29 @@ description: How كبسولة serves SEO/social crawlers and what must stay true
 
 This is a React SPA — browsers get a JS bundle with no content. Googlebot/social
 crawlers are detected by User-Agent and served server-rendered HTML by
-`buildCrawlerHtml` in `server/routes.ts`. Four routes call it: `/api/share/news/:id`,
-`/news/:id` (shortCode + non-shortCode branches), and `/n/:shortCode`.
+`buildCrawlerHtml` in `server/routes.ts`. Routes: `/api/share/news/:id`,
+`/news/:id`, `/n/:shortCode`, `/articles/:slug`, plus listing HTML on `/` and `/news`.
+
+Shared helpers live in `shared/seoSignals.ts` (displayTitle, meta description,
+clampModifiedTime, age robots, dirty query detection).
 
 ## Rules that must hold (else indexing breaks)
-- Crawler HTML MUST contain the **full article body**, not just title+summary. Thin
-  content (title + one-line summary + image only) was the root cause of weak Google
-  indexing — Google treats it as low-value and under-indexes.
-- Emit `NewsArticle` JSON-LD (headline/description/image/datePublished/dateModified/
-  author/publisher/articleBody/keywords/mainEntityOfPage/inLanguage). Escape `<` to
-  `\u003c` in the JSON string so an article body containing `</script>` can't break out.
-- Crawler responses for indexable pages (`/news/:id`, `/n/:shortCode`) MUST use
-  `redirect:false` — no meta-refresh. A self-redirect wastes crawl budget and lowers
-  crawler confidence. Only `/api/share/...` (not in robots.txt, human share fallback)
-  uses redirect:true.
+- Crawler HTML MUST contain the **full article body**, not just title+summary.
+- **One display title everywhere**: `seoTitle || title` in crawler HTML, Helmet,
+  and `sitemap-news.xml` (`news:title` + `image:title`). Mismatch caused
+  "indexed but not findable by original title" for FelRlGE.
+- Emit rich `NewsArticle` JSON-LD (+ `BreadcrumbList`) with wordCount/speakable/
+  NewsMediaOrganization. Escape `<` to `\u003c` in JSON.
+- Indexable crawler responses use `redirect:false` (no meta-refresh).
+- Withdrawn/deleted content → **410 Gone** for crawlers (not soft-404 SPA 200).
+- Notify IndexNow + Google Indexing API with canonical `/n/{shortCode}` only
+  (`server/services/indexingPing.ts`). Medical articles use `/articles/{slug}`.
+- Private paths: `server/utils/noindexPaths.ts` + cache guard in `server/index.ts`.
 
 ## Security constraint
-`news.content` is admin- AND external-feed-authored HTML, embedded into crawler HTML.
-Crawler detection is UA-based (spoofable), so this output reaches real browsers →
-stored-XSS risk. Content MUST pass `sanitizeContentHtml` (server-side regex allowlist:
-strips script/style/iframe/object/embed/form/svg etc., inline `on*=` handlers, and
-`javascript:` URLs) before embedding. The client renders the same field with DOMPurify;
-no jsdom on the server, so DOMPurify can't run server-side — hence the regex sanitizer.
+`news.content` is admin- AND external-feed-authored HTML. Must pass
+`sanitizeContentHtml` before embedding in crawler HTML.
 
-## Known optional follow-up (not done)
-`sitemap-news.xml` includes up to 5000 items including old content. Google News spec
-wants only the recent window (~last 48h) with `<news:news>` tags; the full archive
-belongs in the regular sitemaps. Splitting this could further help News indexing.
+## Sitemaps
+- `sitemap-news.xml`: last 48h only, max 1000, titles from `displayTitle`, TTL ~180s.
+- `sitemap-general.xml`: all published with age-based priority/changefreq.

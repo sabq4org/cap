@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SEO } from "@/components/SEO";
 import { Helmet } from "react-helmet-async";
 import { articles as articlesTable } from "@shared/schema";
+import { buildMetaDescription, displayTitle } from "@shared/seoSignals";
 
 type Article = typeof articlesTable.$inferSelect;
 
@@ -54,12 +55,18 @@ export default function ArticleDetail() {
   const formattedDate = article.publishedAt
     ? new Date(article.publishedAt).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })
     : "";
+  const seoTitle = displayTitle(article.seoTitle, article.title);
+  const seoDescription = buildMetaDescription({
+    seoDescription: article.seoDescription,
+    summary: article.excerpt,
+    title: article.title,
+  });
 
   return (
     <>
       <SEO
-        title={article.seoTitle || article.title}
-        description={article.seoDescription || article.excerpt || ""}
+        title={seoTitle}
+        description={seoDescription}
         image={article.imageUrl || undefined}
         url={typeof window !== "undefined" ? `${window.location.origin}/articles/${article.slug}` : undefined}
         type="article"

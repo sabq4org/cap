@@ -13,3 +13,5 @@ A sitemap with `<news:news>` tags must contain ONLY articles published in the la
 - `sitemap-news.xml` = last-48h items only, with news tags. If none exist, fall back to a few latest items WITHOUT `<news:news>` tags (never empty, never old items with news tags).
 - All older/long-tail news belong in a plain urlset (`sitemap-general.xml`), referenced from the `sitemap.xml` index.
 - Both endpoints reuse the cached `getNewsForSitemap()` result (sorted newest-first), so filtering is a cheap in-memory slice — no extra DB query.
+- **Title sync:** `news:title` and `image:title` MUST use `displayTitle(seoTitle, title)` — same as crawler HTML / Helmet — or Search Console shows one title while users search another.
+- CDN TTL for news sitemap ≈ 180s; general sitemap uses age-based `priority`/`changefreq`.

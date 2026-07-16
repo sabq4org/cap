@@ -144,7 +144,7 @@ export interface IStorage {
 
   // News operations
   getNews(category?: string, limit?: number, options?: { omitContent?: boolean }): Promise<News[]>;
-  getNewsForSitemap(limit?: number): Promise<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt' | 'updatedAt'>[]>;
+  getNewsForSitemap(limit?: number): Promise<Pick<News, 'id' | 'shortCode' | 'title' | 'seoTitle' | 'imageUrl' | 'keywords' | 'publishedAt' | 'updatedAt' | 'category'>[]>;
   getRelatedNews(newsId: string, category: string, limit?: number): Promise<News[]>;
   getNewsPaginated(category?: string, page?: number, perPage?: number, search?: string): Promise<{ news: News[]; total: number; page: number; totalPages: number }>;
   getNewsById(id: string): Promise<News | undefined>;
@@ -648,9 +648,9 @@ export class DatabaseStorage implements IStorage {
     return results as News[];
   }
 
-  async getNewsForSitemap(limit: number = 50000): Promise<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt' | 'updatedAt'>[]> {
-    const cacheKey = `sitemap-news:${limit}`;
-    const cached = newsCache.get<Pick<News, 'id' | 'shortCode' | 'title' | 'imageUrl' | 'keywords' | 'publishedAt' | 'updatedAt'>[]>(cacheKey);
+  async getNewsForSitemap(limit: number = 50000): Promise<Pick<News, 'id' | 'shortCode' | 'title' | 'seoTitle' | 'imageUrl' | 'keywords' | 'publishedAt' | 'updatedAt' | 'category'>[]> {
+    const cacheKey = `sitemap-news:v2:${limit}`;
+    const cached = newsCache.get<Pick<News, 'id' | 'shortCode' | 'title' | 'seoTitle' | 'imageUrl' | 'keywords' | 'publishedAt' | 'updatedAt' | 'category'>[]>(cacheKey);
     if (cached) return cached;
 
     const results = await db
@@ -658,10 +658,12 @@ export class DatabaseStorage implements IStorage {
         id: news.id,
         shortCode: news.shortCode,
         title: news.title,
+        seoTitle: news.seoTitle,
         imageUrl: news.imageUrl,
         keywords: news.keywords,
         publishedAt: news.publishedAt,
         updatedAt: news.updatedAt,
+        category: news.category,
       })
       .from(news)
       .where(sql`${news.status} != 'deleted' AND ${news.status} != 'draft' AND ${news.publishedAt} <= ${sqlUtcNow} AND (${news.status} != 'scheduled' OR ${news.scheduledAt} IS NULL OR ${news.scheduledAt} <= ${sqlUtcNow})`)
