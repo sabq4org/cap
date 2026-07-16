@@ -4,6 +4,7 @@ import Foundation
 
 enum CapAPIError: Error {
     case badStatus(Int)
+    case server(String)   // رسالة عربية جاهزة للعرض من الخادم
 }
 
 enum CapAPI {
@@ -52,7 +53,7 @@ enum CapAPI {
 
     // MARK: - Internals
 
-    private static func get<T: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> T {
+    static func get<T: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> T {
         var components = URLComponents(url: base.appending(path: path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
 
@@ -64,8 +65,10 @@ enum CapAPI {
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
             throw CapAPIError.badStatus(http.statusCode)
         }
-        return try makeDecoder().decode(T.self, from: data)
+        return try decoder.decode(T.self, from: data)
     }
+
+    static var decoder: JSONDecoder { makeDecoder() }
 
     private static func makeDecoder() -> JSONDecoder {
         let decoder = JSONDecoder()
