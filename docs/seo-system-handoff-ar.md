@@ -9,7 +9,7 @@
 |--------|-----|--------|
 | HTML الزاحف | `server/routes.ts` → `buildCrawlerHtml` | عند User-Agent زاحف: عنوان + وصف + OG + JSON-LD + نص كامل |
 | قشرة SPA | Vite/static + `client/src/components/SEO.tsx` | البشر بعد hydration |
-| اكتشاف فوري | `server/services/indexingPing.ts` | IndexNow + Google Indexing API (اختياري عبر env) |
+| اكتشاف فوري | `server/services/indexingPing.ts` | IndexNow، مع خرائط الموقع لاكتشاف Google |
 
 الرابط القانوني للخبر: `https://capsulah.com/n/{shortCode}`.
 
@@ -28,9 +28,11 @@
 | المتغير | الغرض |
 |---------|--------|
 | `INDEXNOW_KEY` | IndexNow + ملف `/{KEY}.txt` |
-| `GOOGLE_INDEXING_CLIENT_EMAIL` | Google Indexing API (اختياري) |
-| `GOOGLE_INDEXING_PRIVATE_KEY` | مفتاح PEM للحساب الخدمي |
 | `BASE_URL` | الأصل القانوني (افتراضي `https://capsulah.com`) |
+
+> لا تُرسل أخبار أو مقالات كبسولة إلى Google Indexing API؛ توثيق Google يقصرها
+> على `JobPosting` و`BroadcastEvent` داخل `VideoObject`. Google يكتشف محتوى
+> كبسولة عبر `sitemap-news.xml` و`sitemap-general.xml` و`sitemap-articles.xml`.
 
 ## تشخيص
 
@@ -46,5 +48,12 @@ curl -s -A "$GB" 'https://capsulah.com/n/FelRlGE' | grep -E '<title>|news:title|
 - B 410 + robots عمر + utm noindex
 - C noindexPaths + حارس كاش
 - D JSON-LD أغنى + Breadcrumb + preload LCP
-- E Google Indexing API + notify للمقالات الطبية
+- E IndexNow عند النشر/التحديث + خرائط Google (بدون Indexing API غير المدعومة)
 - F/G sitemaps (أولوية حسب العمر) + هذه الوثيقة
+
+## تحقق آلي
+
+```bash
+npm run check:seo
+npm run build
+```

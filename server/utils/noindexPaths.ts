@@ -15,6 +15,8 @@ export const NOINDEX_EXACT: ReadonlySet<string> = new Set<string>([
   "/portal",
   "/assistant",
   "/ask",
+  "/nutrition",
+  "/capsule",
   "/settings",
   "/notification-settings",
   "/search",

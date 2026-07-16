@@ -1,7 +1,9 @@
 /**
  * Indexing discovery helpers.
  * - IndexNow (Bing/Yandex/others) when INDEXNOW_KEY is set
- * - Google Indexing API when GOOGLE_INDEXING_* credentials are set
+ * - Google discovery is handled by sitemaps. Google's Indexing API is not
+ *   called because it only supports JobPosting and livestream BroadcastEvent
+ *   pages, not NewsArticle/Article content.
  *
  * Always submit the canonical public URL (/n/{shortCode} for news,
  * /articles/{slug} for medical articles). Never submit a URL that 301s.
@@ -67,25 +69,6 @@ async function pingIndexNow(urls: string[]): Promise<void> {
   }
 }
 
-async function pingGoogle(urls: string[]): Promise<void> {
-  try {
-    const { notifyUrlUpdated, isGoogleIndexingConfigured } = await import(
-      "./googleIndexingService"
-    );
-    if (!isGoogleIndexingConfigured()) return;
-    for (const url of urls) {
-      await notifyUrlUpdated(url).catch((err) => {
-        console.warn(
-          `[Indexing] Google Indexing failed for ${url}:`,
-          err instanceof Error ? err.message : err,
-        );
-      });
-    }
-  } catch (err) {
-    console.warn("[Indexing] Google Indexing service load failed:", err);
-  }
-}
-
 function isLivePublished(item: {
   status?: string | null;
   publishedAt?: Date | string | null;
@@ -120,7 +103,7 @@ export function notifySearchEnginesOfNews(
 
   void (async () => {
     try {
-      await Promise.all([pingIndexNow(urls), pingGoogle(urls)]);
+      await pingIndexNow(urls);
       console.log(`[Indexing] submitted ${urls.length} news URL(s)`);
     } catch (err) {
       console.warn("[Indexing] news notify failed:", err);
@@ -141,7 +124,7 @@ export function notifySearchEnginesOfArticle(
 
   void (async () => {
     try {
-      await Promise.all([pingIndexNow(urls), pingGoogle(urls)]);
+      await pingIndexNow(urls);
       console.log(`[Indexing] submitted ${urls.length} article URL(s)`);
     } catch (err) {
       console.warn("[Indexing] article notify failed:", err);

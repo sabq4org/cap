@@ -61,9 +61,7 @@ app.use((req, res, next) => {
   const pathOnly = req.path.split("?")[0] || "/";
   if (isNoindexPath(pathOnly) || hasDirtySeoQuery(req.query as Record<string, unknown>)) {
     res.setHeader("X-Robots-Tag", "noindex, follow");
-    if (isNoindexPath(pathOnly)) {
-      res.setHeader("Cache-Control", "private, no-store");
-    }
+    res.setHeader("Cache-Control", "private, no-store");
   }
   next();
 });
