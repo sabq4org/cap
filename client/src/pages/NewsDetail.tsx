@@ -25,7 +25,7 @@ import {
 import AdBanner from "@/components/AdBanner";
 import { AIImageBadge } from "@/components/AIImageBadge";
 import { SEO } from "@/components/SEO";
-import { buildMetaDescription, displayTitle, newsCanonicalPath } from "@shared/seoSignals";
+import { buildMetaDescription, displayTitle, newsCanonicalPath, newsSharePath } from "@shared/seoSignals";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -150,12 +150,21 @@ export default function NewsDetail() {
     };
   }, [news?.id]);
 
-  const getShareUrl = () => {
-    const origin = window.location.hostname === "localhost"
-      ? window.location.origin
-      : "https://capsulah.com";
+  const getPublicOrigin = () => window.location.hostname === "localhost"
+    ? window.location.origin
+    : "https://capsulah.com";
+
+  const getCanonicalUrl = () => {
+    const origin = getPublicOrigin();
     return news
       ? `${origin}${newsCanonicalPath(news)}`
+      : `${origin}/news/${newsId}`;
+  };
+
+  const getShareUrl = () => {
+    const origin = getPublicOrigin();
+    return news
+      ? `${origin}${newsSharePath(news)}`
       : `${origin}/news/${newsId}`;
   };
 
@@ -279,7 +288,7 @@ export default function NewsDetail() {
         title={seoTitle}
         description={seoDescription}
         image={seoImage}
-        url={getShareUrl()}
+        url={getCanonicalUrl()}
         type="article"
         publishedTime={news.publishedAt ? new Date(news.publishedAt).toISOString() : undefined}
         author={news.source || "كبسولة"}

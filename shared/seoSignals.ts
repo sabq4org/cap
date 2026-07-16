@@ -44,6 +44,15 @@ export function newsCanonicalPath(item: NewsCanonicalLink): string {
   return slug ? `/n/${item.shortCode}/${slug}` : `/n/${item.shortCode}`;
 }
 
+/**
+ * Compact, ASCII-only path for social sharing and copy-link actions.
+ * The server permanently redirects it to the readable canonical URL, so SEO
+ * keeps the Arabic headline while apps such as X receive a stable short link.
+ */
+export function newsSharePath(item: NewsCanonicalLink): string {
+  return item.shortCode ? `/n/${item.shortCode}` : `/news/${item.id}`;
+}
+
 /** Truncate at a word boundary (default 220 chars) and append ellipsis when cut. */
 export function truncateMetaDescription(raw: string, maxLen = 220): string {
   const text = (raw || "").replace(/\s+/g, " ").trim();

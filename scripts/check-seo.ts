@@ -7,6 +7,7 @@ import {
   computeContentRobots,
   hasLegacySpamQuery,
   newsCanonicalPath,
+  newsSharePath,
   seoTitleSlug,
   truncateMetaDescription,
 } from "../shared/seoSignals";
@@ -66,6 +67,15 @@ assert.equal(
   readableNewsPath,
   "/n/FelRlGE/تأثير-المكياج-على-صحة-البشرة",
 );
+assert.equal(
+  newsSharePath({
+    id: "news-id",
+    shortCode: "FelRlGE",
+    title: "تأثير المكياج على صحة البشرة",
+  }),
+  "/n/FelRlGE",
+);
+assert.equal(newsSharePath({ id: "news-id" }), "/news/news-id");
 const readableNewsShell = resolveSpaSeo({ originalUrl: readableNewsPath });
 assert.equal(readableNewsShell.status, 200);
 assert.equal(readableNewsShell.noIndex, false);
