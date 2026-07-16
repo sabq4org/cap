@@ -406,19 +406,19 @@ export default function NewsDetail() {
 
               <figure className="relative mb-7 overflow-hidden rounded-2xl bg-muted shadow-[0_18px_50px_-24px_hsl(var(--foreground)/0.35)] md:rounded-3xl">
                 <img
-                  src={getNewsImage(news, "hero")}
+                  src={getNewsImage(news, "full")}
                   alt={news.imageAlt || news.title}
                   loading="eager"
                   decoding="async"
                   fetchPriority="high"
-                  className="aspect-[16/9] w-full object-cover"
+                  className="mx-auto h-auto w-full object-contain"
                   data-testid="img-news-cover"
                 />
                 <AIImageBadge imageUrl={news.imageUrl} size="md" />
                 {news.imageAlt && news.imageAlt !== news.title && (
-                  <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-4 pt-12 text-sm text-white/90">
+                  <figcaption className="border-t border-border/60 bg-background/90 px-4 py-3 text-sm text-muted-foreground">
                     <span className="inline-flex items-center gap-2" data-testid="text-image-caption">
-                      <ImageIcon className="h-4 w-4" />
+                      <ImageIcon className="h-4 w-4 shrink-0" />
                       {news.imageAlt}
                     </span>
                   </figcaption>

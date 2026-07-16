@@ -113,11 +113,11 @@ export default function ArticleDetail() {
           </div>
 
           {article.imageUrl && (
-            <div className="aspect-video w-full overflow-hidden rounded-xl border bg-muted">
+            <div className="w-full overflow-hidden rounded-xl border bg-muted">
               <img
                 src={article.imageUrl}
                 alt={article.imageAlt || article.title}
-                className="h-full w-full object-cover"
+                className="mx-auto h-auto w-full object-contain"
                 data-testid="img-article-featured"
               />
             </div>
