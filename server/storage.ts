@@ -15,6 +15,7 @@ import {
   radarAlerts,
   radarNotifications,
   radarFetchLogs,
+  radarDailyUsage,
   generationSettings,
   generationUsage,
   imageGenerations,
@@ -71,6 +72,7 @@ import {
   type RadarNotification,
   type InsertRadarNotification,
   type RadarFetchLog,
+  type RadarDailyUsage,
   type GenerationSettings,
   type InsertGenerationSettings,
   type GenerationUsage,
@@ -1790,6 +1792,37 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(radarFetchLogs)
       .orderBy(desc(radarFetchLogs.startedAt))
       .limit(limit);
+  }
+
+  async getRadarDailyUsage(day: string): Promise<RadarDailyUsage | undefined> {
+    const [row] = await db.select().from(radarDailyUsage).where(eq(radarDailyUsage.day, day)).limit(1);
+    return row;
+  }
+
+  async incrementRadarDailyUsage(
+    day: string,
+    delta: { fetches?: number; edits?: number },
+  ): Promise<RadarDailyUsage> {
+    const fetches = delta.fetches ?? 0;
+    const edits = delta.edits ?? 0;
+    const existing = await this.getRadarDailyUsage(day);
+    if (existing) {
+      const [updated] = await db.update(radarDailyUsage)
+        .set({
+          fetchesUsed: existing.fetchesUsed + fetches,
+          editsUsed: existing.editsUsed + edits,
+          updatedAt: new Date(),
+        })
+        .where(eq(radarDailyUsage.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(radarDailyUsage).values({
+      day,
+      fetchesUsed: fetches,
+      editsUsed: edits,
+    }).returning();
+    return created;
   }
 
   // ==========================================

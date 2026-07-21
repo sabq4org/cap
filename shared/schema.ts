@@ -578,6 +578,18 @@ export const radarFetchLogsRelations = relations(radarFetchLogs, ({ one }) => ({
 
 export type RadarFetchLog = typeof radarFetchLogs.$inferSelect;
 
+/** Daily radar caps (Asia/Riyadh day key). Limits are enforced in code: 2 fetches / 10 edits. */
+export const radarDailyUsage = pgTable("radar_daily_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  day: varchar("day").notNull().unique(), // "YYYY-MM-DD" Asia/Riyadh
+  fetchesUsed: integer("fetches_used").notNull().default(0),
+  editsUsed: integer("edits_used").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type RadarDailyUsage = typeof radarDailyUsage.$inferSelect;
+
 // =====================================================
 // AI Image Generation System
 // =====================================================
