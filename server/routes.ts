@@ -15,6 +15,14 @@ import {
   type User,
 } from "@shared/schema";
 import { fetchAllActiveSources, fetchRSSSource, seedDefaultSources, seedDefaultKeywords, classifyPendingItems, cleanupNonHealthItems } from "./radarService";
+import {
+  assertCanEdit,
+  assertCanFetch,
+  getRadarQuotaSnapshot,
+  RadarQuotaError,
+  recordEdits,
+  recordFetch,
+} from "./radarQuota";
 import { refreshHealthTrends } from "./trendService";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import {
@@ -4262,12 +4270,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Daily radar quota (fetches + AI edits) — Asia/Riyadh day
+  app.get('/api/radar/quota', requireAdminPermission('manage_radar'), async (_req, res) => {
+    try {
+      res.json(await getRadarQuotaSnapshot());
+    } catch (error) {
+      console.error("Error fetching radar quota:", error);
+      res.status(500).json({ message: "Failed to fetch radar quota" });
+    }
+  });
+
   // Fetch news from all active sources
   app.post('/api/radar/fetch', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
+      await assertCanFetch();
       const result = await fetchAllActiveSources();
-      res.json(result);
+      const quota = await recordFetch();
+      res.json({ ...result, quota });
     } catch (error) {
+      if (error instanceof RadarQuotaError) {
+        return res.status(429).json({ message: error.message, code: error.code, quota: await getRadarQuotaSnapshot() });
+      }
       console.error("Error fetching news:", error);
       res.status(500).json({ message: "Failed to fetch news" });
     }
@@ -4276,13 +4299,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Fetch from a specific source
   app.post('/api/radar/sources/:id/fetch', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
+      await assertCanFetch();
       const source = await storage.getRadarSource(req.params.id);
       if (!source) {
         return res.status(404).json({ message: "Source not found" });
       }
       const result = await fetchRSSSource(source);
-      res.json(result);
+      const quota = await recordFetch();
+      res.json({ ...result, quota });
     } catch (error) {
+      if (error instanceof RadarQuotaError) {
+        return res.status(429).json({ message: error.message, code: error.code, quota: await getRadarQuotaSnapshot() });
+      }
       console.error("Error fetching source:", error);
       res.status(500).json({ message: "Failed to fetch source" });
     }
@@ -4291,10 +4319,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Classify pending items with AI
   app.post('/api/radar/classify', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
-      const limit = req.body.limit || 10;
+      const snap = await getRadarQuotaSnapshot();
+      if (snap.editsRemaining <= 0) {
+        throw new RadarQuotaError(
+          "EDIT_LIMIT",
+          `تم بلوغ حد التحرير اليومي (${snap.editsLimit} أخبار). حاول غداً.`,
+        );
+      }
+      const requested = Math.min(Math.max(1, Number(req.body.limit) || 10), 10);
+      const limit = Math.min(requested, snap.editsRemaining);
       const classified = await classifyPendingItems(limit);
-      res.json({ classified });
+      const quota = classified > 0 ? await recordEdits(classified) : snap;
+      res.json({ classified, quota });
     } catch (error) {
+      if (error instanceof RadarQuotaError) {
+        return res.status(429).json({ message: error.message, code: error.code, quota: await getRadarQuotaSnapshot() });
+      }
       console.error("Error classifying items:", error);
       res.status(500).json({ message: "Failed to classify items" });
     }
@@ -4347,7 +4387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Convert radar item to news article
+  // Convert radar item to news article (no AI — does not consume daily edit quota)
   app.post('/api/radar/items/:id/publish', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
       const item = await storage.getRadarItem(req.params.id);
@@ -4386,6 +4426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Translate and process a single radar item with AI
   app.post('/api/radar/items/:id/translate', requireAdminPermission('manage_radar'), async (req, res) => {
     try {
+      await assertCanEdit(1);
       const item = await storage.getRadarItem(req.params.id);
       if (!item) {
         return res.status(404).json({ message: "Item not found" });
@@ -4429,11 +4470,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } as any,
       });
 
+      const quota = await recordEdits(1);
       res.json({
         success: true,
         translation: translated,
+        quota,
       });
     } catch (error: any) {
+      if (error instanceof RadarQuotaError) {
+        return res.status(429).json({ message: error.message, code: error.code, quota: await getRadarQuotaSnapshot() });
+      }
       console.error("Error translating radar item:", error);
       res.status(500).json({ message: error?.message || "Failed to translate item" });
     }
@@ -4447,8 +4493,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "itemIds array required" });
       }
 
+      const snap = await getRadarQuotaSnapshot();
+      if (snap.editsRemaining <= 0) {
+        throw new RadarQuotaError(
+          "EDIT_LIMIT",
+          `تم بلوغ حد التحرير اليومي (${snap.editsLimit} أخبار). حاول غداً.`,
+        );
+      }
+
+      const cappedIds = itemIds.slice(0, Math.min(10, snap.editsRemaining));
       const items = await Promise.all(
-        itemIds.map(id => storage.getRadarItem(id))
+        cappedIds.map((id: string) => storage.getRadarItem(id))
       );
 
       const validItems = items.filter(Boolean);
@@ -4472,7 +4527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update items with evaluations
       for (const evaluation of evaluations) {
-        const itemId = itemIds[evaluation.index];
+        const itemId = cappedIds[evaluation.index];
         if (itemId) {
           await storage.updateRadarItem(itemId, {
             relevanceScore: evaluation.score,
@@ -4481,8 +4536,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.json({ evaluations });
+      const quota = evaluations.length > 0 ? await recordEdits(evaluations.length) : snap;
+      res.json({ evaluations, quota });
     } catch (error) {
+      if (error instanceof RadarQuotaError) {
+        return res.status(429).json({ message: error.message, code: error.code, quota: await getRadarQuotaSnapshot() });
+      }
       console.error("Error evaluating news:", error);
       res.status(500).json({ message: "Failed to evaluate news" });
     }
@@ -4516,7 +4575,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category: item.category || 'health-news',
       };
 
-      if (!item.titleAr) {
+      const needsAiTranslate = !item.titleAr;
+      if (needsAiTranslate) {
+        await assertCanEdit(1);
         const translated = await translateAndProcessNews(
           item.title,
           item.content || item.summary || '',
@@ -4567,13 +4628,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update radar item status
       await storage.updateRadarItem(item.id, { status: 'published' });
+      const quota = needsAiTranslate ? await recordEdits(1) : await getRadarQuotaSnapshot();
 
       res.json({
         success: true,
         newsId: news.id,
         imageUploaded: finalImageUrl !== item.imageUrl,
+        quota,
       });
     } catch (error: any) {
+      if (error instanceof RadarQuotaError) {
+        return res.status(429).json({ message: error.message, code: error.code, quota: await getRadarQuotaSnapshot() });
+      }
       console.error("Error processing and publishing:", error);
       res.status(500).json({ message: error?.message || "Failed to process item" });
     }
@@ -4587,8 +4653,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "itemIds array required" });
       }
 
+      const snap = await getRadarQuotaSnapshot();
+      if (snap.editsRemaining <= 0) {
+        throw new RadarQuotaError(
+          "EDIT_LIMIT",
+          `تم بلوغ حد التحرير اليومي (${snap.editsLimit} أخبار). حاول غداً.`,
+        );
+      }
+
       const results = [];
-      for (const itemId of itemIds.slice(0, 10)) { // Max 10 items at a time
+      let successCount = 0;
+      const maxItems = Math.min(10, snap.editsRemaining);
+      for (const itemId of itemIds.slice(0, maxItems)) {
         try {
           const item = await storage.getRadarItem(itemId);
           if (!item) continue;
@@ -4628,13 +4704,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           results.push({ id: itemId, success: true });
+          successCount++;
         } catch (err: any) {
           results.push({ id: itemId, success: false, error: err?.message });
         }
       }
 
-      res.json({ results });
+      const quota = successCount > 0 ? await recordEdits(successCount) : snap;
+      res.json({ results, quota });
     } catch (error) {
+      if (error instanceof RadarQuotaError) {
+        return res.status(429).json({ message: error.message, code: error.code, quota: await getRadarQuotaSnapshot() });
+      }
       console.error("Error batch translating:", error);
       res.status(500).json({ message: "Failed to batch translate" });
     }

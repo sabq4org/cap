@@ -261,6 +261,30 @@ export default function AdminRadar() {
   const { data: stats } = useQuery<{ total:number; pending:number; approved:number; rejected:number; published:number }>({
     queryKey: ["/api/radar/items/stats"],
   });
+  type RadarQuota = {
+    day: string;
+    fetchesUsed: number;
+    fetchesLimit: number;
+    fetchesRemaining: number;
+    editsUsed: number;
+    editsLimit: number;
+    editsRemaining: number;
+  };
+  const { data: quota } = useQuery<RadarQuota>({
+    queryKey: ["/api/radar/quota"],
+    refetchInterval: 60_000,
+  });
+  const fetchBlocked = (quota?.fetchesRemaining ?? 1) <= 0;
+  const editBlocked = (quota?.editsRemaining ?? 1) <= 0;
+  const quotaErrorMessage = (err: unknown) => {
+    const raw = err instanceof Error ? err.message : String(err ?? "");
+    const body = raw.replace(/^\d+:\s*/, "");
+    try {
+      const parsed = JSON.parse(body) as { message?: string };
+      if (parsed.message) return parsed.message;
+    } catch { /* plain text */ }
+    return body || "فشلت العملية";
+  };
   const { data: sources, isLoading: srcLoad } = useQuery<RadarSource[]>({
     queryKey: ["/api/radar/sources"],
   });
@@ -296,18 +320,20 @@ export default function AdminRadar() {
     onSuccess: d => {
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/quota"] });
       toast({ title: "تم جلب الأخبار", description: `${d.totalNewItems} خبر جديد من ${d.successfulSources} مصدر` });
     },
-    onError: () => toast({ title: "فشل في جلب الأخبار", variant: "destructive" }),
+    onError: (err) => toast({ title: "فشل في جلب الأخبار", description: quotaErrorMessage(err), variant: "destructive" }),
   });
 
   const classifyMut = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/radar/classify", { limit: 20 }).then(r => r.json()),
+    mutationFn: () => apiRequest("POST", "/api/radar/classify", { limit: 10 }).then(r => r.json()),
     onSuccess: d => {
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/quota"] });
       toast({ title: "تم التصنيف", description: `تم تصنيف ${d.classified} خبر` });
     },
-    onError: () => toast({ title: "فشل في التصنيف", variant: "destructive" }),
+    onError: (err) => toast({ title: "فشل في التصنيف", description: quotaErrorMessage(err), variant: "destructive" }),
   });
 
   const cleanupMut = useMutation({
@@ -369,6 +395,7 @@ export default function AdminRadar() {
     },
     onSuccess: (d) => {
       setTranslatingId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/quota"] });
       const t = d.translation ?? {};
       setTranslationPreview({
         id: d.id,
@@ -382,9 +409,9 @@ export default function AdminRadar() {
         isBreaking: !!t.isBreaking,
       });
     },
-    onError: () => {
+    onError: (err) => {
       setTranslatingId(null);
-      toast({ title: "فشل في الترجمة", variant: "destructive" });
+      toast({ title: "فشل في الترجمة", description: quotaErrorMessage(err), variant: "destructive" });
     },
   });
 
@@ -409,19 +436,24 @@ export default function AdminRadar() {
       setProcessingId(null);
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/quota"] });
       toast({ title: "تم إنشاء المسودة", description: d.imageUploaded ? "مع رفع الصورة" : "بدون صورة" });
     },
-    onError: () => { setProcessingId(null); toast({ title: "فشل في المعالجة", variant: "destructive" }); },
+    onError: (err) => {
+      setProcessingId(null);
+      toast({ title: "فشل في المعالجة", description: quotaErrorMessage(err), variant: "destructive" });
+    },
   });
 
   const batchTranslateMut = useMutation({
     mutationFn: (ids: string[]) => apiRequest("POST", "/api/radar/batch-translate", { itemIds: ids }).then(r => r.json()),
     onSuccess: d => {
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/quota"] });
       const ok = d.results?.filter((r: any) => r.success).length || 0;
       toast({ title: "ترجمة جماعية", description: `تمت ترجمة ${ok} خبر` });
     },
-    onError: () => toast({ title: "فشل في الترجمة الجماعية", variant: "destructive" }),
+    onError: (err) => toast({ title: "فشل في الترجمة الجماعية", description: quotaErrorMessage(err), variant: "destructive" }),
   });
 
   const evaluateMut = useMutation({
@@ -429,9 +461,10 @@ export default function AdminRadar() {
     onSuccess: d => {
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/radar/items/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/radar/quota"] });
       toast({ title: "تم التقييم", description: `تم تقييم ${d.evaluations?.length || 0} خبر` });
     },
-    onError: () => toast({ title: "فشل في التقييم", variant: "destructive" }),
+    onError: (err) => toast({ title: "فشل في التقييم", description: quotaErrorMessage(err), variant: "destructive" }),
   });
 
   const seedMut = useMutation({
@@ -637,13 +670,29 @@ export default function AdminRadar() {
             </div>
             {/* Primary actions */}
             <div className="flex items-center gap-2 flex-wrap">
+              {quota && (
+                <div
+                  className="text-xs text-muted-foreground bg-muted/60 border rounded-lg px-2.5 py-1.5 leading-relaxed"
+                  data-testid="radar-daily-quota"
+                  title="الحد اليومي بتوقيت الرياض"
+                >
+                  <span className={fetchBlocked ? "text-destructive font-medium" : ""}>
+                    جلب {quota.fetchesUsed}/{quota.fetchesLimit}
+                  </span>
+                  <span className="mx-1.5 text-border">|</span>
+                  <span className={editBlocked ? "text-destructive font-medium" : ""}>
+                    تحرير AI {quota.editsUsed}/{quota.editsLimit}
+                  </span>
+                </div>
+              )}
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => classifyMut.mutate()}
-                disabled={classifyMut.isPending}
+                disabled={classifyMut.isPending || editBlocked}
                 data-testid="button-classify"
                 className="gap-1.5"
+                title={editBlocked ? "انتهى حد التحرير اليومي" : undefined}
               >
                 <Brain className={`h-4 w-4 ${classifyMut.isPending ? "animate-pulse" : ""}`} />
                 تصنيف ذكي
@@ -651,12 +700,13 @@ export default function AdminRadar() {
               <Button
                 size="sm"
                 onClick={() => fetchMut.mutate()}
-                disabled={fetchMut.isPending}
+                disabled={fetchMut.isPending || fetchBlocked}
                 data-testid="button-fetch-all"
                 className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                title={fetchBlocked ? "انتهى حد الجلب اليومي (مرتان)" : undefined}
               >
                 <RefreshCw className={`h-4 w-4 ${fetchMut.isPending ? "animate-spin" : ""}`} />
-                {fetchMut.isPending ? "جاري الجلب..." : "جلب الأخبار"}
+                {fetchMut.isPending ? "جاري الجلب..." : fetchBlocked ? "اكتمل جلب اليوم" : "جلب الأخبار"}
               </Button>
             </div>
           </div>
@@ -733,7 +783,8 @@ export default function AdminRadar() {
                       size="sm" variant="ghost"
                       className="h-7 text-xs gap-1"
                       onClick={() => batchTranslateMut.mutate(Array.from(selected))}
-                      disabled={batchTranslateMut.isPending}
+                      disabled={batchTranslateMut.isPending || editBlocked}
+                      title={editBlocked ? "انتهى حد التحرير اليومي" : undefined}
                     >
                       <Brain className="h-3.5 w-3.5" />ترجمة
                     </Button>
@@ -741,7 +792,8 @@ export default function AdminRadar() {
                       size="sm" variant="ghost"
                       className="h-7 text-xs gap-1"
                       onClick={() => evaluateMut.mutate(Array.from(selected))}
-                      disabled={evaluateMut.isPending}
+                      disabled={evaluateMut.isPending || editBlocked}
+                      title={editBlocked ? "انتهى حد التحرير اليومي" : undefined}
                     >
                       <Zap className="h-3.5 w-3.5" />تقييم
                     </Button>
@@ -792,8 +844,8 @@ export default function AdminRadar() {
                   <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
                     <Radar className="h-12 w-12 opacity-20" />
                     <p className="text-sm">لا توجد أخبار في هذه الفئة</p>
-                    <Button variant="outline" size="sm" onClick={() => fetchMut.mutate()}>
-                      <RefreshCw className="h-4 w-4 ml-2" />جلب أخبار جديدة
+                    <Button variant="outline" size="sm" onClick={() => fetchMut.mutate()} disabled={fetchBlocked || fetchMut.isPending}>
+                      <RefreshCw className="h-4 w-4 ml-2" />{fetchBlocked ? "اكتمل جلب اليوم" : "جلب أخبار جديدة"}
                     </Button>
                   </div>
                 ) : (
@@ -937,8 +989,8 @@ export default function AdminRadar() {
                                   size="icon" variant="ghost"
                                   className="h-7 w-7 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30"
                                   onClick={() => translateItemMut.mutate({ id: item.id, titleOrig: item.title })}
-                                  disabled={translatingId === item.id || processingId === item.id}
-                                  title="ترجمة فقط (لمراجعة النص قبل النشر)"
+                                  disabled={translatingId === item.id || processingId === item.id || editBlocked}
+                                  title={editBlocked ? "انتهى حد التحرير اليومي" : "ترجمة فقط (لمراجعة النص قبل النشر)"}
                                   data-testid={`button-translate-${item.id}`}
                                 >
                                   {translatingId === item.id
@@ -952,8 +1004,8 @@ export default function AdminRadar() {
                                   size="sm"
                                   className="h-7 text-[11px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2"
                                   onClick={() => processAndPublishMut.mutate(item.id)}
-                                  disabled={processingId === item.id || translatingId === item.id}
-                                  title="ترجمة ونشر مسودة"
+                                  disabled={processingId === item.id || translatingId === item.id || (!item.titleAr && editBlocked)}
+                                  title={!item.titleAr && editBlocked ? "انتهى حد التحرير اليومي" : "ترجمة ونشر مسودة"}
                                   data-testid={`button-publish-${item.id}`}
                                 >
                                   {processingId === item.id
